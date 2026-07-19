@@ -111,7 +111,7 @@ function NewBatchModal({ bakeryId, onClose }: { bakeryId: string; onClose: () =>
 
   return (
     <Modal title="Nouvelle fournée" onClose={onClose}>
-      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+      <div className="space-y-4">
         <Field label="Nom"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
         <Field label="Modèle (optionnel)">
           <select value={tplId} onChange={(e) => applyTemplate(e.target.value)} className={inputCls}>
