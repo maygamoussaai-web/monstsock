@@ -1,191 +1,197 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useProducts, useUpsertProduct, useDeleteProduct, CATEGORIES, UNITS, formatQty, type Product, type Unit } from "@/lib/inventory";
-import { Plus, Search, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { useBakery, useProducts, useCreateProduct, useDeleteProduct, useRawMaterials, useRecipe, useUpsertRecipeLine, useDeleteRecipeLine, useUpdateProduct } from "@/lib/queries";
+import { formatMoney, formatQty, PRODUCT_UNITS, UNIT_LABEL } from "@/lib/format";
+import { Plus, Search, Croissant, Trash2, ChefHat } from "lucide-react";
+import { Modal, Field, inputCls } from "./raw-materials";
 
-export const Route = createFileRoute("/_authenticated/products")({
-  component: ProductsPage,
-});
+export const Route = createFileRoute("/_authenticated/products")({ component: ProductsPage });
 
 function ProductsPage() {
-  const { data: products = [], isLoading } = useProducts();
-  const upsert = useUpsertProduct();
-  const del = useDeleteProduct();
+  const { data: bakery } = useBakery();
+  const { data: products = [] } = useProducts();
   const [q, setQ] = useState("");
-  const [cat, setCat] = useState<string>("");
-  const [onlyLow, setOnlyLow] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [open, setOpen] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [recipeFor, setRecipeFor] = useState<string | null>(null);
+  const create = useCreateProduct();
+  const del = useDeleteProduct();
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
-      if (cat && p.category !== cat) return false;
-      if (onlyLow && p.quantity > p.low_stock_threshold) return false;
-      return true;
-    });
-  }, [products, q, cat, onlyLow]);
-
-  function openNew() { setEditing(null); setOpen(true); }
-  function openEdit(p: Product) { setEditing(p); setOpen(true); }
+  const filtered = useMemo(
+    () => products.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())),
+    [products, q]
+  );
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-end justify-between flex-wrap gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Inventaire</p>
-          <h1 className="mt-2 font-display text-4xl sm:text-5xl">Stock</h1>
-          <p className="mt-2 text-muted-foreground">Consultez, filtrez et gérez vos produits.</p>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Produits fabriqués</p>
+          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Baguettes, croissants, pains…</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Recette, prix de vente, coût matière et stock.</p>
         </div>
-        <button onClick={openNew} className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground hover:opacity-95">
+        <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground">
           <Plus className="h-4 w-4" /> Nouveau produit
         </button>
       </div>
 
-      <div className="card-elegant p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un produit…"
-            className="w-full rounded-xl border border-input bg-background/60 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-accent" />
-        </div>
-        <select value={cat} onChange={(e) => setCat(e.target.value)}
-          className="rounded-xl border border-input bg-background/60 px-3 py-2.5 text-sm">
-          <option value="">Toutes catégories</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={onlyLow} onChange={(e) => setOnlyLow(e.target.checked)} />
-          Stock faible seulement
-        </label>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…" className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent" />
       </div>
 
-      {isLoading ? (
-        <p className="text-muted-foreground">Chargement…</p>
-      ) : filtered.length === 0 ? (
-        <div className="card-elegant grain p-12 text-center">
-          <p className="font-display text-2xl">Rien à afficher</p>
-          <p className="mt-2 text-muted-foreground">Ajoutez votre premier produit pour commencer.</p>
-          <button onClick={openNew} className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground">
-            <Plus className="h-4 w-4" /> Créer un produit
-          </button>
+      <div className="card-elegant overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="text-left px-4 py-3">Produit</th>
+                <th className="text-right px-4 py-3">Stock</th>
+                <th className="text-right px-4 py-3 hidden sm:table-cell">Prix vente</th>
+                <th className="text-right px-4 py-3 hidden md:table-cell">Coût matière</th>
+                <th className="text-right px-4 py-3">Marge</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
+                  Aucun produit fabriqué. Créez-en un pour commencer.
+                </td></tr>
+              )}
+              {filtered.map((p) => {
+                const margin = (p.sale_price ?? 0) - (p.material_cost ?? 0);
+                const low = p.stock <= p.low_stock_threshold;
+                return (
+                  <tr key={p.id} className={low ? "bg-destructive/5" : ""}>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{UNIT_LABEL[p.unit]}</p>
+                    </td>
+                    <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>{formatQty(p.stock, UNIT_LABEL[p.unit])}</td>
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">{formatMoney(p.sale_price)}</td>
+                    <td className="px-4 py-3 text-right hidden md:table-cell text-muted-foreground">{formatMoney(p.material_cost)}</td>
+                    <td className={`px-4 py-3 text-right ${margin < 0 ? "text-destructive" : "text-accent"}`}>{formatMoney(margin)}</td>
+                    <td className="px-2 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setRecipeFor(p.id)} className="rounded-lg p-2 hover:bg-secondary" title="Recette">
+                          <ChefHat className="h-4 w-4 text-accent" />
+                        </button>
+                        <button onClick={() => { if (confirm(`Supprimer « ${p.name} » ?`)) del.mutate(p.id); }} className="rounded-lg p-2 hover:bg-secondary" title="Supprimer">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p, i) => {
-            const low = p.quantity <= p.low_stock_threshold;
-            return (
-              <article key={p.id} className="card-elegant card-elegant-hover grain p-5 animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{p.category}</p>
-                    <h3 className="font-display text-xl truncate">{p.name}</h3>
-                  </div>
-                  {low && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-1 text-[10px] font-medium uppercase tracking-widest text-accent">
-                      <AlertTriangle className="h-3 w-3" /> Bas
-                    </span>
-                  )}
-                </div>
-                <p className="mt-4 font-display text-3xl">{formatQty(p.quantity, p.unit)}</p>
-                <p className="text-xs text-muted-foreground">Seuil · {formatQty(p.low_stock_threshold, p.unit)}</p>
-                {p.notes && <p className="mt-3 text-xs text-muted-foreground line-clamp-2">{p.notes}</p>}
-                <div className="mt-5 flex items-center gap-2">
-                  <button onClick={() => openEdit(p)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs hover:bg-secondary">
-                    <Pencil className="h-3 w-3" /> Modifier
-                  </button>
-                  <button onClick={() => { if (confirm(`Supprimer « ${p.name} » ?`)) del.mutate(p.id, { onSuccess: () => toast.success("Supprimé") }); }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10">
-                    <Trash2 className="h-3 w-3" /> Supprimer
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+      </div>
+
+      {showNew && bakery && (
+        <Modal title="Nouveau produit" onClose={() => setShowNew(false)}>
+          <ProductForm submitting={create.isPending} onSubmit={(v) => create.mutate({ bakery_id: bakery.id, ...v }, { onSuccess: () => setShowNew(false) })} />
+        </Modal>
       )}
 
-      {open && (
-        <ProductDialog
-          initial={editing}
-          onClose={() => setOpen(false)}
-          onSubmit={async (values) => {
-            try {
-              await upsert.mutateAsync({ ...(editing ? { id: editing.id } : {}), ...values });
-              toast.success(editing ? "Produit mis à jour" : "Produit créé");
-              setOpen(false);
-            } catch (e: any) { toast.error(e.message ?? "Erreur"); }
-          }}
-        />
+      {recipeFor && bakery && (
+        <Modal title="Recette" onClose={() => setRecipeFor(null)}>
+          <RecipeEditor bakeryId={bakery.id} productId={recipeFor} product={products.find(p => p.id === recipeFor)!} />
+        </Modal>
       )}
     </div>
   );
 }
 
-function ProductDialog({ initial, onClose, onSubmit }: {
-  initial: Product | null;
-  onClose: () => void;
-  onSubmit: (values: { name: string; category: string; unit: Unit; quantity: number; low_stock_threshold: number; notes: string | null; }) => void;
-}) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState(initial?.category ?? CATEGORIES[0]);
-  const [unit, setUnit] = useState<Unit>((initial?.unit as Unit) ?? "kg");
-  const [quantity, setQuantity] = useState<number>(initial?.quantity ?? 0);
-  const [threshold, setThreshold] = useState<number>(initial?.low_stock_threshold ?? 5);
-  const [notes, setNotes] = useState(initial?.notes ?? "");
-
+function ProductForm({ onSubmit, submitting }: { onSubmit: (v: any) => void; submitting: boolean }) {
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState<typeof PRODUCT_UNITS[number]>("unite");
+  const [sale_price, setPrice] = useState(0);
+  const [stock, setStock] = useState(0);
+  const [low_stock_threshold, setT] = useState(0);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/40 backdrop-blur-sm p-4 animate-fade-up">
-      <div className="card-elegant grain w-full max-w-lg p-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl">{initial ? "Modifier le produit" : "Nouveau produit"}</h2>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-secondary"><X className="h-4 w-4" /></button>
-        </div>
-        <form className="mt-5 space-y-4" onSubmit={(e) => { e.preventDefault(); onSubmit({ name, category, unit, quantity: Number(quantity), low_stock_threshold: Number(threshold), notes: notes || null }); }}>
-          <Field label="Nom">
-            <input required value={name} onChange={(e) => setName(e.target.value)} className="input-elegant" placeholder="Farine T65" />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Catégorie">
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="input-elegant">
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="Unité">
-              <select value={unit} onChange={(e) => setUnit(e.target.value as Unit)} className="input-elegant">
-                {UNITS.map((u) => <option key={u}>{u}</option>)}
-              </select>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Quantité initiale">
-              <input type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} className="input-elegant" />
-            </Field>
-            <Field label="Seuil d'alerte">
-              <input type="number" min={0} step="0.01" value={threshold} onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)} className="input-elegant" />
-            </Field>
-          </div>
-          <Field label="Notes">
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="input-elegant resize-none" placeholder="Fournisseur, lot, etc." />
-          </Field>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm hover:bg-secondary">Annuler</button>
-            <button type="submit" className="rounded-full bg-primary px-5 py-2 text-sm text-primary-foreground hover:opacity-95">
-              {initial ? "Enregistrer" : "Créer"}
-            </button>
-          </div>
-        </form>
-        <style>{`.input-elegant{width:100%;border-radius:.75rem;border:1px solid var(--color-input);background:var(--color-background);padding:.65rem .85rem;font-size:.875rem;outline:none;transition:border-color .2s}.input-elegant:focus{border-color:var(--color-accent)}`}</style>
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, unit, sale_price, stock, low_stock_threshold }); }} className="space-y-3">
+      <Field label="Nom"><input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Baguette tradition" /></Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Unité de vente">
+          <select value={unit} onChange={(e) => setUnit(e.target.value as any)} className={inputCls}>
+            {PRODUCT_UNITS.map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
+          </select>
+        </Field>
+        <Field label="Prix de vente (FCFA)"><input type="number" min={0} step="1" value={sale_price} onChange={(e) => setPrice(+e.target.value)} className={inputCls} /></Field>
       </div>
-    </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Stock initial"><input type="number" min={0} step="1" value={stock} onChange={(e) => setStock(+e.target.value)} className={inputCls} /></Field>
+        <Field label="Seuil bas"><input type="number" min={0} step="1" value={low_stock_threshold} onChange={(e) => setT(+e.target.value)} className={inputCls} /></Field>
+      </div>
+      <p className="text-xs text-muted-foreground">Vous pourrez définir la recette (matières nécessaires) après création.</p>
+      <button disabled={submitting} className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60">Créer le produit</button>
+    </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function RecipeEditor({ bakeryId, productId, product }: { bakeryId: string; productId: string; product: any }) {
+  const { data: materials = [] } = useRawMaterials();
+  const { data: recipe = [] } = useRecipe(productId);
+  const upsert = useUpsertRecipeLine();
+  const del = useDeleteRecipeLine();
+  const updateProduct = useUpdateProduct();
+
+  const [matId, setMatId] = useState("");
+  const [qty, setQty] = useState(0);
+  const [salePrice, setSalePrice] = useState(product.sale_price);
+
+  const totalCost = recipe.reduce((s, r) => s + r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0), 0);
+
   return (
-    <label className="block">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
+    <div className="space-y-4">
+      <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm">
+        <p className="font-medium">{product.name}</p>
+        <p className="text-xs text-muted-foreground">Coût matière calculé : <strong>{formatMoney(totalCost)}</strong> · Marge : <strong>{formatMoney((salePrice ?? 0) - totalCost)}</strong></p>
+      </div>
+
+      <div>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Ingrédients par unité produite</p>
+        <div className="divide-y divide-border rounded-xl border border-border">
+          {recipe.length === 0 && <p className="p-3 text-xs text-muted-foreground">Aucun ingrédient. Ajoutez-en ci-dessous.</p>}
+          {recipe.map((r) => (
+            <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{r.raw_materials?.name}</p>
+                <p className="text-xs text-muted-foreground">{formatQty(r.quantity_per_unit, UNIT_LABEL[r.raw_materials?.unit ?? "unite"])} · {formatMoney(r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0))}</p>
+              </div>
+              <button onClick={() => del.mutate(r.id)} className="rounded-lg p-2 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
+        <Field label="Matière">
+          <select value={matId} onChange={(e) => setMatId(e.target.value)} className={inputCls}>
+            <option value="">— choisir —</option>
+            {materials.map((m) => <option key={m.id} value={m.id}>{m.name} ({UNIT_LABEL[m.unit]})</option>)}
+          </select>
+        </Field>
+        <Field label="Quantité / unité"><input type="number" min={0} step="0.0001" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls + " w-32"} /></Field>
+        <button
+          disabled={!matId || qty <= 0 || upsert.isPending}
+          onClick={() => upsert.mutate({ bakery_id: bakeryId, product_id: productId, raw_material_id: matId, quantity_per_unit: qty }, { onSuccess: () => { setMatId(""); setQty(0); } })}
+          className="rounded-xl bg-accent px-4 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
+        >Ajouter</button>
+      </div>
+
+      <div className="border-t pt-4">
+        <Field label="Prix de vente (FCFA)">
+          <input type="number" min={0} step="1" value={salePrice} onChange={(e) => setSalePrice(+e.target.value)} className={inputCls} />
+        </Field>
+        <button
+          onClick={() => updateProduct.mutate({ id: productId, sale_price: salePrice })}
+          className="mt-3 w-full rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
+        >Enregistrer le prix</button>
+      </div>
+    </div>
   );
 }

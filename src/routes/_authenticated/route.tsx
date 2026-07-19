@@ -1,7 +1,8 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package, ArrowLeftRight, History, LogOut, Wheat } from "lucide-react";
+import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useBakery } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -15,8 +16,12 @@ export const Route = createFileRoute("/_authenticated")({
 
 const nav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { to: "/products", label: "Stock", icon: Package },
-  { to: "/movements", label: "Mouvements", icon: ArrowLeftRight },
+  { to: "/raw-materials", label: "Matières", icon: Package2 },
+  { to: "/products", label: "Produits", icon: Croissant },
+  { to: "/batch-templates", label: "Modèles", icon: Layers },
+  { to: "/batches", label: "Fournées", icon: Flame },
+  { to: "/sales", label: "Ventes", icon: ShoppingBag },
+  { to: "/finance", label: "Finances", icon: LineChart },
   { to: "/history", label: "Historique", icon: History },
 ] as const;
 
@@ -25,6 +30,7 @@ function AuthedLayout() {
   const router = useRouter();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { data: bakery } = useBakery();
 
   async function signOut() {
     await qc.cancelQueries();
@@ -35,25 +41,27 @@ function AuthedLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
               <Wheat className="h-5 w-5" />
             </div>
             <div className="hidden sm:block">
-              <p className="font-display text-lg leading-none text-foreground">MAYGA & Frères</p>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Boulangerie · Inventaire</p>
+              <p className="font-display text-lg leading-none text-foreground">MonStock</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground truncate max-w-[220px]">
+                {bakery?.name ?? "Ma boulangerie"}
+              </p>
             </div>
           </Link>
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1">
             {nav.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                  className={`rounded-full px-3 py-2 text-xs transition-colors ${
                     active
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -64,8 +72,8 @@ function AuthedLayout() {
               );
             })}
           </nav>
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[160px]">{user.email}</span>
+          <div className="flex items-center gap-2">
+            <span className="hidden md:inline text-xs text-muted-foreground truncate max-w-[160px]">{user.email}</span>
             <button
               onClick={signOut}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
@@ -75,7 +83,7 @@ function AuthedLayout() {
             </button>
           </div>
         </div>
-        <nav className="md:hidden flex items-center gap-1 overflow-x-auto px-4 pb-3">
+        <nav className="lg:hidden flex items-center gap-1.5 overflow-x-auto px-4 pb-3">
           {nav.map((item) => {
             const active = pathname.startsWith(item.to);
             const Icon = item.icon;
@@ -83,7 +91,7 @@ function AuthedLayout() {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] ${
                   active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                 }`}
               >
@@ -93,11 +101,11 @@ function AuthedLayout() {
           })}
         </nav>
       </header>
-      <main className="mx-auto max-w-7xl px-6 py-10 animate-fade-up">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10 animate-fade-up">
         <Outlet />
       </main>
       <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
-        Boulangerie MAYGA & Frères · Fait avec soin
+        MonStock · Gestion pour boulangeries artisanales
       </footer>
     </div>
   );
