@@ -117,7 +117,7 @@ function NewSessionModal({ bakeryId, onClose }: { bakeryId: string; onClose: () 
 
   return (
     <Modal title="Nouvelle session de vente" onClose={onClose}>
-      <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+      <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Nom"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
           <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></Field>
