@@ -35,8 +35,9 @@ export function useBakery() {
   });
 }
 
-function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries();
+// Invalide uniquement les domaines de données concernés, au lieu de recharger toute l'app.
+function invalidate(qc: ReturnType<typeof useQueryClient>, keys: string[]) {
+  keys.forEach((key) => qc.invalidateQueries({ queryKey: [key] }));
 }
 
 // ------- Raw materials --------
@@ -67,7 +68,7 @@ export function useCreateRawMaterial() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { toast.success("Matière ajoutée"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Matière ajoutée"); invalidate(qc, ["raw_materials"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -79,7 +80,7 @@ export function useUpdateRawMaterial() {
       const { error } = await supabase.from("raw_materials").update(patch).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Matière mise à jour"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Matière mise à jour"); invalidate(qc, ["raw_materials"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -91,7 +92,7 @@ export function useDeleteRawMaterial() {
       const { error } = await supabase.from("raw_materials").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Matière supprimée"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Matière supprimée"); invalidate(qc, ["raw_materials"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -128,7 +129,7 @@ export function useCreatePurchase() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -187,7 +188,7 @@ export function useCreateProduct() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => { toast.success("Produit créé"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Produit créé"); invalidate(qc, ["products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -199,7 +200,7 @@ export function useUpdateProduct() {
       const { error } = await supabase.from("products").update(patch).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Produit mis à jour"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Produit mis à jour"); invalidate(qc, ["products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -211,7 +212,7 @@ export function useDeleteProduct() {
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Produit supprimé"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Produit supprimé"); invalidate(qc, ["products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -226,7 +227,7 @@ export function useUpsertRecipeLine() {
         .upsert(input, { onConflict: "product_id,raw_material_id" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Recette mise à jour"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Recette mise à jour"); invalidate(qc, ["recipe", "products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -238,7 +239,7 @@ export function useDeleteRecipeLine() {
       const { error } = await supabase.from("product_recipes").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(qc); },
+    onSuccess: () => { invalidate(qc, ["recipe", "products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -273,7 +274,7 @@ export function useCreateBatchTemplate() {
         if (e2) throw e2;
       }
     },
-    onSuccess: () => { toast.success("Modèle créé"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Modèle créé"); invalidate(qc, ["batch_templates"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -285,7 +286,7 @@ export function useDeleteBatchTemplate() {
       const { error } = await supabase.from("batch_templates").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { invalidateAll(qc); toast.success("Modèle supprimé"); },
+    onSuccess: () => { invalidate(qc, ["batch_templates"]); toast.success("Modèle supprimé"); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -339,7 +340,7 @@ export function useCreateBatch() {
       const { error: e4 } = await supabase.rpc("complete_batch" as any, { _batch_id: batch.id });
       if (e4) throw e4;
     },
-    onSuccess: () => { toast.success("Fournée enregistrée"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Fournée enregistrée"); invalidate(qc, ["batches", "raw_materials", "products", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -381,7 +382,7 @@ export function useCreateSalesSession() {
       }
       return s;
     },
-    onSuccess: () => { toast.success("Session ouverte"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Session ouverte"); invalidate(qc, ["sales"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -393,7 +394,7 @@ export function useCloseSalesSession() {
       const { error } = await supabase.rpc("close_sales_session" as any, { _session_id: id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Session clôturée"); invalidateAll(qc); },
+    onSuccess: () => { toast.success("Session clôturée"); invalidate(qc, ["sales", "products", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
