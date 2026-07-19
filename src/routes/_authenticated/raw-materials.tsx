@@ -176,12 +176,12 @@ export function Field({ label, children }: { label: string; children: React.Reac
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/30 backdrop-blur-sm p-4 animate-fade-up">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-lift)]">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex w-full max-w-lg flex-col max-h-[85dvh] rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)]">
+        <div className="flex shrink-0 items-center justify-between px-6 pt-6 pb-4">
           <h3 className="font-display text-xl">{title}</h3>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-secondary"><X className="h-4 w-4" /></button>
         </div>
-        {children}
+        <div className="overflow-y-auto px-6 pb-6">{children}</div>
       </div>
     </div>
   );
