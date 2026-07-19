@@ -1,7 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Wheat } from "lucide-react";
-import hero from "@/assets/hero-bakery.jpg";
+import { ArrowRight, Wheat, Package2, Flame, ShoppingBag, LineChart, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
@@ -15,14 +14,14 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Wheat className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-display text-base leading-none">MAYGA & Frères</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Boulangerie</p>
+            <p className="font-display text-base leading-none">MonStock</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
           </div>
         </div>
         <Link to="/auth" className="rounded-full border border-border bg-card px-4 py-2 text-sm hover:bg-secondary transition-colors">
@@ -30,64 +29,47 @@ function Landing() {
         </Link>
       </header>
 
-      <section className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 pb-16 pt-8 lg:grid-cols-2 lg:pb-24">
-        <div className="animate-fade-up">
+      <section className="mx-auto max-w-6xl px-6 pt-12 pb-20">
+        <div className="max-w-3xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Gestion d'inventaire
+            Boulangeries artisanales & PME
           </span>
-          <h1 className="mt-6 text-balance font-display text-5xl leading-[1.05] text-foreground sm:text-6xl lg:text-7xl">
-            Un stock <span className="italic text-accent">soigné</span>,
-            comme votre pain.
+          <h1 className="mt-6 text-balance font-display text-5xl leading-[1.05] text-foreground sm:text-6xl">
+            La gestion, <span className="italic text-accent">enfin taillée</span><br/>pour le fournil.
           </h1>
-          <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-            La plateforme discrète et élégante conçue pour la Boulangerie MAYGA & Frères — suivez farine, levure, baguettes et croissants avec une précision d'artisan.
+          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
+            MonStock relie vos matières premières, vos recettes, vos fournées et vos ventes en un seul outil clair — pour piloter marges, pertes et réapprovisionnements sans tableur.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               to="/auth"
               className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-lift)] transition-transform hover:-translate-y-0.5"
             >
-              Commencer
+              Ouvrir mon compte
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <a href="#features" className="inline-flex items-center rounded-full border border-border bg-card px-6 py-3 text-sm hover:bg-secondary">
-              Découvrir
+              Voir les fonctionnalités
             </a>
-          </div>
-          <dl className="mt-12 grid grid-cols-3 gap-6 border-t border-border pt-8 max-w-md">
-            {[
-              { k: "∞", v: "produits" },
-              { k: "kg · g · L", v: "unités" },
-              { k: "temps réel", v: "alertes" },
-            ].map((s) => (
-              <div key={s.v}>
-                <dt className="font-display text-2xl text-foreground">{s.k}</dt>
-                <dd className="text-xs uppercase tracking-widest text-muted-foreground">{s.v}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <div className="relative">
-          <div className="grain overflow-hidden rounded-3xl border border-border shadow-[var(--shadow-lift)]">
-            <img src={hero} alt="Intérieur chaleureux d'une boulangerie artisanale" width={1600} height={1000} className="h-full w-full object-cover" />
-          </div>
-          <div className="absolute -bottom-6 -left-6 hidden sm:block rounded-2xl border border-border bg-card px-5 py-4 shadow-[var(--shadow-lift)] animate-fade-up">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Stock faible</p>
-            <p className="mt-1 font-display text-xl">Levure fraîche · 2 kg</p>
           </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-7xl px-6 pb-24">
+      <section id="features" className="mx-auto max-w-6xl px-6 pb-24">
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            { t: "Entrées & sorties", d: "Enregistrez chaque mouvement avec la précision d'un carnet de fournil." },
-            { t: "Alertes discrètes", d: "Recevez un signal dès qu'un ingrédient approche du seuil critique." },
-            { t: "Statistiques claires", d: "Visualisez la santé de votre stock en un regard, sans tableau surchargé." },
+            { i: Package2, t: "Matières premières", d: "Suivi précis des quantités, prix d'achat, coût moyen pondéré et seuils d'alerte." },
+            { i: Flame, t: "Fournées & recettes", d: "Modèles réutilisables, consommations réelles saisies, coût matière calculé automatiquement." },
+            { i: ShoppingBag, t: "Ventes & invendus", d: "Ouvrez une session, saisissez stocks et invendus, vos ventes se calculent seules." },
+            { i: LineChart, t: "Tableau de bord financier", d: "Chiffre d'affaires, valeur du stock, coût matière, pertes et bénéfice brut estimé." },
+            { i: ShieldCheck, t: "Historique immuable", d: "Chaque mouvement de stock est tracé et non modifiable pour une traçabilité totale." },
+            { i: Wheat, t: "Pensé pour l'artisan", d: "Interface claire, prête pour le mobile — installez MonStock comme une application." },
           ].map((f, i) => (
-            <div key={f.t} className="card-elegant card-elegant-hover grain p-8 animate-fade-up" style={{ animationDelay: `${i * 80}ms` }}>
-              <p className="font-display text-[11px] uppercase tracking-[0.24em] text-accent">0{i + 1}</p>
-              <h3 className="mt-3 font-display text-2xl">{f.t}</h3>
+            <div key={f.t} className="card-elegant card-elegant-hover grain p-8 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-accent">
+                <f.i className="h-5 w-5" />
+              </div>
+              <h3 className="mt-5 font-display text-2xl">{f.t}</h3>
               <p className="mt-3 text-sm text-muted-foreground">{f.d}</p>
             </div>
           ))}
@@ -95,7 +77,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Boulangerie MAYGA & Frères
+        © {new Date().getFullYear()} MonStock · Gestion pour boulangeries artisanales
       </footer>
     </div>
   );

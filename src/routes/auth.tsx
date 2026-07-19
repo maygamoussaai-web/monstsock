@@ -19,6 +19,7 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [bakeryName, setBakeryName] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleEmail(e: React.FormEvent) {
@@ -28,7 +29,10 @@ function AuthPage() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin },
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: bakeryName ? { bakery_name: bakeryName } : undefined,
+          },
         });
         if (error) throw error;
         toast.success("Compte créé. Vous pouvez vous connecter.");
@@ -66,31 +70,31 @@ function AuthPage() {
             <Wheat className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-display text-base leading-none">MAYGA & Frères</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Boulangerie</p>
+            <p className="font-display text-base leading-none">MonStock</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
           </div>
         </div>
         <div className="max-w-md">
           <h2 className="font-display text-5xl leading-tight text-foreground">
-            Le fournil,<br/>en <em className="text-accent not-italic italic">ordre</em>.
+            Un fournil<br/>en <em className="not-italic italic text-accent">bon ordre</em>.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Connectez-vous pour retrouver vos stocks, vos mouvements et vos alertes.
+            Matières, recettes, fournées, ventes — connectez-vous à votre atelier numérique.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MAYGA & Frères</p>
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MonStock</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm animate-fade-up">
           <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-            {mode === "signin" ? "Connexion" : "Inscription"}
+            {mode === "signin" ? "Connexion" : "Créer un compte"}
           </p>
           <h1 className="mt-2 font-display text-4xl">
             {mode === "signin" ? "Bon retour" : "Bienvenue"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Accédez à votre inventaire en toute simplicité.
+            {mode === "signin" ? "Accédez à votre boulangerie." : "Ouvrez votre espace en une minute."}
           </p>
 
           <button
@@ -107,6 +111,16 @@ function AuthPage() {
           </div>
 
           <form onSubmit={handleEmail} className="space-y-3">
+            {mode === "signup" && (
+              <div>
+                <label className="text-xs text-muted-foreground">Nom de la boulangerie</label>
+                <input
+                  type="text" value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                  placeholder="Ma Boulangerie"
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground">Email</label>
               <input
@@ -133,7 +147,7 @@ function AuthPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "Pas encore de compte ?" : "Déjà inscrit ?"}{" "}
+            {mode === "signin" ? "Nouveau sur MonStock ?" : "Déjà inscrit ?"}{" "}
             <button
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
               className="text-foreground underline underline-offset-4 hover:text-accent"
