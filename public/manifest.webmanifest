@@ -1,0 +1,17 @@
+{
+  "name": "MonStock — Gestion de boulangerie",
+  "short_name": "MonStock",
+  "description": "Application de gestion d'inventaire, de fournées et de ventes pour les boulangeries artisanales.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7efe0",
+  "theme_color": "#c98a3d",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
