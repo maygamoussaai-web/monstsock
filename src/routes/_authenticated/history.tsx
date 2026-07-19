@@ -1,80 +1,89 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMovements, useProducts, formatQty } from "@/lib/inventory";
-import { TrendingDown, TrendingUp, Search } from "lucide-react";
+import { useLedger } from "@/lib/queries";
+import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
+import { History, ArrowDownRight, ArrowUpRight, ShoppingBag, Flame, Package2, AlertTriangle, ShieldCheck } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/history")({
-  component: HistoryPage,
-});
+export const Route = createFileRoute("/_authenticated/history")({ component: HistoryPage });
+
+const KIND_META: Record<string, { label: string; icon: any; tone: string }> = {
+  purchase:      { label: "Réappro",     icon: Package2,    tone: "text-accent" },
+  batch_consume: { label: "Fournée −",   icon: Flame,       tone: "text-destructive" },
+  batch_produce: { label: "Fournée +",   icon: Flame,       tone: "text-accent" },
+  sale:          { label: "Vente",       icon: ShoppingBag, tone: "text-accent" },
+  loss:          { label: "Invendu",     icon: AlertTriangle, tone: "text-destructive" },
+  adjustment:    { label: "Ajustement",  icon: ShieldCheck, tone: "text-muted-foreground" },
+};
 
 function HistoryPage() {
-  const { data: movements = [] } = useMovements();
-  const { data: products = [] } = useProducts();
+  const { data: ledger = [] } = useLedger(500);
+  const [kind, setKind] = useState<string>("all");
   const [q, setQ] = useState("");
-  const [type, setType] = useState<"" | "in" | "out">("");
-
-  const productMap = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
 
   const filtered = useMemo(() => {
-    return movements.filter((m) => {
-      if (type && m.type !== type) return false;
+    return ledger.filter((l) => {
+      if (kind !== "all" && l.kind !== kind) return false;
       if (q) {
-        const p = productMap[m.product_id];
-        const hay = `${p?.name ?? ""} ${m.note ?? ""}`.toLowerCase();
-        if (!hay.includes(q.toLowerCase())) return false;
+        const name = (l.raw_materials?.name ?? l.products?.name ?? "") + " " + (l.note ?? "");
+        if (!name.toLowerCase().includes(q.toLowerCase())) return false;
       }
       return true;
     });
-  }, [movements, productMap, q, type]);
+  }, [ledger, kind, q]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Traçabilité</p>
-        <h1 className="mt-2 font-display text-4xl sm:text-5xl">Historique</h1>
-        <p className="mt-2 text-muted-foreground">Tous les mouvements, du plus récent au plus ancien.</p>
+        <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Historique</p>
+        <h1 className="mt-1 font-display text-3xl sm:text-4xl">Journal des mouvements</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Chaque entrée est immuable et horodatée — traçabilité totale.</p>
       </div>
 
-      <div className="card-elegant p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher (produit ou note)…"
-            className="w-full rounded-xl border border-input bg-background/60 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-accent" />
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex rounded-full border border-border bg-card p-1 overflow-x-auto">
+          {["all", ...Object.keys(KIND_META)].map((k) => (
+            <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 text-xs whitespace-nowrap rounded-full transition-colors ${kind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {k === "all" ? "Tout" : KIND_META[k].label}
+            </button>
+          ))}
         </div>
-        <select value={type} onChange={(e) => setType(e.target.value as any)} className="rounded-xl border border-input bg-background/60 px-3 py-2.5 text-sm">
-          <option value="">Tous types</option>
-          <option value="in">Entrées</option>
-          <option value="out">Sorties</option>
-        </select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filtrer…" className="rounded-full border border-input bg-card px-4 py-2 text-sm outline-none focus:border-accent max-w-xs flex-1" />
       </div>
 
-      <div className="card-elegant grain overflow-hidden">
-        {filtered.length === 0 ? (
-          <p className="p-12 text-center text-muted-foreground">Aucun mouvement.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {filtered.map((m) => {
-              const p = productMap[m.product_id];
-              return (
-                <li key={m.id} className="flex items-center gap-4 px-5 py-4">
-                  <div className={`grid h-9 w-9 place-items-center rounded-full ${m.type === "in" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary"}`}>
-                    {m.type === "in" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{p?.name ?? "Produit supprimé"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(m.created_at).toLocaleString("fr-FR")}
-                      {m.note ? ` · ${m.note}` : ""}
-                    </p>
-                  </div>
-                  <p className={`font-display text-lg ${m.type === "in" ? "text-accent" : "text-primary"}`}>
-                    {m.type === "in" ? "+" : "−"}{formatQty(m.quantity, p?.unit ?? "")}
+      <div className="card-elegant overflow-hidden">
+        <div className="divide-y divide-border">
+          {filtered.length === 0 && (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              <History className="mx-auto mb-2 h-6 w-6 opacity-40" />
+              Aucun mouvement pour ces filtres.
+            </div>
+          )}
+          {filtered.map((l) => {
+            const meta = KIND_META[l.kind] ?? KIND_META.adjustment;
+            const Icon = meta.icon;
+            const target = l.raw_materials?.name ?? l.products?.name ?? "—";
+            const unit = l.raw_materials?.unit ?? l.products?.unit;
+            const positive = l.delta_quantity >= 0;
+            return (
+              <div key={l.id} className="flex items-center gap-4 px-4 py-3">
+                <div className={`grid h-9 w-9 place-items-center rounded-full bg-secondary ${meta.tone}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm"><span className="font-medium">{target}</span> <span className="text-muted-foreground text-xs">· {meta.label}</span></p>
+                  <p className="text-xs text-muted-foreground truncate">{l.note || "—"} · {formatDateTime(l.created_at)}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-medium flex items-center justify-end gap-1 ${positive ? "text-accent" : "text-destructive"}`}>
+                    {positive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+                    {formatQty(Math.abs(l.delta_quantity), unit ? UNIT_LABEL[unit] : undefined)}
                   </p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                  <p className="text-xs text-muted-foreground">{formatMoney(Math.abs(l.delta_value))}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
