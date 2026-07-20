@@ -709,6 +709,59 @@ export type Database = {
         Args: { _product_id: string }
         Returns: undefined
       }
+      record_batch: {
+        Args: {
+          _auto_complete?: boolean
+          _bakery_id: string
+          _consumptions: Json
+          _name: string
+          _notes: string
+          _outputs: Json
+          _template_id: string
+        }
+        Returns: string
+      }
+      record_loss: {
+        Args: {
+          _bakery_id: string
+          _notes?: string
+          _product_id: string
+          _quantity: number
+          _raw_material_id: string
+        }
+        Returns: undefined
+      }
+      record_product_sale: {
+        Args: {
+          _bakery_id: string
+          _notes?: string
+          _product_id: string
+          _quantity: number
+          _unit_price: number
+        }
+        Returns: undefined
+      }
+      record_purchase: {
+        Args: {
+          _bakery_id: string
+          _notes?: string
+          _quantity: number
+          _raw_material_id: string
+          _supplier?: string
+          _unit_price: number
+        }
+        Returns: string
+      }
+      record_sale: {
+        Args: {
+          _bakery_id: string
+          _notes?: string
+          _product_id: string
+          _quantity: number
+          _unit_price: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       bakery_role: "owner" | "staff"
