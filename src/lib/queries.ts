@@ -122,14 +122,53 @@ export function useCreatePurchase() {
       supplier?: string | null;
       notes?: string | null;
     }) => {
-      const total_price = +(input.quantity * input.unit_price).toFixed(4);
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("raw_material_purchases").insert({
-        ...input, total_price, created_by: u.user?.id ?? null,
+      const { error } = await supabase.rpc("record_purchase", {
+        _bakery_id: input.bakery_id,
+        _raw_material_id: input.raw_material_id,
+        _quantity: input.quantity,
+        _unit_price: input.unit_price,
+        _supplier: input.supplier ?? undefined,
+        _notes: input.notes ?? undefined,
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases"]); },
+    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases", "ledger"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useRecordProductSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number; notes?: string | null }) => {
+      const { error } = await supabase.rpc("record_product_sale", {
+        _bakery_id: input.bakery_id,
+        _product_id: input.product_id,
+        _quantity: input.quantity,
+        _unit_price: input.unit_price,
+        _notes: input.notes ?? undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useRecordLoss() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { bakery_id: string; product_id?: string | null; raw_material_id?: string | null; quantity: number; notes?: string | null }) => {
+      const { error } = await supabase.rpc("record_loss", {
+        _bakery_id: input.bakery_id,
+        _product_id: input.product_id ?? undefined,
+        _raw_material_id: input.raw_material_id ?? undefined,
+        _quantity: input.quantity,
+        _notes: input.notes ?? undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "raw_materials", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
