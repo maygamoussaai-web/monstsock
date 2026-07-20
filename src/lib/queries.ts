@@ -397,22 +397,18 @@ export function useCreateSalesSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      bakery_id: string; name: string; session_date: string; notes?: string | null;
-      items: { product_id: string; opening_stock: number; restocked: number; closing_stock: number; unsold: number; price_at_sale: number }[];
+      bakery_id: string; name: string; session_date: string;
+      items: { product_id: string; opening_stock: number; unsold: number; price_at_sale: number }[];
     }) => {
-      const { data: u } = await supabase.auth.getUser();
-      const { data: s, error } = await supabase.from("sales_sessions").insert({
-        bakery_id: input.bakery_id, name: input.name, session_date: input.session_date,
-        notes: input.notes ?? null, created_by: u.user?.id ?? null,
-      }).select().single();
+      const { error, data } = await supabase.rpc("create_sales_session", {
+        _bakery_id: input.bakery_id,
+        _name: input.name,
+        _session_date: input.session_date,
+        _items: input.items as any,
+        _unsold_handling: null, // Will be set when closing
+      });
       if (error) throw error;
-      if (input.items.length) {
-        const { error: e2 } = await supabase.from("sales_session_items").insert(
-          input.items.map((i) => ({ ...i, bakery_id: input.bakery_id, session_id: s.id }))
-        );
-        if (e2) throw e2;
-      }
-      return s;
+      return data;
     },
     onSuccess: () => { toast.success("Session ouverte"); invalidate(qc, ["sales"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
@@ -422,7 +418,12 @@ export function useCreateSalesSession() {
 export function useCloseSalesSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string, unsoldHandling?: boolean) => {
+      // First, update unsold_handling if provided
+      if (unsoldHandling !== undefined) {
+        const { error: e1 } = await supabase.from("sales_sessions").update({ unsold_handling: unsoldHandling }).eq("id", id);
+        if (e1) throw e1;
+      }
       const { error } = await supabase.rpc("close_sales_session" as any, { _session_id: id });
       if (error) throw error;
     },
