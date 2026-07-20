@@ -122,14 +122,56 @@ export function useCreatePurchase() {
       supplier?: string | null;
       notes?: string | null;
     }) => {
-      const total_price = +(input.quantity * input.unit_price).toFixed(4);
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("raw_material_purchases").insert({
-        ...input, total_price, created_by: u.user?.id ?? null,
-      });
+      const args: Record<string, unknown> = {
+        _bakery_id: input.bakery_id,
+        _raw_material_id: input.raw_material_id,
+        _quantity: input.quantity,
+        _unit_price: input.unit_price,
+      };
+      if (input.supplier) args._supplier = input.supplier;
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_purchase", args as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases"]); },
+    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases", "ledger"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useRecordProductSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number; notes?: string | null }) => {
+      const args: Record<string, unknown> = {
+        _bakery_id: input.bakery_id,
+        _product_id: input.product_id,
+        _quantity: input.quantity,
+        _unit_price: input.unit_price,
+      };
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_product_sale", args as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useRecordLoss() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { bakery_id: string; product_id?: string | null; raw_material_id?: string | null; quantity: number; notes?: string | null }) => {
+      const args: Record<string, unknown> = {
+        _bakery_id: input.bakery_id,
+        _product_id: input.product_id ?? null,
+        _raw_material_id: input.raw_material_id ?? null,
+        _quantity: input.quantity,
+      };
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_loss", args as any);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "raw_materials", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -319,26 +361,16 @@ export function useCreateBatch() {
       consumptions: { raw_material_id: string; quantity_used: number }[];
       outputs: { product_id: string; quantity_produced: number }[];
     }) => {
-      const { data: u } = await supabase.auth.getUser();
-      const { data: batch, error } = await supabase.from("batches").insert({
-        bakery_id: input.bakery_id, name: input.name, template_id: input.template_id ?? null,
-        notes: input.notes ?? null, created_by: u.user?.id ?? null,
-      }).select().single();
+      const { error } = await supabase.rpc("record_batch", {
+        _bakery_id: input.bakery_id,
+        _name: input.name,
+        _template_id: (input.template_id ?? null) as any,
+        _notes: (input.notes ?? null) as any,
+        _consumptions: input.consumptions as any,
+        _outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
+        _auto_complete: true,
+      });
       if (error) throw error;
-      if (input.consumptions.length) {
-        const { error: e2 } = await supabase.from("batch_consumptions").insert(
-          input.consumptions.map((c) => ({ ...c, bakery_id: input.bakery_id, batch_id: batch.id }))
-        );
-        if (e2) throw e2;
-      }
-      if (input.outputs.length) {
-        const { error: e3 } = await supabase.from("batch_outputs").insert(
-          input.outputs.map((o) => ({ ...o, bakery_id: input.bakery_id, batch_id: batch.id }))
-        );
-        if (e3) throw e3;
-      }
-      const { error: e4 } = await supabase.rpc("complete_batch" as any, { _batch_id: batch.id });
-      if (e4) throw e4;
     },
     onSuccess: () => { toast.success("Fournée enregistrée"); invalidate(qc, ["batches", "raw_materials", "products", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
