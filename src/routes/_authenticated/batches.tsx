@@ -93,7 +93,7 @@ function NewBatchModal({ bakeryId, onClose }: { bakeryId: string; onClose: () =>
     setTplId(id);
     const tpl = templates.find((t) => t.id === id);
     if (!tpl) return;
-    setOuts(tpl.batch_template_items.map((i) => ({ product_id: i.product_id, planned_quantity: i.planned_quantity } as any)).map((i: any) => ({ product_id: i.product_id, quantity_produced: i.planned_quantity })));
+    setOuts(tpl.batch_template_items.map((i) => ({ product_id: i.product_id, quantity_produced: i.planned_quantity })));
   }
 
   const totalCostPreview = useMemo(
@@ -142,7 +142,7 @@ function NewBatchModal({ bakeryId, onClose }: { bakeryId: string; onClose: () =>
 
         <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm">Coût matière estimé : <strong>{formatMoney(totalCostPreview)}</strong></div>
 
-        <button onClick={submit} disabled={create.isPending || cons.length === 0 || outs.length === 0} className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60">
+        <button onClick={submit} disabled={create.isPending || cons.length === 0 || outs.length === 0} className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50">
           Enregistrer la fournée
         </button>
       </div>
@@ -150,19 +150,19 @@ function NewBatchModal({ bakeryId, onClose }: { bakeryId: string; onClose: () =>
   );
 }
 
-function SectionEditor({ title, options, items, itemKey, qtyKey, onChange }: { title: string; options: { id: string; label: string; unit: string }[]; items: any[]; itemKey: string; qtyKey: string; onChange: (v: any[]) => void }) {
+function SectionEditor({ title, options, items, itemKey, qtyKey, onChange }: { title: string; options: { id: string; label: string; unit: string }[]; items: any[]; itemKey: string; qtyKey: string; onChange: (items: any[]) => void }) {
   const [id, setId] = useState("");
   const [qty, setQty] = useState(0);
   return (
     <div>
       <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{title}</p>
-      <div className="rounded-xl border border-border divide-y">
+      <div className="rounded-xl border border-border divide-y max-h-48 overflow-y-auto">
         {items.length === 0 && <p className="p-3 text-xs text-muted-foreground">Aucune ligne.</p>}
         {items.map((it, idx) => {
           const o = options.find((x) => x.id === it[itemKey]);
           return (
-            <div key={idx} className="flex items-center justify-between p-2 text-sm">
-              <span className="truncate">{o?.label ?? "—"}</span>
+            <div key={idx} className="flex items-center justify-between p-2 text-sm hover:bg-secondary/30">
+              <span className="font-medium">{o?.label ?? "—"}</span>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-xs">{formatQty(it[qtyKey], o?.unit)}</span>
                 <button onClick={() => onChange(items.filter((_, k) => k !== idx))} className="rounded p-1 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
@@ -171,13 +171,15 @@ function SectionEditor({ title, options, items, itemKey, qtyKey, onChange }: { t
           );
         })}
       </div>
-      <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-2 items-end">
+      <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
         <select value={id} onChange={(e) => setId(e.target.value)} className={inputCls}>
           <option value="">— choisir —</option>
           {options.filter((o) => !items.find((it) => it[itemKey] === o.id)).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
-        <input type="number" min={0} step="0.01" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls + " w-28"} placeholder="Qté" />
-        <button type="button" disabled={!id || qty <= 0} onClick={() => { onChange([...items, { [itemKey]: id, [qtyKey]: qty }]); setId(""); setQty(0); }} className="rounded-xl bg-accent px-3 py-2.5 text-sm text-accent-foreground disabled:opacity-50">Ajouter</button>
+        <input type="number" min={0} step="0.01" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls} placeholder="Qté" />
+        <button type="button" disabled={!id || qty <= 0} onClick={() => { onChange([...items, { [itemKey]: id, [qtyKey]: qty }]); setId(""); setQty(0); }} className="rounded-xl bg-accent px-3 py-2.5 text-sm text-accent-foreground disabled:opacity-50">
+          Ajouter
+        </button>
       </div>
     </div>
   );
