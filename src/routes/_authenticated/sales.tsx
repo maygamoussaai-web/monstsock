@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useBakery, useProducts, useSalesSessions, useCreateSalesSession, useCloseSalesSession } from "@/lib/queries";
 import { formatDate, formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
 import { Plus, ShoppingBag, CheckCircle2, Trash2 } from "lucide-react";
@@ -55,9 +55,7 @@ function SalesPage() {
                 <thead className="text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="text-left py-2">Produit</th>
-                    <th className="text-right py-2">Ouverture</th>
-                    <th className="text-right py-2">Réappro</th>
-                    <th className="text-right py-2">Clôture</th>
+                    <th className="text-right py-2">Stock</th>
                     <th className="text-right py-2">Invendus</th>
                     <th className="text-right py-2">Vendues</th>
                     <th className="text-right py-2">CA</th>
@@ -68,8 +66,6 @@ function SalesPage() {
                     <tr key={it.id}>
                       <td className="py-2">{it.products?.name}</td>
                       <td className="text-right">{formatQty(it.opening_stock)}</td>
-                      <td className="text-right">{formatQty(it.restocked)}</td>
-                      <td className="text-right">{formatQty(it.closing_stock)}</td>
                       <td className="text-right text-destructive">{formatQty(it.unsold)}</td>
                       <td className="text-right font-medium">{formatQty(it.quantity_sold)}</td>
                       <td className="text-right">{formatMoney(it.quantity_sold * it.price_at_sale)}</td>
@@ -81,7 +77,7 @@ function SalesPage() {
 
             {s.status === "open" && (
               <div className="mt-4 flex justify-end">
-                <button onClick={() => { if (confirm("Clôturer cette session ? Les ventes seront calculées et le stock mis à jour.")) closeSession.mutate(s.id); }} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm text-accent-foreground">
+                <button onClick={() => { if (confirm("Clôturer cette session ? Les ventes seront calculées et le stock mis à jour.")) closeSession.mutate(s.id); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground">
                   <CheckCircle2 className="h-4 w-4" /> Clôturer la session
                 </button>
               </div>
@@ -101,19 +97,25 @@ function NewSessionModal({ bakeryId, onClose }: { bakeryId: string; onClose: () 
 
   const [name, setName] = useState(`Vente ${new Date().toLocaleDateString("fr-FR")}`);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [items, setItems] = useState<{ product_id: string; opening_stock: number; restocked: number; closing_stock: number; unsold: number; price_at_sale: number }[]>([]);
+  const [items, setItems] = useState<{ product_id: string; opening_stock: number; unsold: number; price_at_sale: number }[]>([]);
   const [pid, setPid] = useState("");
 
   function addProduct() {
     const p = products.find((x) => x.id === pid);
     if (!p || items.find((i) => i.product_id === p.id)) return;
-    setItems([...items, { product_id: p.id, opening_stock: p.stock, restocked: 0, closing_stock: 0, unsold: 0, price_at_sale: p.sale_price }]);
+    setItems([...items, { product_id: p.id, opening_stock: p.stock, unsold: 0, price_at_sale: p.sale_price }]);
     setPid("");
   }
 
   function update(idx: number, patch: any) {
     setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
   }
+
+  function removeProduct(idx: number) {
+    setItems(items.filter((_, i) => i !== idx));
+  }
+
+  const canSubmit = items.length > 0 && items.every(it => it.opening_stock >= 0 && it.unsold >= 0 && it.unsold <= it.opening_stock);
 
   return (
     <Modal title="Nouvelle session de vente" onClose={onClose}>
@@ -125,27 +127,66 @@ function NewSessionModal({ bakeryId, onClose }: { bakeryId: string; onClose: () 
 
         <div>
           <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Produits en vente</p>
-          <div className="space-y-2">
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {items.map((it, idx) => {
               const p = products.find((x) => x.id === it.product_id)!;
+              const vendues = it.opening_stock - it.unsold;
+              const ca = vendues * it.price_at_sale;
+
               return (
-                <div key={it.product_id} className="rounded-xl border border-border p-3">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={it.product_id} className="rounded-xl border border-border p-3 hover:border-accent/50">
+                  <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium">{p.name} <span className="text-xs text-muted-foreground">({UNIT_LABEL[p.unit]})</span></p>
-                    <button onClick={() => setItems(items.filter((_, k) => k !== idx))} className="rounded p-1 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
+                    <button onClick={() => removeProduct(idx)} className="rounded p-1 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <MiniField label="Ouverture" v={it.opening_stock} onChange={(v) => update(idx, { opening_stock: v })} />
-                    <MiniField label="Réappro" v={it.restocked} onChange={(v) => update(idx, { restocked: v })} />
-                    <MiniField label="Clôture" v={it.closing_stock} onChange={(v) => update(idx, { closing_stock: v })} />
-                    <MiniField label="Invendus" v={it.unsold} onChange={(v) => update(idx, { unsold: v })} />
-                    <MiniField label="Prix" v={it.price_at_sale} onChange={(v) => update(idx, { price_at_sale: v })} />
+
+                  {/* Info box: Stock, Vendues, CA */}
+                  <div className="rounded-lg bg-secondary/30 px-3 py-2 mb-3 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Stock :</span>
+                      <span className="font-medium">{formatQty(it.opening_stock, UNIT_LABEL[p.unit])}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Vendues :</span>
+                      <span className="font-medium">{formatQty(vendues, UNIT_LABEL[p.unit])}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Chiffre d'affaires :</span>
+                      <span className="font-semibold text-accent">{formatMoney(ca)}</span>
+                    </div>
                   </div>
+
+                  {/* Input: Invendus */}
+                  <Field label="Invendus (quantité restante non vendue)">
+                    <input
+                      type="number"
+                      min={0}
+                      max={it.opening_stock}
+                      step="0.01"
+                      value={it.unsold}
+                      onChange={(e) => update(idx, { unsold: +e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+
+                  {/* Input: Prix de vente */}
+                  <Field label="Prix unitaire (FCFA)">
+                    <input
+                      type="number"
+                      min={0}
+                      step="1"
+                      value={it.price_at_sale}
+                      onChange={(e) => update(idx, { price_at_sale: +e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
                 </div>
               );
             })}
           </div>
-          <div className="mt-2 grid grid-cols-[1fr_auto] gap-2 items-end">
+
+          {/* Add product section */}
+          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 items-end">
             <select value={pid} onChange={(e) => setPid(e.target.value)} className={inputCls}>
               <option value="">— ajouter un produit —</option>
               {products.filter((p) => !items.find((i) => i.product_id === p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -154,19 +195,14 @@ function NewSessionModal({ bakeryId, onClose }: { bakeryId: string; onClose: () 
           </div>
         </div>
 
-        <button onClick={() => create.mutate({ bakery_id: bakeryId, name, session_date: date, items }, { onSuccess: onClose })} disabled={create.isPending || items.length === 0} className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60">
+        <button
+          onClick={() => create.mutate({ bakery_id: bakeryId, name, session_date: date, items }, { onSuccess: onClose })}
+          disabled={create.isPending || !canSubmit}
+          className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        >
           Ouvrir la session
         </button>
       </div>
     </Modal>
-  );
-}
-
-function MiniField({ label, v, onChange }: { label: string; v: number; onChange: (v: number) => void }) {
-  return (
-    <label className="block">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <input type="number" min={0} step="0.01" value={v} onChange={(e) => onChange(+e.target.value)} className="mt-0.5 w-full rounded-lg border border-input bg-card px-2 py-1.5 text-sm outline-none focus:border-accent" />
-    </label>
   );
 }
