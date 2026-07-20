@@ -361,26 +361,16 @@ export function useCreateBatch() {
       consumptions: { raw_material_id: string; quantity_used: number }[];
       outputs: { product_id: string; quantity_produced: number }[];
     }) => {
-      const { data: u } = await supabase.auth.getUser();
-      const { data: batch, error } = await supabase.from("batches").insert({
-        bakery_id: input.bakery_id, name: input.name, template_id: input.template_id ?? null,
-        notes: input.notes ?? null, created_by: u.user?.id ?? null,
-      }).select().single();
+      const { error } = await supabase.rpc("record_batch", {
+        _bakery_id: input.bakery_id,
+        _name: input.name,
+        _template_id: (input.template_id ?? null) as any,
+        _notes: (input.notes ?? null) as any,
+        _consumptions: input.consumptions as any,
+        _outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
+        _auto_complete: true,
+      });
       if (error) throw error;
-      if (input.consumptions.length) {
-        const { error: e2 } = await supabase.from("batch_consumptions").insert(
-          input.consumptions.map((c) => ({ ...c, bakery_id: input.bakery_id, batch_id: batch.id }))
-        );
-        if (e2) throw e2;
-      }
-      if (input.outputs.length) {
-        const { error: e3 } = await supabase.from("batch_outputs").insert(
-          input.outputs.map((o) => ({ ...o, bakery_id: input.bakery_id, batch_id: batch.id }))
-        );
-        if (e3) throw e3;
-      }
-      const { error: e4 } = await supabase.rpc("complete_batch" as any, { _batch_id: batch.id });
-      if (e4) throw e4;
     },
     onSuccess: () => { toast.success("Fournée enregistrée"); invalidate(qc, ["batches", "raw_materials", "products", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
