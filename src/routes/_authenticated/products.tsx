@@ -36,7 +36,7 @@ function ProductsPage() {
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…" className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…" className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent transition-colors" />
       </div>
 
       <div className="card-elegant overflow-hidden">
@@ -154,28 +154,28 @@ function RecipeEditor({ bakeryId, productId, product }: { bakeryId: string; prod
 
       <div>
         <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Ingrédients par unité produite</p>
-        <div className="divide-y divide-border rounded-xl border border-border">
+        <div className="divide-y divide-border rounded-xl border border-border max-h-64 overflow-y-auto">
           {recipe.length === 0 && <p className="p-3 text-xs text-muted-foreground">Aucun ingrédient. Ajoutez-en ci-dessous.</p>}
           {recipe.map((r) => (
-            <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <div className="min-w-0">
-                <p className="truncate">{r.raw_materials?.name}</p>
+            <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm hover:bg-secondary/30">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{r.raw_materials?.name}</p>
                 <p className="text-xs text-muted-foreground">{formatQty(r.quantity_per_unit, UNIT_LABEL[r.raw_materials?.unit ?? "unite"])} · {formatMoney(r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0))}</p>
               </div>
-              <button onClick={() => del.mutate(r.id)} className="rounded-lg p-2 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
+              <button onClick={() => del.mutate(r.id)} className="ml-2 rounded-lg p-2 hover:bg-secondary flex-shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></button>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
         <Field label="Matière">
           <select value={matId} onChange={(e) => setMatId(e.target.value)} className={inputCls}>
             <option value="">— choisir —</option>
-            {materials.map((m) => <option key={m.id} value={m.id}>{m.name} ({UNIT_LABEL[m.unit]})</option>)}
+            {materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </Field>
-        <Field label="Quantité / unité"><input type="number" min={0} step="0.0001" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls + " w-32"} /></Field>
+        <Field label="Quantité / unité"><input type="number" min={0} step="0.0001" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls} /></Field>
         <button
           disabled={!matId || qty <= 0 || upsert.isPending}
           onClick={() => upsert.mutate({ bakery_id: bakeryId, product_id: productId, raw_material_id: matId, quantity_per_unit: qty }, { onSuccess: () => { setMatId(""); setQty(0); } })}
