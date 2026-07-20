@@ -122,14 +122,15 @@ export function useCreatePurchase() {
       supplier?: string | null;
       notes?: string | null;
     }) => {
-      const { error } = await supabase.rpc("record_purchase", {
+      const args: Record<string, unknown> = {
         _bakery_id: input.bakery_id,
         _raw_material_id: input.raw_material_id,
         _quantity: input.quantity,
         _unit_price: input.unit_price,
-        _supplier: input.supplier ?? undefined,
-        _notes: input.notes ?? undefined,
-      });
+      };
+      if (input.supplier) args._supplier = input.supplier;
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_purchase", args as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases", "ledger"]); },
@@ -141,13 +142,14 @@ export function useRecordProductSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number; notes?: string | null }) => {
-      const { error } = await supabase.rpc("record_product_sale", {
+      const args: Record<string, unknown> = {
         _bakery_id: input.bakery_id,
         _product_id: input.product_id,
         _quantity: input.quantity,
         _unit_price: input.unit_price,
-        _notes: input.notes ?? undefined,
-      });
+      };
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_product_sale", args as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
@@ -159,13 +161,14 @@ export function useRecordLoss() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { bakery_id: string; product_id?: string | null; raw_material_id?: string | null; quantity: number; notes?: string | null }) => {
-      const { error } = await supabase.rpc("record_loss", {
+      const args: Record<string, unknown> = {
         _bakery_id: input.bakery_id,
-        _product_id: input.product_id ?? undefined,
-        _raw_material_id: input.raw_material_id ?? undefined,
+        _product_id: input.product_id ?? null,
+        _raw_material_id: input.raw_material_id ?? null,
         _quantity: input.quantity,
-        _notes: input.notes ?? undefined,
-      });
+      };
+      if (input.notes) args._notes = input.notes;
+      const { error } = await supabase.rpc("record_loss", args as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "raw_materials", "ledger"]); },
