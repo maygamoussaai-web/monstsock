@@ -400,15 +400,25 @@ export function useCreateSalesSession() {
       bakery_id: string; name: string; session_date: string;
       items: { product_id: string; opening_stock: number; unsold: number; price_at_sale: number }[];
     }) => {
-      const { error, data } = await supabase.rpc("create_sales_session", {
-        _bakery_id: input.bakery_id,
-        _name: input.name,
-        _session_date: input.session_date,
-        _items: input.items as any,
-        _unsold_handling: null, // Will be set when closing
-      });
+      const { data: session, error } = await supabase
+        .from("sales_sessions")
+        .insert({ bakery_id: input.bakery_id, name: input.name, session_date: input.session_date })
+        .select().single();
       if (error) throw error;
-      return data;
+      if (input.items.length) {
+        const { error: e2 } = await supabase.from("sales_session_items").insert(
+          input.items.map((it) => ({
+            bakery_id: input.bakery_id,
+            session_id: session.id,
+            product_id: it.product_id,
+            opening_stock: it.opening_stock,
+            unsold: it.unsold,
+            price_at_sale: it.price_at_sale,
+          }))
+        );
+        if (e2) throw e2;
+      }
+      return session.id;
     },
     onSuccess: () => { toast.success("Session ouverte"); invalidate(qc, ["sales"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
@@ -418,16 +428,46 @@ export function useCreateSalesSession() {
 export function useCloseSalesSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string, unsoldHandling?: boolean) => {
-      // First, update unsold_handling if provided
-      if (unsoldHandling !== undefined) {
-        const { error: e1 } = await supabase.from("sales_sessions").update({ unsold_handling: unsoldHandling }).eq("id", id);
-        if (e1) throw e1;
-      }
-      const { error } = await supabase.rpc("close_sales_session" as any, { _session_id: id });
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("close_sales_session", { _session_id: id });
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Session clôturée"); invalidate(qc, ["sales", "products", "ledger"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+// ------- Quick single-product sale (record_product_sale + optional loss) --------
+export function useQuickSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
+      unsold: number; keep_unsold: boolean; notes?: string | null;
+    }) => {
+      if (input.quantity_sold > 0) {
+        const { error } = await supabase.rpc("record_product_sale", {
+          _bakery_id: input.bakery_id,
+          _product_id: input.product_id,
+          _quantity: input.quantity_sold,
+          _unit_price: input.unit_price,
+          _notes: input.notes ?? null,
+        } as any);
+        if (error) throw error;
+      }
+      // Si on ne conserve pas les invendus, on les enregistre en perte (décrémente le stock)
+      if (!input.keep_unsold && input.unsold > 0) {
+        const { error } = await supabase.rpc("record_loss", {
+          _bakery_id: input.bakery_id,
+          _product_id: input.product_id,
+          _raw_material_id: null,
+          _quantity: input.unsold,
+          _notes: "Invendus",
+        } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
