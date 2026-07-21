@@ -292,11 +292,17 @@ export function useBatchTemplates() {
     queryKey: ["batch_templates"],
     queryFn: async () => {
       const { data, error } = await supabase.from("batch_templates")
-        .select("*, batch_template_items(*, products(name,unit))")
+        .select("*, products(name,unit), batch_template_ingredients(*, raw_materials(name,unit))")
         .order("name");
       if (error) throw error;
       return data as (BatchTemplate & {
-        batch_template_items: (BatchTemplateItem & { products: { name: string; unit: string } | null })[];
+        products: { name: string; unit: string } | null;
+        batch_template_ingredients: {
+          id: string;
+          raw_material_id: string;
+          quantity: number;
+          raw_materials: { name: string; unit: string } | null;
+        }[];
       })[];
     },
   });
@@ -305,13 +311,24 @@ export function useBatchTemplates() {
 export function useCreateBatchTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { bakery_id: string; name: string; items: { product_id: string; planned_quantity: number }[] }) => {
+    mutationFn: async (input: {
+      bakery_id: string;
+      name: string;
+      product_id: string;
+      planned_quantity: number;
+      ingredients: { raw_material_id: string; quantity: number }[];
+    }) => {
       const { data: tpl, error } = await supabase.from("batch_templates")
-        .insert({ bakery_id: input.bakery_id, name: input.name }).select().single();
+        .insert({
+          bakery_id: input.bakery_id,
+          name: input.name,
+          product_id: input.product_id,
+          planned_quantity: input.planned_quantity,
+        }).select().single();
       if (error) throw error;
-      if (input.items.length) {
-        const { error: e2 } = await supabase.from("batch_template_items").insert(
-          input.items.map((i) => ({ ...i, bakery_id: input.bakery_id, template_id: tpl.id }))
+      if (input.ingredients.length) {
+        const { error: e2 } = await supabase.from("batch_template_ingredients").insert(
+          input.ingredients.map((i) => ({ ...i, bakery_id: input.bakery_id, template_id: tpl.id }))
         );
         if (e2) throw e2;
       }
