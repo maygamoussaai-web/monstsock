@@ -171,6 +171,55 @@ export type Database = {
           },
         ]
       }
+      batch_template_ingredients: {
+        Row: {
+          bakery_id: string
+          created_at: string
+          id: string
+          quantity: number
+          raw_material_id: string
+          template_id: string
+        }
+        Insert: {
+          bakery_id: string
+          created_at?: string
+          id?: string
+          quantity: number
+          raw_material_id: string
+          template_id: string
+        }
+        Update: {
+          bakery_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          raw_material_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_template_ingredients_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_ingredients_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_ingredients_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "batch_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_template_items: {
         Row: {
           bakery_id: string
@@ -224,6 +273,8 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          planned_quantity: number | null
+          product_id: string | null
           updated_at: string
         }
         Insert: {
@@ -232,6 +283,8 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          planned_quantity?: number | null
+          product_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -240,6 +293,8 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          planned_quantity?: number | null
+          product_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -248,6 +303,13 @@ export type Database = {
             columns: ["bakery_id"]
             isOneToOne: false
             referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_templates_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]

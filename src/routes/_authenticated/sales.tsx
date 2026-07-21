@@ -1,208 +1,250 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { useBakery, useProducts, useSalesSessions, useCreateSalesSession, useCloseSalesSession } from "@/lib/queries";
-import { formatDate, formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, ShoppingBag, CheckCircle2, Trash2 } from "lucide-react";
-import { Modal, Field, inputCls } from "./raw-materials";
+import { useMemo, useState } from "react";
+import { useBakery, useProducts, useQuickSale, useLedger } from "@/lib/queries";
+import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
+import { Plus, ShoppingBag, AlertTriangle } from "lucide-react";
+import { Modal, Field, inputCls } from "@/components/Modal";
 
 export const Route = createFileRoute("/_authenticated/sales")({ component: SalesPage });
 
 function SalesPage() {
   const { data: bakery } = useBakery();
-  const { data: sessions = [] } = useSalesSessions(30);
+  const { data: ledger = [] } = useLedger(200);
   const [showNew, setShowNew] = useState(false);
-  const closeSession = useCloseSalesSession();
+
+  const recentSales = useMemo(
+    () => ledger.filter((l) => l.kind === "sale" || l.kind === "loss").slice(0, 40),
+    [ledger]
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Ventes</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Sessions de vente</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Ouvrez une session, saisissez stocks et invendus, clôturez pour calculer les ventes.</p>
+          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Enregistrer une vente</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choisissez un produit, indiquez les invendus, la vente est calculée automatiquement.
+          </p>
         </div>
-        <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground">
-          <Plus className="h-4 w-4" /> Nouvelle session
+        <button
+          onClick={() => setShowNew(true)}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+        >
+          <Plus className="h-4 w-4" /> Nouvelle vente
         </button>
       </div>
 
-      <div className="space-y-3">
-        {sessions.length === 0 && (
-          <div className="card-elegant p-10 text-center text-sm text-muted-foreground">
+      <div className="card-elegant overflow-hidden">
+        <div className="border-b border-border px-5 py-3 text-xs uppercase tracking-widest text-muted-foreground">
+          Journal des ventes récentes
+        </div>
+        {recentSales.length === 0 && (
+          <div className="p-10 text-center text-sm text-muted-foreground">
             <ShoppingBag className="mx-auto mb-2 h-6 w-6 opacity-40" />
-            Aucune session enregistrée.
+            Aucune vente enregistrée.
           </div>
         )}
-        {sessions.map((s) => (
-          <div key={s.id} className="card-elegant p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-display text-lg">{s.name}</h3>
-                  <span className={`text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${s.status === "closed" ? "bg-secondary text-muted-foreground" : "bg-accent/15 text-accent"}`}>{s.status === "closed" ? "Clôturée" : "Ouverte"}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">{formatDate(s.session_date)} · {formatDateTime(s.created_at)}</p>
+        <ul className="divide-y divide-border">
+          {recentSales.map((l) => (
+            <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium truncate">
+                  {l.products?.name ?? l.raw_materials?.name ?? "—"}
+                  <span
+                    className={`ml-2 text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${l.kind === "sale" ? "bg-accent/15 text-accent" : "bg-destructive/15 text-destructive"}`}
+                  >
+                    {l.kind === "sale" ? "Vente" : "Perte"}
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)}</p>
               </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">Chiffre d'affaires</p>
-                <p className="font-display text-lg">{formatMoney(s.total_revenue)}</p>
-                {s.total_loss_value > 0 && <p className="text-xs text-destructive">Pertes {formatMoney(s.total_loss_value)}</p>}
+              <div className="text-right shrink-0">
+                <p className="text-xs text-muted-foreground">
+                  {formatQty(
+                    Math.abs(l.delta_quantity),
+                    UNIT_LABEL[l.products?.unit ?? l.raw_materials?.unit ?? "unite"]
+                  )}
+                </p>
+                <p
+                  className={`text-sm font-medium ${l.kind === "sale" ? "" : "text-destructive"}`}
+                >
+                  {formatMoney(Math.abs(l.delta_value))}
+                </p>
               </div>
-            </div>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm">
-                <thead className="text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="text-left py-2">Produit</th>
-                    <th className="text-right py-2">Stock</th>
-                    <th className="text-right py-2">Invendus</th>
-                    <th className="text-right py-2">Vendues</th>
-                    <th className="text-right py-2">CA</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {s.sales_session_items.map((it) => (
-                    <tr key={it.id}>
-                      <td className="py-2">{it.products?.name}</td>
-                      <td className="text-right">{formatQty(it.opening_stock)}</td>
-                      <td className="text-right text-destructive">{formatQty(it.unsold)}</td>
-                      <td className="text-right font-medium">{formatQty(it.quantity_sold)}</td>
-                      <td className="text-right">{formatMoney(it.quantity_sold * it.price_at_sale)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {s.status === "open" && (
-              <div className="mt-4 flex justify-end">
-                <button onClick={() => { if (confirm("Clôturer cette session ? Les ventes seront calculées et le stock mis à jour.")) closeSession.mutate(s.id); }} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground">
-                  <CheckCircle2 className="h-4 w-4" /> Clôturer la session
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {showNew && bakery && <NewSessionModal bakeryId={bakery.id} onClose={() => setShowNew(false)} />}
+      {showNew && bakery && (
+        <Modal title="Nouvelle vente" onClose={() => setShowNew(false)}>
+          <QuickSaleForm bakeryId={bakery.id} onDone={() => setShowNew(false)} />
+        </Modal>
+      )}
     </div>
   );
 }
 
-function NewSessionModal({ bakeryId, onClose }: { bakeryId: string; onClose: () => void }) {
+function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => void }) {
   const { data: products = [] } = useProducts();
-  const create = useCreateSalesSession();
+  const sale = useQuickSale();
+  const [productId, setProductId] = useState("");
+  const [unsold, setUnsold] = useState<number>(0);
+  const [unitPrice, setUnitPrice] = useState<number>(0);
+  const [keepUnsold, setKeepUnsold] = useState<boolean | null>(null);
 
-  const [name, setName] = useState(`Vente ${new Date().toLocaleDateString("fr-FR")}`);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [items, setItems] = useState<{ product_id: string; opening_stock: number; unsold: number; price_at_sale: number }[]>([]);
-  const [pid, setPid] = useState("");
+  const product = products.find((p) => p.id === productId);
+  const stock = product?.stock ?? 0;
+  const price = product?.sale_price ?? 0;
+  const effectivePrice = unitPrice || price;
 
-  function addProduct() {
-    const p = products.find((x) => x.id === pid);
-    if (!p || items.find((i) => i.product_id === p.id)) return;
-    setItems([...items, { product_id: p.id, opening_stock: p.stock, unsold: 0, price_at_sale: p.sale_price }]);
-    setPid("");
+  const vendus = Math.max(0, stock - unsold);
+  const ca = vendus * effectivePrice;
+  const stockValue = stock * effectivePrice;
+
+  const overUnsold = unsold > stock;
+  const canSubmit =
+    !!productId &&
+    !overUnsold &&
+    unsold >= 0 &&
+    effectivePrice >= 0 &&
+    (unsold === 0 || keepUnsold !== null) &&
+    !sale.isPending;
+
+  function onSelectProduct(id: string) {
+    setProductId(id);
+    const p = products.find((x) => x.id === id);
+    setUnitPrice(p?.sale_price ?? 0);
+    setUnsold(0);
+    setKeepUnsold(null);
   }
 
-  function update(idx: number, patch: any) {
-    setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit || !product) return;
+    sale.mutate(
+      {
+        bakery_id: bakeryId,
+        product_id: product.id,
+        quantity_sold: vendus,
+        unit_price: effectivePrice,
+        unsold,
+        keep_unsold: unsold === 0 ? true : (keepUnsold ?? true),
+      },
+      { onSuccess: onDone }
+    );
   }
-
-  function removeProduct(idx: number) {
-    setItems(items.filter((_, i) => i !== idx));
-  }
-
-  const canSubmit = items.length > 0 && items.every(it => it.opening_stock >= 0 && it.unsold >= 0 && it.unsold <= it.opening_stock);
 
   return (
-    <Modal title="Nouvelle session de vente" onClose={onClose}>
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Nom"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
-          <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></Field>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Produits en vente</p>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-            {items.map((it, idx) => {
-              const p = products.find((x) => x.id === it.product_id)!;
-              const vendues = it.opening_stock - it.unsold;
-              const ca = vendues * it.price_at_sale;
-
-              return (
-                <div key={it.product_id} className="rounded-xl border border-border p-3 hover:border-accent/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium">{p.name} <span className="text-xs text-muted-foreground">({UNIT_LABEL[p.unit]})</span></p>
-                    <button onClick={() => removeProduct(idx)} className="rounded p-1 hover:bg-secondary"><Trash2 className="h-4 w-4 text-destructive" /></button>
-                  </div>
-
-                  {/* Info box: Stock, Vendues, CA */}
-                  <div className="rounded-lg bg-secondary/30 px-3 py-2 mb-3 text-xs space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Stock :</span>
-                      <span className="font-medium">{formatQty(it.opening_stock, UNIT_LABEL[p.unit])}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Vendues :</span>
-                      <span className="font-medium">{formatQty(vendues, UNIT_LABEL[p.unit])}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Chiffre d'affaires :</span>
-                      <span className="font-semibold text-accent">{formatMoney(ca)}</span>
-                    </div>
-                  </div>
-
-                  {/* Input: Invendus */}
-                  <Field label="Invendus (quantité restante non vendue)">
-                    <input
-                      type="number"
-                      min={0}
-                      max={it.opening_stock}
-                      step="0.01"
-                      value={it.unsold}
-                      onChange={(e) => update(idx, { unsold: +e.target.value })}
-                      className={inputCls}
-                    />
-                  </Field>
-
-                  {/* Input: Prix de vente */}
-                  <Field label="Prix unitaire (FCFA)">
-                    <input
-                      type="number"
-                      min={0}
-                      step="1"
-                      value={it.price_at_sale}
-                      onChange={(e) => update(idx, { price_at_sale: +e.target.value })}
-                      className={inputCls}
-                    />
-                  </Field>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add product section */}
-          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 items-end">
-            <select value={pid} onChange={(e) => setPid(e.target.value)} className={inputCls}>
-              <option value="">— ajouter un produit —</option>
-              {products.filter((p) => !items.find((i) => i.product_id === p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <button type="button" disabled={!pid} onClick={addProduct} className="rounded-xl bg-accent px-3 py-2.5 text-sm text-accent-foreground disabled:opacity-50">Ajouter</button>
-          </div>
-        </div>
-
-        <button
-          onClick={() => create.mutate({ bakery_id: bakeryId, name, session_date: date, items }, { onSuccess: onClose })}
-          disabled={create.isPending || !canSubmit}
-          className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+    <form onSubmit={submit} className="space-y-4">
+      <Field label="Produit">
+        <select
+          required
+          value={productId}
+          onChange={(e) => onSelectProduct(e.target.value)}
+          className={inputCls}
         >
-          Ouvrir la session
-        </button>
-      </div>
-    </Modal>
+          <option value="">— Choisir un produit —</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {product && (
+        <>
+          <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Stock actuel</span>
+              <strong>{formatQty(stock, UNIT_LABEL[product.unit])}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Prix unitaire</span>
+              <strong>{formatMoney(effectivePrice)}</strong>
+            </div>
+            <div className="flex justify-between border-t border-border/60 pt-1 mt-1">
+              <span className="text-muted-foreground">Valeur totale du stock</span>
+              <strong>{formatMoney(stockValue)}</strong>
+            </div>
+          </div>
+
+          <Field label={`Invendus (en ${UNIT_LABEL[product.unit]})`}>
+            <input
+              type="number"
+              min={0}
+              max={stock}
+              step="0.01"
+              value={unsold}
+              onChange={(e) => setUnsold(+e.target.value)}
+              className={inputCls + (overUnsold ? " border-destructive" : "")}
+            />
+          </Field>
+
+          {overUnsold && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Les invendus dépassent le stock disponible.
+            </p>
+          )}
+
+          <Field label="Prix unitaire (FCFA)">
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={unitPrice || ""}
+              onChange={(e) => setUnitPrice(+e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+
+          <div className="rounded-xl border border-border p-3 text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Vendues</span>
+              <strong>{formatQty(vendus, UNIT_LABEL[product.unit])}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Chiffre d'affaires</span>
+              <strong className="text-accent">{formatMoney(ca)}</strong>
+            </div>
+          </div>
+
+          {unsold > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+                Conserver les invendus ?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setKeepUnsold(true)}
+                  className={`rounded-xl border px-3 py-2 text-sm transition-colors ${keepUnsold === true ? "border-accent bg-accent/10 text-accent" : "border-border"}`}
+                >
+                  Oui, garder en stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKeepUnsold(false)}
+                  className={`rounded-xl border px-3 py-2 text-sm transition-colors ${keepUnsold === false ? "border-destructive bg-destructive/10 text-destructive" : "border-border"}`}
+                >
+                  Non, à jeter (perte)
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+      >
+        {sale.isPending ? "Enregistrement…" : "Enregistrer la vente"}
+      </button>
+    </form>
   );
 }
