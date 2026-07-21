@@ -1,9 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useBakery, useProducts, useCreateProduct, useDeleteProduct, useRawMaterials, useRecipe, useUpsertRecipeLine, useDeleteRecipeLine, useUpdateProduct } from "@/lib/queries";
+import {
+  useBakery,
+  useProducts,
+  useCreateProduct,
+  useDeleteProduct,
+  useRawMaterials,
+  useRecipe,
+  useUpsertRecipeLine,
+  useDeleteRecipeLine,
+  useUpdateProduct,
+  type Product,
+} from "@/lib/queries";
 import { formatMoney, formatQty, PRODUCT_UNITS, UNIT_LABEL } from "@/lib/format";
-import { Plus, Search, Croissant, Trash2, ChefHat } from "lucide-react";
-import { Modal, Field, inputCls } from "./raw-materials";
+import { Plus, Search, Croissant, Trash2, ChefHat, Pencil } from "lucide-react";
+import { Modal, Field, inputCls } from "@/components/Modal";
+import { BatchForm } from "@/components/BatchForm";
 
 export const Route = createFileRoute("/_authenticated/products")({ component: ProductsPage });
 
@@ -12,31 +24,45 @@ function ProductsPage() {
   const { data: products = [] } = useProducts();
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
-  const [recipeFor, setRecipeFor] = useState<string | null>(null);
+  const [detailFor, setDetailFor] = useState<string | null>(null);
+  const [batchFor, setBatchFor] = useState<string | null>(null);
   const create = useCreateProduct();
-  const del = useDeleteProduct();
 
   const filtered = useMemo(
     () => products.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())),
     [products, q]
   );
 
+  const detailProduct = products.find((p) => p.id === detailFor);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Produits fabriqués</p>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+            Produits fabriqués
+          </p>
           <h1 className="mt-1 font-display text-3xl sm:text-4xl">Baguettes, croissants, pains…</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Recette, prix de vente, coût matière et stock.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Recette, prix de vente, coût matière et stock.
+          </p>
         </div>
-        <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground">
+        <button
+          onClick={() => setShowNew(true)}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+        >
           <Plus className="h-4 w-4" /> Nouveau produit
         </button>
       </div>
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher…" className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent transition-colors" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher…"
+          className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent transition-colors"
+        />
       </div>
 
       <div className="card-elegant overflow-hidden">
@@ -54,33 +80,51 @@ function ProductsPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                  Aucun produit fabriqué. Créez-en un pour commencer.
-                </td></tr>
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
+                    Aucun produit fabriqué. Créez-en un pour commencer.
+                  </td>
+                </tr>
               )}
               {filtered.map((p) => {
                 const margin = (p.sale_price ?? 0) - (p.material_cost ?? 0);
                 const low = p.stock <= p.low_stock_threshold;
                 return (
-                  <tr key={p.id} className={low ? "bg-destructive/5" : ""}>
+                  <tr
+                    key={p.id}
+                    onClick={() => setDetailFor(p.id)}
+                    className={`cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium">{p.name}</p>
                       <p className="text-xs text-muted-foreground">{UNIT_LABEL[p.unit]}</p>
                     </td>
-                    <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>{formatQty(p.stock, UNIT_LABEL[p.unit])}</td>
-                    <td className="px-4 py-3 text-right hidden sm:table-cell">{formatMoney(p.sale_price)}</td>
-                    <td className="px-4 py-3 text-right hidden md:table-cell text-muted-foreground">{formatMoney(p.material_cost)}</td>
-                    <td className={`px-4 py-3 text-right ${margin < 0 ? "text-destructive" : "text-accent"}`}>{formatMoney(margin)}</td>
-                    <td className="px-2 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        <button onClick={() => setRecipeFor(p.id)} className="rounded-lg p-2 hover:bg-secondary" title="Recette">
-                          <ChefHat className="h-4 w-4 text-accent" />
-                        </button>
-                        <button onClick={() => { if (confirm(`Supprimer « ${p.name} » ?`)) del.mutate(p.id); }} className="rounded-lg p-2 hover:bg-secondary" title="Supprimer">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </button>
-                      </div>
+                    <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>
+                      {formatQty(p.stock, UNIT_LABEL[p.unit])}
+                    </td>
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">
+                      {formatMoney(p.sale_price)}
+                    </td>
+                    <td className="px-4 py-3 text-right hidden md:table-cell text-muted-foreground">
+                      {formatMoney(p.material_cost)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 text-right ${margin < 0 ? "text-destructive" : "text-accent"}`}
+                    >
+                      {formatMoney(margin)}
+                    </td>
+                    <td
+                      className="px-2 py-3 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => setBatchFor(p.id)}
+                        className="rounded-lg p-2 hover:bg-secondary"
+                        title="Nouvelle fournée"
+                      >
+                        <ChefHat className="h-4 w-4 text-accent" />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -92,106 +136,430 @@ function ProductsPage() {
 
       {showNew && bakery && (
         <Modal title="Nouveau produit" onClose={() => setShowNew(false)}>
-          <ProductForm submitting={create.isPending} onSubmit={(v) => create.mutate({ bakery_id: bakery.id, ...v }, { onSuccess: () => setShowNew(false) })} />
+          <ProductForm
+            submitting={create.isPending}
+            onSubmit={(v) =>
+              create.mutate({ bakery_id: bakery.id, ...v }, { onSuccess: () => setShowNew(false) })
+            }
+          />
         </Modal>
       )}
 
-      {recipeFor && bakery && (
-        <Modal title="Recette" onClose={() => setRecipeFor(null)}>
-          <RecipeEditor bakeryId={bakery.id} productId={recipeFor} product={products.find(p => p.id === recipeFor)!} />
+      {detailProduct && (
+        <ProductDetail
+          product={detailProduct}
+          onClose={() => setDetailFor(null)}
+          onOpenBatch={() => {
+            setBatchFor(detailProduct.id);
+            setDetailFor(null);
+          }}
+        />
+      )}
+
+      {batchFor && bakery && (
+        <Modal title="Nouvelle fournée" onClose={() => setBatchFor(null)} size="lg">
+          <BatchForm
+            bakeryId={bakery.id}
+            initialProductId={batchFor}
+            onDone={() => setBatchFor(null)}
+          />
         </Modal>
       )}
     </div>
   );
 }
 
-function ProductForm({ onSubmit, submitting }: { onSubmit: (v: any) => void; submitting: boolean }) {
+function ProductDetail({
+  product,
+  onClose,
+  onOpenBatch,
+}: {
+  product: Product;
+  onClose: () => void;
+  onOpenBatch: () => void;
+}) {
+  const [tab, setTab] = useState<"info" | "edit" | "recipe">("info");
+  const update = useUpdateProduct();
+  const del = useDeleteProduct();
+  const [form, setForm] = useState({
+    name: product.name,
+    unit: product.unit,
+    sale_price: product.sale_price,
+    low_stock_threshold: product.low_stock_threshold,
+    notes: product.notes ?? "",
+  });
+
+  const unitLabel = UNIT_LABEL[product.unit];
+  const margin = (product.sale_price ?? 0) - (product.material_cost ?? 0);
+
+  function save() {
+    update.mutate(
+      {
+        id: product.id,
+        name: form.name,
+        unit: form.unit,
+        sale_price: form.sale_price,
+        low_stock_threshold: form.low_stock_threshold,
+        notes: form.notes || null,
+      },
+      { onSuccess: () => setTab("info") }
+    );
+  }
+
+  return (
+    <Modal title={product.name} subtitle="Fiche produit" onClose={onClose} size="lg">
+      <div className="mb-4 flex gap-1 rounded-xl bg-secondary/50 p-1">
+        <TabBtn active={tab === "info"} onClick={() => setTab("info")}>Informations</TabBtn>
+        <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>Modifier</TabBtn>
+        <TabBtn active={tab === "recipe"} onClick={() => setTab("recipe")}>Recette</TabBtn>
+      </div>
+
+      {tab === "info" && (
+        <div className="space-y-3 text-sm">
+          <Row label="Unité" value={unitLabel} />
+          <Row label="Stock actuel" value={<strong>{formatQty(product.stock, unitLabel)}</strong>} />
+          <Row label="Seuil bas" value={formatQty(product.low_stock_threshold, unitLabel)} />
+          <Row label="Prix de vente" value={formatMoney(product.sale_price)} />
+          <Row label="Coût matière" value={formatMoney(product.material_cost)} />
+          <Row
+            label="Marge unitaire"
+            value={
+              <span className={margin < 0 ? "text-destructive" : "text-accent"}>
+                <strong>{formatMoney(margin)}</strong>
+              </span>
+            }
+          />
+          <Row
+            label="Valeur du stock"
+            value={<strong>{formatMoney(product.stock * product.material_cost)}</strong>}
+          />
+          {product.notes && (
+            <div>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Notes</p>
+              <p className="rounded-xl bg-secondary/50 px-3 py-2 whitespace-pre-wrap">
+                {product.notes}
+              </p>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground italic pt-2">
+            Le stock évolue uniquement lors d'une fournée ou d'une vente.
+          </p>
+          <div className="flex gap-2 pt-3">
+            <button
+              onClick={onOpenBatch}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
+            >
+              <ChefHat className="h-4 w-4" /> Nouvelle fournée
+            </button>
+            <button
+              onClick={() => setTab("edit")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Supprimer « ${product.name} » ?`)) {
+                  del.mutate(product.id, { onSuccess: onClose });
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-xl border border-destructive/40 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tab === "edit" && (
+        <div className="space-y-3">
+          <Field label="Nom">
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Unité">
+              <select
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value as any })}
+                className={inputCls}
+              >
+                {PRODUCT_UNITS.map((u) => (
+                  <option key={u} value={u}>
+                    {UNIT_LABEL[u]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Prix de vente (FCFA)">
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={form.sale_price}
+                onChange={(e) => setForm({ ...form, sale_price: +e.target.value })}
+                className={inputCls}
+              />
+            </Field>
+          </div>
+          <Field label="Seuil bas">
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={form.low_stock_threshold}
+              onChange={(e) => setForm({ ...form, low_stock_threshold: +e.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Notes">
+            <textarea
+              rows={3}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              className={inputCls}
+            />
+          </Field>
+          <p className="text-[11px] text-muted-foreground italic">
+            Le stock n'est pas modifiable ici.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTab("info")}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={save}
+              disabled={update.isPending}
+              className="flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
+            >
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tab === "recipe" && <RecipeEditor product={product} />}
+    </Modal>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 rounded-lg py-1.5 text-xs transition-colors ${active ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between border-b border-border/60 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function ProductForm({
+  onSubmit,
+  submitting,
+}: {
+  onSubmit: (v: any) => void;
+  submitting: boolean;
+}) {
   const [name, setName] = useState("");
-  const [unit, setUnit] = useState<typeof PRODUCT_UNITS[number]>("unite");
+  const [unit, setUnit] = useState<(typeof PRODUCT_UNITS)[number]>("unite");
   const [sale_price, setPrice] = useState(0);
   const [stock, setStock] = useState(0);
   const [low_stock_threshold, setT] = useState(0);
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, unit, sale_price, stock, low_stock_threshold }); }} className="space-y-3">
-      <Field label="Nom"><input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Baguette tradition" /></Field>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit({ name, unit, sale_price, stock, low_stock_threshold });
+      }}
+      className="space-y-3"
+    >
+      <Field label="Nom">
+        <input
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputCls}
+          placeholder="Baguette tradition"
+        />
+      </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Unité de vente">
-          <select value={unit} onChange={(e) => setUnit(e.target.value as any)} className={inputCls}>
-            {PRODUCT_UNITS.map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
+          <select
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as any)}
+            className={inputCls}
+          >
+            {PRODUCT_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {UNIT_LABEL[u]}
+              </option>
+            ))}
           </select>
         </Field>
-        <Field label="Prix de vente (FCFA)"><input type="number" min={0} step="1" value={sale_price} onChange={(e) => setPrice(+e.target.value)} className={inputCls} /></Field>
+        <Field label="Prix de vente (FCFA)">
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={sale_price || ""}
+            onChange={(e) => setPrice(+e.target.value)}
+            className={inputCls}
+          />
+        </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Stock initial"><input type="number" min={0} step="1" value={stock} onChange={(e) => setStock(+e.target.value)} className={inputCls} /></Field>
-        <Field label="Seuil bas"><input type="number" min={0} step="1" value={low_stock_threshold} onChange={(e) => setT(+e.target.value)} className={inputCls} /></Field>
+        <Field label="Stock initial">
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={stock || ""}
+            onChange={(e) => setStock(+e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Seuil bas">
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={low_stock_threshold || ""}
+            onChange={(e) => setT(+e.target.value)}
+            className={inputCls}
+          />
+        </Field>
       </div>
-      <p className="text-xs text-muted-foreground">Vous pourrez définir la recette (matières nécessaires) après création.</p>
-      <button disabled={submitting} className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60">Créer le produit</button>
+      <p className="text-xs text-muted-foreground">
+        Vous pourrez définir la recette (matières nécessaires) depuis la fiche produit.
+      </p>
+      <button
+        disabled={submitting}
+        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
+      >
+        Créer le produit
+      </button>
     </form>
   );
 }
 
-function RecipeEditor({ bakeryId, productId, product }: { bakeryId: string; productId: string; product: any }) {
+function RecipeEditor({ product }: { product: Product }) {
   const { data: materials = [] } = useRawMaterials();
-  const { data: recipe = [] } = useRecipe(productId);
+  const { data: recipe = [] } = useRecipe(product.id);
   const upsert = useUpsertRecipeLine();
   const del = useDeleteRecipeLine();
-  const updateProduct = useUpdateProduct();
 
   const [matId, setMatId] = useState("");
   const [qty, setQty] = useState(0);
-  const [salePrice, setSalePrice] = useState(product.sale_price);
 
-  const totalCost = recipe.reduce((s, r) => s + r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0), 0);
+  const totalCost = recipe.reduce(
+    (s, r) => s + r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm">
-        <p className="font-medium">{product.name}</p>
-        <p className="text-xs text-muted-foreground">Coût matière calculé : <strong>{formatMoney(totalCost)}</strong> · Marge : <strong>{formatMoney((salePrice ?? 0) - totalCost)}</strong></p>
+        <p className="font-medium">Coût matière calculé : {formatMoney(totalCost)}</p>
+        <p className="text-xs text-muted-foreground">
+          Ingrédients requis pour produire 1 {UNIT_LABEL[product.unit]}.
+        </p>
       </div>
 
-      <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Ingrédients par unité produite</p>
-        <div className="divide-y divide-border rounded-xl border border-border max-h-64 overflow-y-auto">
-          {recipe.length === 0 && <p className="p-3 text-xs text-muted-foreground">Aucun ingrédient. Ajoutez-en ci-dessous.</p>}
-          {recipe.map((r) => (
-            <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm hover:bg-secondary/30">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium">{r.raw_materials?.name}</p>
-                <p className="text-xs text-muted-foreground">{formatQty(r.quantity_per_unit, UNIT_LABEL[r.raw_materials?.unit ?? "unite"])} · {formatMoney(r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0))}</p>
-              </div>
-              <button onClick={() => del.mutate(r.id)} className="ml-2 rounded-lg p-2 hover:bg-secondary flex-shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></button>
+      <div className="rounded-xl border border-border divide-y max-h-64 overflow-y-auto">
+        {recipe.length === 0 && (
+          <p className="p-3 text-xs text-muted-foreground">Aucun ingrédient.</p>
+        )}
+        {recipe.map((r) => (
+          <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium truncate">{r.raw_materials?.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatQty(r.quantity_per_unit, UNIT_LABEL[r.raw_materials?.unit ?? "unite"])} ·{" "}
+                {formatMoney(r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0))}
+              </p>
             </div>
-          ))}
-        </div>
+            <button
+              onClick={() => del.mutate(r.id)}
+              className="ml-2 rounded-lg p-2 hover:bg-secondary shrink-0"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
         <Field label="Matière">
-          <select value={matId} onChange={(e) => setMatId(e.target.value)} className={inputCls}>
+          <select
+            value={matId}
+            onChange={(e) => setMatId(e.target.value)}
+            className={inputCls}
+          >
             <option value="">— choisir —</option>
-            {materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {materials.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
           </select>
         </Field>
-        <Field label="Quantité / unité"><input type="number" min={0} step="0.0001" value={qty} onChange={(e) => setQty(+e.target.value)} className={inputCls} /></Field>
-        <button
-          disabled={!matId || qty <= 0 || upsert.isPending}
-          onClick={() => upsert.mutate({ bakery_id: bakeryId, product_id: productId, raw_material_id: matId, quantity_per_unit: qty }, { onSuccess: () => { setMatId(""); setQty(0); } })}
-          className="rounded-xl bg-accent px-4 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
-        >Ajouter</button>
-      </div>
-
-      <div className="border-t pt-4">
-        <Field label="Prix de vente (FCFA)">
-          <input type="number" min={0} step="1" value={salePrice} onChange={(e) => setSalePrice(+e.target.value)} className={inputCls} />
+        <Field label="Quantité / unité">
+          <input
+            type="number"
+            min={0}
+            step="0.0001"
+            value={qty || ""}
+            onChange={(e) => setQty(+e.target.value)}
+            className={inputCls + " w-32"}
+          />
         </Field>
-        <button
-          onClick={() => updateProduct.mutate({ id: productId, sale_price: salePrice })}
-          className="mt-3 w-full rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
-        >Enregistrer le prix</button>
       </div>
+      <button
+        disabled={!matId || qty <= 0 || upsert.isPending}
+        onClick={() =>
+          upsert.mutate(
+            {
+              bakery_id: product.bakery_id,
+              product_id: product.id,
+              raw_material_id: matId,
+              quantity_per_unit: qty,
+            },
+            {
+              onSuccess: () => {
+                setMatId("");
+                setQty(0);
+              },
+            }
+          )
+        }
+        className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
+      >
+        Ajouter à la recette
+      </button>
     </div>
   );
 }
