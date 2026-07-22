@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers } from "lucide-react";
+import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery } from "@/lib/queries";
 
@@ -73,7 +73,14 @@ function AuthedLayout() {
             })}
           </nav>
           <div className="flex items-center gap-2">
-            <span className="hidden md:inline text-xs text-muted-foreground truncate max-w-[160px]">{user.email}</span>
+            <Link
+              to="/profile"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+              title="Profil"
+            >
+              <User className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Profil</span>
+            </Link>
             <button
               onClick={signOut}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
