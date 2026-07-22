@@ -100,7 +100,10 @@ export function useUpdateRawMaterial() {
 export function useDeleteRawMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      if (stock > 0) {
+        throw new Error("Impossible de supprimer cette matière : le stock doit être nul pour pouvoir la supprimer.");
+      }
       const { error } = await supabase.from("raw_materials").delete().eq("id", id);
       if (error) throw error;
     },
