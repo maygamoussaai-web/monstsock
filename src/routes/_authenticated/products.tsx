@@ -472,39 +472,102 @@ function RecipeEditor({ product }: { product: Product }) {
   const upsert = useUpsertRecipeLine();
   const del = useDeleteRecipeLine();
 
-  const [matId, setMatId] = useState("");
-  const [qty, setQty] = useState(0);
+  // Lignes locales : { id?: existant, raw_material_id }
+  type Line = { id?: string; raw_material_id: string };
+  const [lines, setLines] = useState<Line[]>([{ raw_material_id: "" }]);
+  const [dirty, setDirty] = useState(false);
 
-  const totalCost = recipe.reduce(
-    (s, r) => s + r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0),
-    0
-  );
+  // Hydrate depuis la recette existante quand elle arrive/change
+  useMemo(() => {
+    if (recipe.length > 0) {
+      setLines(recipe.map((r) => ({ id: r.id, raw_material_id: r.raw_material_id })));
+    } else {
+      setLines([{ raw_material_id: "" }]);
+    }
+    setDirty(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe.length, product.id]);
+
+  const hasExisting = recipe.length > 0;
+  const filled = lines.filter((l) => l.raw_material_id);
+  const firstOk = !!lines[0]?.raw_material_id;
+  const hasDup = new Set(filled.map((l) => l.raw_material_id)).size !== filled.length;
+
+  function update(idx: number, v: string) {
+    setLines(lines.map((l, i) => (i === idx ? { ...l, raw_material_id: v } : l)));
+    setDirty(true);
+  }
+  function addLine() {
+    setLines([...lines, { raw_material_id: "" }]);
+    setDirty(true);
+  }
+  function removeLine(idx: number) {
+    if (lines.length === 1) setLines([{ raw_material_id: "" }]);
+    else setLines(lines.filter((_, i) => i !== idx));
+    setDirty(true);
+  }
+
+  async function save() {
+    if (!firstOk || hasDup) return;
+    // Supprimer les lignes retirées
+    const keptIds = new Set(filled.map((l) => l.id).filter(Boolean) as string[]);
+    for (const r of recipe) {
+      if (!keptIds.has(r.id)) {
+        await new Promise<void>((resolve) => del.mutate(r.id, { onSettled: () => resolve() }));
+      }
+    }
+    // Upsert des lignes conservées / ajoutées (quantity_per_unit = 0, à définir en fournée)
+    for (const l of filled) {
+      await new Promise<void>((resolve) =>
+        upsert.mutate(
+          {
+            bakery_id: product.bakery_id,
+            product_id: product.id,
+            raw_material_id: l.raw_material_id,
+            quantity_per_unit: 0,
+          },
+          { onSettled: () => resolve() }
+        )
+      );
+    }
+    setDirty(false);
+  }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm">
-        <p className="font-medium">Coût matière calculé : {formatMoney(totalCost)}</p>
-        <p className="text-xs text-muted-foreground">
-          Ingrédients requis pour produire 1 {UNIT_LABEL[product.unit]}.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Ajoutez les ingrédients nécessaires à la préparation de ce produit.
+      </p>
 
-      <div className="rounded-xl border border-border divide-y max-h-64 overflow-y-auto">
-        {recipe.length === 0 && (
-          <p className="p-3 text-xs text-muted-foreground">Aucun ingrédient.</p>
-        )}
-        {recipe.map((r) => (
-          <div key={r.id} className="flex items-center justify-between px-3 py-2 text-sm">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium truncate">{r.raw_materials?.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatQty(r.quantity_per_unit, UNIT_LABEL[r.raw_materials?.unit ?? "unite"])} ·{" "}
-                {formatMoney(r.quantity_per_unit * (r.raw_materials?.avg_cost ?? 0))}
-              </p>
-            </div>
+      <div className="space-y-2">
+        {lines.map((l, idx) => (
+          <div key={idx} className="grid grid-cols-[1fr_auto] gap-2 items-center">
+            <select
+              value={l.raw_material_id}
+              onChange={(e) => update(idx, e.target.value)}
+              className={inputCls}
+              required={idx === 0}
+            >
+              <option value="">
+                {idx === 0 ? "— Matière première (obligatoire) —" : "— Matière première (optionnel) —"}
+              </option>
+              {materials
+                .filter(
+                  (m) =>
+                    m.id === l.raw_material_id ||
+                    !lines.some((x, k) => k !== idx && x.raw_material_id === m.id)
+                )
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
             <button
-              onClick={() => del.mutate(r.id)}
-              className="ml-2 rounded-lg p-2 hover:bg-secondary shrink-0"
+              type="button"
+              onClick={() => removeLine(idx)}
+              className="rounded-lg p-2 hover:bg-secondary"
+              aria-label="Retirer"
             >
               <Trash2 className="h-4 w-4 text-destructive" />
             </button>
@@ -512,53 +575,33 @@ function RecipeEditor({ product }: { product: Product }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-        <Field label="Matière">
-          <select
-            value={matId}
-            onChange={(e) => setMatId(e.target.value)}
-            className={inputCls}
-          >
-            <option value="">— choisir —</option>
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Quantité / unité">
-          <input
-            type="number"
-            min={0}
-            step="0.0001"
-            value={qty || ""}
-            onChange={(e) => setQty(+e.target.value)}
-            className={inputCls + " w-32"}
-          />
-        </Field>
-      </div>
       <button
-        disabled={!matId || qty <= 0 || upsert.isPending}
-        onClick={() =>
-          upsert.mutate(
-            {
-              bakery_id: product.bakery_id,
-              product_id: product.id,
-              raw_material_id: matId,
-              quantity_per_unit: qty,
-            },
-            {
-              onSuccess: () => {
-                setMatId("");
-                setQty(0);
-              },
-            }
-          )
-        }
-        className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
+        type="button"
+        onClick={addLine}
+        className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
       >
-        Ajouter à la recette
+        <Plus className="h-3 w-3" /> Ajouter un ingrédient
+      </button>
+
+      {hasDup && (
+        <p className="text-xs text-destructive">Une même matière est ajoutée plusieurs fois.</p>
+      )}
+
+      <p className="text-[11px] text-muted-foreground italic">
+        Les quantités seront précisées lors de chaque fournée.
+      </p>
+
+      <button
+        type="button"
+        onClick={save}
+        disabled={!firstOk || hasDup || upsert.isPending || del.isPending || (!dirty && hasExisting)}
+        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+      >
+        {upsert.isPending || del.isPending
+          ? "Enregistrement…"
+          : hasExisting
+            ? "Modifier la recette"
+            : "Enregistrer la recette"}
       </button>
     </div>
   );
