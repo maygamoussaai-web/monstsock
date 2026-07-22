@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { useBakery, useBatches } from "@/lib/queries";
+import { useMemo, useState } from "react";
+import { useBakery, useBatches, useProducts } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, Flame } from "lucide-react";
+import { Plus, Flame, Search } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { BatchForm } from "@/components/BatchForm";
 
@@ -10,8 +10,27 @@ export const Route = createFileRoute("/_authenticated/batches")({ component: Bat
 
 function BatchesPage() {
   const { data: bakery } = useBakery();
-  const { data: batches = [] } = useBatches(50);
+  const { data: batches = [] } = useBatches(100);
+  const { data: products = [] } = useProducts();
   const [showNew, setShowNew] = useState(false);
+  const [q, setQ] = useState("");
+  const [productId, setProductId] = useState("all");
+  const [date, setDate] = useState("");
+
+  const filtered = useMemo(() => {
+    return batches.filter((b) => {
+      if (q) {
+        const hay = (b.name + " " + b.batch_outputs.map((o) => o.products?.name ?? "").join(" ")).toLowerCase();
+        if (!hay.includes(q.toLowerCase())) return false;
+      }
+      if (productId !== "all" && !b.batch_outputs.some((o) => o.product_id === productId)) return false;
+      if (date) {
+        const d = new Date(b.created_at).toISOString().slice(0, 10);
+        if (d !== date) return false;
+      }
+      return true;
+    });
+  }, [batches, q, productId, date]);
 
   return (
     <div className="space-y-6">
@@ -31,14 +50,42 @@ function BatchesPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher par produit…"
+            className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <select
+          value={productId}
+          onChange={(e) => setProductId(e.target.value)}
+          className="rounded-full border border-input bg-card px-4 py-2 text-xs outline-none focus:border-accent"
+        >
+          <option value="all">Tous produits</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-full border border-input bg-card px-4 py-2 text-xs outline-none focus:border-accent"
+        />
+      </div>
+
       <div className="space-y-3">
-        {batches.length === 0 && (
+        {filtered.length === 0 && (
           <div className="card-elegant p-10 text-center text-sm text-muted-foreground">
             <Flame className="mx-auto mb-2 h-6 w-6 opacity-40" />
-            Aucune fournée enregistrée pour le moment.
+            Aucune fournée pour ces filtres.
           </div>
         )}
-        {batches.map((b) => (
+        {filtered.map((b) => (
           <div key={b.id} className="card-elegant p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
