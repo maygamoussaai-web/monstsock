@@ -236,7 +236,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
             <button
               onClick={() => {
                 if (confirm(`Supprimer « ${material.name} » ?`)) {
-                  del.mutate(material.id, { onSuccess: onClose });
+                  del.mutate({ id: material.id, stock: material.stock }, { onSuccess: onClose });
                 }
               }}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-destructive/40 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
