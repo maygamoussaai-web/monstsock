@@ -48,6 +48,24 @@ function SalesPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher par produit…"
+            className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-full border border-input bg-card px-4 py-2 text-xs outline-none focus:border-accent"
+        />
+      </div>
+
       <div className="card-elegant overflow-hidden">
         <div className="border-b border-border px-5 py-3 text-xs uppercase tracking-widest text-muted-foreground">
           Journal des ventes récentes
