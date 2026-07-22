@@ -2,19 +2,32 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useBakery, useProducts, useQuickSale, useLedger } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, ShoppingBag, AlertTriangle } from "lucide-react";
+import { Plus, ShoppingBag, AlertTriangle, Search } from "lucide-react";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
 export const Route = createFileRoute("/_authenticated/sales")({ component: SalesPage });
 
 function SalesPage() {
   const { data: bakery } = useBakery();
-  const { data: ledger = [] } = useLedger(200);
+  const { data: ledger = [] } = useLedger(500);
   const [showNew, setShowNew] = useState(false);
+  const [q, setQ] = useState("");
+  const [date, setDate] = useState("");
 
   const recentSales = useMemo(
-    () => ledger.filter((l) => l.kind === "sale" || l.kind === "loss").slice(0, 40),
-    [ledger]
+    () =>
+      ledger
+        .filter((l) => l.kind === "sale" || l.kind === "loss")
+        .filter((l) => {
+          if (q) {
+            const name = (l.products?.name ?? l.raw_materials?.name ?? "").toLowerCase();
+            if (!name.includes(q.toLowerCase())) return false;
+          }
+          if (date && new Date(l.created_at).toISOString().slice(0, 10) !== date) return false;
+          return true;
+        })
+        .slice(0, 100),
+    [ledger, q, date]
   );
 
   return (
