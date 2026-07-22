@@ -35,6 +35,18 @@ export function useBakery() {
   });
 }
 
+export function useUpdateBakery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string; name?: string; logo_url?: string | null }) => {
+      const { error } = await supabase.from("bakeries").update(patch as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Boulangerie mise à jour"); invalidate(qc, ["bakery"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
 // Invalide uniquement les domaines de données concernés, au lieu de recharger toute l'app.
 function invalidate(qc: ReturnType<typeof useQueryClient>, keys: string[]) {
   keys.forEach((key) => qc.invalidateQueries({ queryKey: [key] }));
@@ -88,7 +100,10 @@ export function useUpdateRawMaterial() {
 export function useDeleteRawMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      if (stock > 0) {
+        throw new Error("Impossible de supprimer cette matière : le stock doit être nul pour pouvoir la supprimer.");
+      }
       const { error } = await supabase.from("raw_materials").delete().eq("id", id);
       if (error) throw error;
     },
@@ -250,7 +265,10 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      if (stock > 0) {
+        throw new Error("Impossible de supprimer ce produit : le stock doit être nul pour pouvoir le supprimer.");
+      }
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
     },

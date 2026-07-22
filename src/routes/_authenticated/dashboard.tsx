@@ -40,10 +40,20 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Tableau de bord</p>
-        <h1 className="mt-1 font-display text-3xl sm:text-4xl">{bakery?.name ?? "Ma boulangerie"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Vue d'ensemble de l'activité, du stock et des finances.</p>
+      <div className="flex items-center gap-4">
+        <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-secondary overflow-hidden shrink-0">
+          {(bakery as any)?.logo_url ? (
+            <img src={(bakery as any).logo_url} alt="Logo" className="h-full w-full object-cover" />
+          ) : (
+            <span className="font-display text-xl text-muted-foreground">
+              {(bakery?.name ?? "M").slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Tableau de bord</p>
+          <h1 className="mt-1 font-display text-3xl sm:text-4xl truncate">{bakery?.name ?? "Ma boulangerie"}</h1>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

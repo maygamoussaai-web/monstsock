@@ -2,19 +2,32 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useBakery, useProducts, useQuickSale, useLedger } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, ShoppingBag, AlertTriangle } from "lucide-react";
+import { Plus, ShoppingBag, AlertTriangle, Search } from "lucide-react";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
 export const Route = createFileRoute("/_authenticated/sales")({ component: SalesPage });
 
 function SalesPage() {
   const { data: bakery } = useBakery();
-  const { data: ledger = [] } = useLedger(200);
+  const { data: ledger = [] } = useLedger(500);
   const [showNew, setShowNew] = useState(false);
+  const [q, setQ] = useState("");
+  const [date, setDate] = useState("");
 
   const recentSales = useMemo(
-    () => ledger.filter((l) => l.kind === "sale" || l.kind === "loss").slice(0, 40),
-    [ledger]
+    () =>
+      ledger
+        .filter((l) => l.kind === "sale" || l.kind === "loss")
+        .filter((l) => {
+          if (q) {
+            const name = (l.products?.name ?? l.raw_materials?.name ?? "").toLowerCase();
+            if (!name.includes(q.toLowerCase())) return false;
+          }
+          if (date && new Date(l.created_at).toISOString().slice(0, 10) !== date) return false;
+          return true;
+        })
+        .slice(0, 100),
+    [ledger, q, date]
   );
 
   return (
@@ -33,6 +46,24 @@ function SalesPage() {
         >
           <Plus className="h-4 w-4" /> Nouvelle vente
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher par produit…"
+            className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-full border border-input bg-card px-4 py-2 text-xs outline-none focus:border-accent"
+        />
       </div>
 
       <div className="card-elegant overflow-hidden">
