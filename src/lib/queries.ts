@@ -265,7 +265,10 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      if (stock > 0) {
+        throw new Error("Impossible de supprimer ce produit : le stock doit être nul pour pouvoir le supprimer.");
+      }
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
     },
