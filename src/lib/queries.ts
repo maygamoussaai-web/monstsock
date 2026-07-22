@@ -35,6 +35,18 @@ export function useBakery() {
   });
 }
 
+export function useUpdateBakery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string; name?: string; logo_url?: string | null }) => {
+      const { error } = await supabase.from("bakeries").update(patch as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Boulangerie mise à jour"); invalidate(qc, ["bakery"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
 // Invalide uniquement les domaines de données concernés, au lieu de recharger toute l'app.
 function invalidate(qc: ReturnType<typeof useQueryClient>, keys: string[]) {
   keys.forEach((key) => qc.invalidateQueries({ queryKey: [key] }));
