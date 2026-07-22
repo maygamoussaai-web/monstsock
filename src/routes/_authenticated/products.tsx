@@ -260,7 +260,7 @@ function ProductDetail({
             <button
               onClick={() => {
                 if (confirm(`Supprimer « ${product.name} » ?`)) {
-                  del.mutate(product.id, { onSuccess: onClose });
+                  del.mutate({ id: product.id, stock: product.stock }, { onSuccess: onClose });
                 }
               }}
               className="inline-flex items-center justify-center rounded-xl border border-destructive/40 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
