@@ -6,6 +6,7 @@ import {
   useProducts,
   useRawMaterials,
   useCreateBatch,
+  useRecipe,
 } from "@/lib/queries";
 import { formatQty, UNIT_LABEL } from "@/lib/format";
 
