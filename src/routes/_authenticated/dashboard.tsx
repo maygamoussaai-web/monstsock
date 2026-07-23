@@ -115,16 +115,22 @@ function Dashboard() {
         <div className="card-elegant p-6">
           <h2 className="font-display text-xl">Dernières ventes</h2>
           <div className="mt-4 space-y-3">
-            {sessions.length === 0 && <p className="text-sm text-muted-foreground">Aucune session de vente.</p>}
-            {sessions.map((s) => (
-              <div key={s.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · {s.status === "closed" ? "clôturée" : "ouverte"}</p>
+            {(() => {
+              const sales = ledger.filter((l) => l.kind === "sale").slice(0, 6);
+              if (sales.length === 0)
+                return <p className="text-sm text-muted-foreground">Aucune vente enregistrée.</p>;
+              return sales.map((s) => (
+                <div key={s.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{s.products?.name ?? "Produit"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(s.created_at)} · {formatQty(Math.abs(s.delta_quantity), UNIT_LABEL[s.products?.unit ?? "unite"])}
+                    </p>
+                  </div>
+                  <p className="text-xs text-accent whitespace-nowrap">{formatMoney(s.delta_value)}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{formatMoney(s.total_revenue)}</p>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </section>
