@@ -80,22 +80,19 @@ function ProductsPage() {
                 <th className="text-left px-4 py-3">Produit</th>
                 <th className="text-right px-4 py-3">Stock</th>
                 <th className="text-right px-4 py-3 hidden sm:table-cell">Prix vente</th>
-                <th className="text-right px-4 py-3 hidden md:table-cell">Coût matière</th>
-                <th className="text-right px-4 py-3">Marge</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
                     Aucun produit fabriqué. Créez-en un pour commencer.
                   </td>
                 </tr>
               )}
               {filtered.map((p) => {
-                const margin = (p.sale_price ?? 0) - (p.material_cost ?? 0);
                 const low = p.stock <= p.low_stock_threshold;
                 return (
                   <tr
@@ -112,14 +109,6 @@ function ProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right hidden sm:table-cell">
                       {formatMoney(p.sale_price)}
-                    </td>
-                    <td className="px-4 py-3 text-right hidden md:table-cell text-muted-foreground">
-                      {formatMoney(p.material_cost)}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right ${margin < 0 ? "text-destructive" : "text-accent"}`}
-                    >
-                      {formatMoney(margin)}
                     </td>
                     <td
                       className="px-2 py-3 text-right"
