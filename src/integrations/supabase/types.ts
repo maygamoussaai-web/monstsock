@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action_type: string
+          bakery_id: string
+          created_at: string
+          description: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          bakery_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          bakery_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bakeries: {
         Row: {
           address: string | null
@@ -43,6 +78,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      bakery_invitations: {
+        Row: {
+          bakery_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          bakery_id: string
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          token: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          bakery_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bakery_invitations_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bakery_members: {
         Row: {
@@ -377,13 +453,40 @@ export type Database = {
           },
         ]
       }
+      invitation_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          used: boolean
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       product_recipes: {
         Row: {
           bakery_id: string
           created_at: string
           id: string
           product_id: string
-          quantity_per_unit: number
+          quantity_per_unit: number | null
           raw_material_id: string
         }
         Insert: {
@@ -391,7 +494,7 @@ export type Database = {
           created_at?: string
           id?: string
           product_id: string
-          quantity_per_unit: number
+          quantity_per_unit?: number | null
           raw_material_id: string
         }
         Update: {
@@ -399,7 +502,7 @@ export type Database = {
           created_at?: string
           id?: string
           product_id?: string
-          quantity_per_unit?: number
+          quantity_per_unit?: number | null
           raw_material_id?: string
         }
         Relationships: [
@@ -761,15 +864,72 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          bakery_id: string
+          created_at: string
+          id: string
+          invitation_code_id: string | null
+          plan: Database["public"]["Enums"]["subscription_plan"] | null
+          status: Database["public"]["Enums"]["subscription_status"]
+          subscription_end: string | null
+          trial_end: string | null
+          updated_at: string
+          whatsapp_contact: string | null
+        }
+        Insert: {
+          bakery_id: string
+          created_at?: string
+          id?: string
+          invitation_code_id?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"] | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_end?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          whatsapp_contact?: string | null
+        }
+        Update: {
+          bakery_id?: string
+          created_at?: string
+          id?: string
+          invitation_code_id?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"] | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_end?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          whatsapp_contact?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: true
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_invitation_code_id_fkey"
+            columns: ["invitation_code_id"]
+            isOneToOne: false
+            referencedRelation: "invitation_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: { Args: { _token: string }; Returns: string }
       close_sales_session: { Args: { _session_id: string }; Returns: undefined }
       complete_batch: { Args: { _batch_id: string }; Returns: undefined }
+      create_invitation: { Args: { _bakery_id: string }; Returns: string }
       current_bakery_id: { Args: never; Returns: string }
       has_bakery_access: { Args: { _bakery_id: string }; Returns: boolean }
+      is_bakery_owner: { Args: { _bakery_id: string }; Returns: boolean }
       recompute_product_material_cost: {
         Args: { _product_id: string }
         Returns: undefined
@@ -827,6 +987,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_bakery_member: {
+        Args: { _bakery_id: string; _user_id: string }
+        Returns: undefined
+      }
+      transfer_bakery_ownership: {
+        Args: { _bakery_id: string; _new_owner: string }
+        Returns: undefined
+      }
     }
     Enums: {
       bakery_role: "owner" | "staff"
@@ -841,6 +1009,8 @@ export type Database = {
       material_unit: "kg" | "g" | "L" | "mL" | "unite"
       product_unit: "unite" | "piece" | "kg" | "g"
       sales_status: "open" | "closed"
+      subscription_plan: "monthly" | "annual"
+      subscription_status: "trial" | "active" | "expired" | "blocked"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -981,6 +1151,8 @@ export const Constants = {
       material_unit: ["kg", "g", "L", "mL", "unite"],
       product_unit: ["unite", "piece", "kg", "g"],
       sales_status: ["open", "closed"],
+      subscription_plan: ["monthly", "annual"],
+      subscription_status: ["trial", "active", "expired", "blocked"],
     },
   },
 } as const
