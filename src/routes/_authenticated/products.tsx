@@ -216,19 +216,6 @@ function ProductDetail({
           <Row label="Stock actuel" value={<strong>{formatQty(product.stock, unitLabel)}</strong>} />
           <Row label="Seuil bas" value={formatQty(product.low_stock_threshold, unitLabel)} />
           <Row label="Prix de vente" value={formatMoney(product.sale_price)} />
-          <Row label="Coût matière" value={formatMoney(product.material_cost)} />
-          <Row
-            label="Marge unitaire"
-            value={
-              <span className={margin < 0 ? "text-destructive" : "text-accent"}>
-                <strong>{formatMoney(margin)}</strong>
-              </span>
-            }
-          />
-          <Row
-            label="Valeur du stock"
-            value={<strong>{formatMoney(product.stock * product.material_cost)}</strong>}
-          />
           {product.notes && (
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Notes</p>
