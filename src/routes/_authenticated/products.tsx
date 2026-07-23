@@ -507,7 +507,7 @@ function RecipeEditor({ product }: { product: Product }) {
             bakery_id: product.bakery_id,
             product_id: product.id,
             raw_material_id: l.raw_material_id,
-            quantity_per_unit: 0,
+            quantity_per_unit: null,
           },
           { onSettled: () => resolve() }
         )
