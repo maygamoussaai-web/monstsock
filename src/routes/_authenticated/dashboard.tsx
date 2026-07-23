@@ -11,7 +11,6 @@ function Dashboard() {
   const { data: materials = [] } = useRawMaterials();
   const { data: products = [] } = useProducts();
   const { data: batches = [] } = useBatches(5);
-  const { data: sessions = [] } = useSalesSessions(5);
   const { data: purchases = [] } = usePurchases(50);
   const { data: ledger = [] } = useLedger(300);
 
