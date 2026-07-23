@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useBakery, useRawMaterials, useProducts, useBatches, useSalesSessions, usePurchases, useLedger } from "@/lib/queries";
+import { useBakery, useRawMaterials, useProducts, useBatches, usePurchases, useLedger } from "@/lib/queries";
 import { formatMoney, formatQty, formatDateTime, UNIT_LABEL } from "@/lib/format";
 import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 import { useMemo } from "react";
