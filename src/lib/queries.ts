@@ -281,13 +281,14 @@ export function useUpsertRecipeLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      bakery_id: string; product_id: string; raw_material_id: string; quantity_per_unit: number;
+      bakery_id: string; product_id: string; raw_material_id: string; quantity_per_unit?: number | null;
     }) => {
+      const payload = { ...input, quantity_per_unit: input.quantity_per_unit ?? null };
       const { error } = await supabase.from("product_recipes")
-        .upsert(input, { onConflict: "product_id,raw_material_id" });
+        .upsert(payload as any, { onConflict: "product_id,raw_material_id" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Recette mise à jour"); invalidate(qc, ["recipe", "products"]); },
+    onSuccess: () => { invalidate(qc, ["recipe", "products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
