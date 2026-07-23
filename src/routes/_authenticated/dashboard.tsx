@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useBakery, useRawMaterials, useProducts, useBatches, useSalesSessions, usePurchases, useLedger } from "@/lib/queries";
+import { useBakery, useRawMaterials, useProducts, useBatches, usePurchases, useLedger } from "@/lib/queries";
 import { formatMoney, formatQty, formatDateTime, UNIT_LABEL } from "@/lib/format";
 import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 import { useMemo } from "react";
@@ -11,7 +11,6 @@ function Dashboard() {
   const { data: materials = [] } = useRawMaterials();
   const { data: products = [] } = useProducts();
   const { data: batches = [] } = useBatches(5);
-  const { data: sessions = [] } = useSalesSessions(5);
   const { data: purchases = [] } = usePurchases(50);
   const { data: ledger = [] } = useLedger(300);
 
@@ -40,7 +39,7 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-secondary overflow-hidden shrink-0">
           {(bakery as any)?.logo_url ? (
             <img src={(bakery as any).logo_url} alt="Logo" className="h-full w-full object-cover" />
@@ -50,9 +49,9 @@ function Dashboard() {
             </span>
           )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Tableau de bord</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl truncate">{bakery?.name ?? "Ma boulangerie"}</h1>
+          <h1 className="mt-1 font-display text-2xl sm:text-3xl md:text-4xl leading-tight break-words">{bakery?.name ?? "Ma boulangerie"}</h1>
         </div>
       </div>
 
@@ -116,16 +115,22 @@ function Dashboard() {
         <div className="card-elegant p-6">
           <h2 className="font-display text-xl">Dernières ventes</h2>
           <div className="mt-4 space-y-3">
-            {sessions.length === 0 && <p className="text-sm text-muted-foreground">Aucune session de vente.</p>}
-            {sessions.map((s) => (
-              <div key={s.id} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · {s.status === "closed" ? "clôturée" : "ouverte"}</p>
+            {(() => {
+              const sales = ledger.filter((l) => l.kind === "sale").slice(0, 6);
+              if (sales.length === 0)
+                return <p className="text-sm text-muted-foreground">Aucune vente enregistrée.</p>;
+              return sales.map((s) => (
+                <div key={s.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{s.products?.name ?? "Produit"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(s.created_at)} · {formatQty(Math.abs(s.delta_quantity), UNIT_LABEL[s.products?.unit ?? "unite"])}
+                    </p>
+                  </div>
+                  <p className="text-xs text-accent whitespace-nowrap">{formatMoney(s.delta_value)}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{formatMoney(s.total_revenue)}</p>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </section>

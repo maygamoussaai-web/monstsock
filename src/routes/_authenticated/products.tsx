@@ -23,8 +23,6 @@ function ProductsPage() {
   const { data: bakery } = useBakery();
   const { data: products = [] } = useProducts();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<"all" | "low" | "out">("all");
-  const [unitFilter, setUnitFilter] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
   const [detailFor, setDetailFor] = useState<string | null>(null);
   const [batchFor, setBatchFor] = useState<string | null>(null);
@@ -34,12 +32,9 @@ function ProductsPage() {
     () =>
       products.filter((p) => {
         if (q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
-        if (unitFilter !== "all" && p.unit !== unitFilter) return false;
-        if (status === "low" && !(p.stock <= p.low_stock_threshold && p.stock > 0)) return false;
-        if (status === "out" && p.stock > 0) return false;
         return true;
       }),
-    [products, q, status, unitFilter]
+    [products, q]
   );
 
   const detailProduct = products.find((p) => p.id === detailFor);
@@ -53,7 +48,7 @@ function ProductsPage() {
           </p>
           <h1 className="mt-1 font-display text-3xl sm:text-4xl">Baguettes, croissants, pains…</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Recette, prix de vente, coût matière et stock.
+            Recette, prix de vente et stock.
           </p>
         </div>
         <button
@@ -74,28 +69,8 @@ function ProductsPage() {
             className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent transition-colors"
           />
         </div>
-        <div className="flex rounded-full border border-border bg-card p-1">
-          {(["all", "low", "out"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${status === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {s === "all" ? "Actifs" : s === "low" ? "Stock faible" : "Rupture"}
-            </button>
-          ))}
-        </div>
-        <select
-          value={unitFilter}
-          onChange={(e) => setUnitFilter(e.target.value)}
-          className="rounded-full border border-input bg-card px-4 py-2 text-xs outline-none focus:border-accent"
-        >
-          <option value="all">Toutes catégories</option>
-          {PRODUCT_UNITS.map((u) => (
-            <option key={u} value={u}>{UNIT_LABEL[u]}</option>
-          ))}
-        </select>
       </div>
+
 
       <div className="card-elegant overflow-hidden">
         <div className="overflow-x-auto">
@@ -105,22 +80,19 @@ function ProductsPage() {
                 <th className="text-left px-4 py-3">Produit</th>
                 <th className="text-right px-4 py-3">Stock</th>
                 <th className="text-right px-4 py-3 hidden sm:table-cell">Prix vente</th>
-                <th className="text-right px-4 py-3 hidden md:table-cell">Coût matière</th>
-                <th className="text-right px-4 py-3">Marge</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
                     Aucun produit fabriqué. Créez-en un pour commencer.
                   </td>
                 </tr>
               )}
               {filtered.map((p) => {
-                const margin = (p.sale_price ?? 0) - (p.material_cost ?? 0);
                 const low = p.stock <= p.low_stock_threshold;
                 return (
                   <tr
@@ -137,14 +109,6 @@ function ProductsPage() {
                     </td>
                     <td className="px-4 py-3 text-right hidden sm:table-cell">
                       {formatMoney(p.sale_price)}
-                    </td>
-                    <td className="px-4 py-3 text-right hidden md:table-cell text-muted-foreground">
-                      {formatMoney(p.material_cost)}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right ${margin < 0 ? "text-destructive" : "text-accent"}`}
-                    >
-                      {formatMoney(margin)}
                     </td>
                     <td
                       className="px-2 py-3 text-right"
@@ -252,19 +216,6 @@ function ProductDetail({
           <Row label="Stock actuel" value={<strong>{formatQty(product.stock, unitLabel)}</strong>} />
           <Row label="Seuil bas" value={formatQty(product.low_stock_threshold, unitLabel)} />
           <Row label="Prix de vente" value={formatMoney(product.sale_price)} />
-          <Row label="Coût matière" value={formatMoney(product.material_cost)} />
-          <Row
-            label="Marge unitaire"
-            value={
-              <span className={margin < 0 ? "text-destructive" : "text-accent"}>
-                <strong>{formatMoney(margin)}</strong>
-              </span>
-            }
-          />
-          <Row
-            label="Valeur du stock"
-            value={<strong>{formatMoney(product.stock * product.material_cost)}</strong>}
-          />
           {product.notes && (
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Notes</p>

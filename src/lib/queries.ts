@@ -281,13 +281,14 @@ export function useUpsertRecipeLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      bakery_id: string; product_id: string; raw_material_id: string; quantity_per_unit: number;
+      bakery_id: string; product_id: string; raw_material_id: string; quantity_per_unit?: number | null;
     }) => {
+      const payload = { ...input, quantity_per_unit: input.quantity_per_unit ?? null };
       const { error } = await supabase.from("product_recipes")
-        .upsert(input, { onConflict: "product_id,raw_material_id" });
+        .upsert(payload as any, { onConflict: "product_id,raw_material_id" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Recette mise à jour"); invalidate(qc, ["recipe", "products"]); },
+    onSuccess: () => { invalidate(qc, ["recipe", "products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -520,6 +521,154 @@ export function useLedger(limit = 200) {
         raw_materials: { name: string; unit: string } | null;
         products: { name: string; unit: string } | null;
       })[];
+    },
+  });
+}
+
+// ============================================================
+// Équipe, invitations, abonnements, journal d'activité
+// ============================================================
+
+export type MemberRole = "owner" | "staff";
+
+export function useCurrentMember() {
+  return useQuery({
+    queryKey: ["current-member"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return null;
+      const { data, error } = await supabase
+        .from("bakery_members")
+        .select("bakery_id, role, user_id")
+        .eq("user_id", u.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { bakery_id: string; role: MemberRole; user_id: string } | null;
+    },
+  });
+}
+
+export function useBakeryMembers() {
+  return useQuery({
+    queryKey: ["bakery-members"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bakery_members")
+        .select("bakery_id, user_id, role, created_at")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as { bakery_id: string; user_id: string; role: MemberRole; created_at: string }[];
+    },
+  });
+}
+
+export function useMemberActivity(userId: string | undefined, bakeryId: string | undefined) {
+  return useQuery({
+    queryKey: ["activity", userId, bakeryId],
+    enabled: !!userId && !!bakeryId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("activity_log" as any) as any)
+        .select("*")
+        .eq("user_id", userId)
+        .eq("bakery_id", bakeryId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as {
+        id: string; bakery_id: string; user_id: string;
+        action_type: string; description: string | null; created_at: string;
+      }[];
+    },
+  });
+}
+
+export function useBakeryInvitations(bakeryId: string | undefined) {
+  return useQuery({
+    queryKey: ["invitations", bakeryId],
+    enabled: !!bakeryId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("bakery_invitations" as any) as any)
+        .select("*")
+        .eq("bakery_id", bakeryId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as {
+        id: string; token: string; expires_at: string; used_at: string | null; created_at: string;
+      }[];
+    },
+  });
+}
+
+export function useCreateInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (bakeryId: string) => {
+      const { data, error } = await supabase.rpc("create_invitation" as any, { _bakery_id: bakeryId });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => { toast.success("Lien d'invitation généré"); invalidate(qc, ["invitations"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useAcceptInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { data, error } = await supabase.rpc("accept_invitation" as any, { _token: token });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => { toast.success("Vous avez rejoint la boulangerie"); invalidate(qc, ["bakery", "current-member", "bakery-members"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useRemoveMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ bakery_id, user_id }: { bakery_id: string; user_id: string }) => {
+      const { error } = await supabase.rpc("remove_bakery_member" as any, {
+        _bakery_id: bakery_id, _user_id: user_id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Employé retiré"); invalidate(qc, ["bakery-members"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useTransferOwnership() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ bakery_id, new_owner }: { bakery_id: string; new_owner: string }) => {
+      const { error } = await supabase.rpc("transfer_bakery_ownership" as any, {
+        _bakery_id: bakery_id, _new_owner: new_owner,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Rôle de gérant transféré"); invalidate(qc, ["bakery-members", "current-member"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useSubscription(bakeryId: string | undefined) {
+  return useQuery({
+    queryKey: ["subscription", bakeryId],
+    enabled: !!bakeryId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("subscriptions" as any) as any)
+        .select("*")
+        .eq("bakery_id", bakeryId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as null | {
+        status: "trial" | "active" | "expired" | "blocked";
+        plan: "monthly" | "annual" | null;
+        trial_end: string | null;
+        subscription_end: string | null;
+      };
     },
   });
 }

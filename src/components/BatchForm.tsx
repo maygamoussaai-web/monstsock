@@ -6,6 +6,7 @@ import {
   useProducts,
   useRawMaterials,
   useCreateBatch,
+  useRecipe,
 } from "@/lib/queries";
 import { formatQty, UNIT_LABEL } from "@/lib/format";
 
@@ -54,9 +55,23 @@ export function BatchForm({
     }
   }
 
+  const { data: recipe = [] } = useRecipe(productId || undefined);
+
   useEffect(() => {
     if (initialProductId) setProductId(initialProductId);
   }, [initialProductId]);
+
+  // Préremplit les ingrédients depuis la recette du produit (si aucun modèle appliqué)
+  useEffect(() => {
+    if (!productId || templateId) return;
+    if (recipe.length === 0) return;
+    const nonEmpty = ingredients.filter((i) => i.raw_material_id);
+    if (nonEmpty.length > 0) return; // ne pas écraser une saisie en cours
+    setIngredients(
+      recipe.map((r) => ({ raw_material_id: r.raw_material_id, quantity_used: 0 }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, recipe.length, templateId]);
 
   function updateIngredient(idx: number, patch: Partial<Ingredient>) {
     setIngredients(ingredients.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
