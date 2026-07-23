@@ -39,7 +39,7 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-secondary overflow-hidden shrink-0">
           {(bakery as any)?.logo_url ? (
             <img src={(bakery as any).logo_url} alt="Logo" className="h-full w-full object-cover" />
@@ -49,9 +49,9 @@ function Dashboard() {
             </span>
           )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Tableau de bord</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl truncate">{bakery?.name ?? "Ma boulangerie"}</h1>
+          <h1 className="mt-1 font-display text-2xl sm:text-3xl md:text-4xl leading-tight break-words">{bakery?.name ?? "Ma boulangerie"}</h1>
         </div>
       </div>
 
