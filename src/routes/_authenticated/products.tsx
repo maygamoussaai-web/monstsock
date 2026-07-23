@@ -499,7 +499,7 @@ function RecipeEditor({ product }: { product: Product }) {
         await new Promise<void>((resolve) => del.mutate(r.id, { onSettled: () => resolve() }));
       }
     }
-    // Upsert des lignes conservées / ajoutées (quantity_per_unit = 0, à définir en fournée)
+    // Upsert des lignes conservées / ajoutées (quantity_per_unit = null, à définir en fournée)
     for (const l of filled) {
       await new Promise<void>((resolve) =>
         upsert.mutate(
