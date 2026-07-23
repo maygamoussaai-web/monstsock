@@ -1,84 +1,96 @@
-# Refonte MonStock — Application SaaS pour boulangeries artisanales
+# Plan de mise à jour MonStock
 
-L'app actuelle (MAYGA & Frères) est remplacée par **MonStock**, avec un modèle multi-tenant (`bakery_id`), un domaine métier complet (matières → recettes → fournées → ventes), un cockpit financier, un historique immuable, et un empaquetage PWA installable.
+Regroupe l'ensemble des demandes en une passe, migration Supabase unique, réutilisation maximale de l'existant.
 
-## 1. Modèle de données (nouvelle migration)
+## 1. Migration Supabase (une seule)
 
-Tables (toutes avec RLS scopée `bakery_id` via fonction `current_bakery_id()` security definer) :
+Un fichier de migration couvrant :
 
-- `bakeries` — nom, devise (XOF par défaut), adresse
-- `bakery_members(bakery_id, user_id, role)` — rôle `owner|staff` ; sert au check RLS
-- `raw_materials` — matières premières : nom, unité (kg/g/L/mL/unité), prix d'achat unitaire (obligatoire, > 0), stock, seuil bas, coût moyen pondéré
-- `raw_material_purchases` — réapprovisionnements : quantité, prix total, prix unitaire → met à jour stock + coût moyen pondéré via trigger
-- `products` — produits fabriqués : nom, unité de vente, prix de vente, stock, seuil bas, coût matière calculé (dérivé de la recette)
-- `product_recipes(product_id, raw_material_id, quantity_per_unit)` — recette : combien de matière pour 1 unité produite
-- `batch_templates` — modèle de fournée : nom + lignes `batch_template_items(product_id, planned_quantity)`
-- `batches` — fournées réelles : date, template optionnel, notes, statut. **La consommation de matières est saisie manuellement** ligne par ligne dans `batch_consumptions(raw_material_id, quantity_used)`. La quantité produite est saisie dans `batch_outputs(product_id, quantity_produced)` → trigger : décrémente matières, incrémente stock produits, calcule coût matière du lot
-- `sales_sessions` — journée/service de vente : date, notes, statut (`open|closed`)
-- `sales_session_items(product_id, opening_stock, restocked, closing_stock, unsold, price_at_sale)` — à la clôture : trigger calcule `quantity_sold = opening + restocked - closing - unsold`, décrémente stock produit, enregistre revenus + pertes
-- `stock_ledger` — **historique immuable** append-only : type (`purchase|batch_consume|batch_produce|sale|loss|adjustment`), ref_id, matériau ou produit, delta quantité, delta valeur, user_id, created_at. Alimenté uniquement par triggers ; RLS interdit UPDATE/DELETE
+- `bakeries.logo_url text null` (ajout colonne).
+- `product_recipes.quantity_per_unit` → drop du CHECK existant, colonne rendue nullable, nouveau CHECK `quantity_per_unit IS NULL OR quantity_per_unit > 0`.
+- Nouvelle table `activity_log(id, bakery_id, user_id, action_type, description, created_at)` + GRANT + RLS (SELECT owner de la bakery uniquement ; INSERT tout membre de la bakery via `has_bakery_access`).
+- Nouvelle table `bakery_invitations(id, bakery_id, token unique, created_by, used_by, used_at, expires_at, created_at)` + GRANT + RLS (owner gère ; INSERT/UPDATE via RPC).
+- Fonctions/RPC SECURITY DEFINER :
+  - `create_invitation(_bakery_id)` : vérifie owner + max 3 staff, retourne token.
+  - `accept_invitation(_token)` : vérifie non utilisé, non expiré, ajoute `bakery_members` en `staff` (rejette si déjà >3 staff), marque `used_at/used_by`.
+  - `remove_member(_bakery_id, _user_id)` : owner uniquement, empêche de se supprimer soi-même.
+  - `transfer_ownership(_bakery_id, _new_owner_id)` : owner uniquement, swap owner ↔ staff atomique.
+  - `register_with_invitation_code(_code, _bakery_name)` : marque `invitation_codes.used=true`, crée `subscriptions` (status='trial', trial_end=now()+14j, invitation_code_id).
+- Ajustement du trigger `handle_new_user` : lit `raw_user_meta_data.invitation_code` s'il est présent pour marquer le code + créer l'abonnement essai. Si absent (ancien compte), pas de subscription auto.
+- RLS `bakeries` UPDATE : uniquement owner (has_role `owner` sur cette bakery).
 
-Fonctions/triggers :
-- `current_bakery_id()` security definer
-- `has_bakery_access(uuid)` security definer
-- Trigger `handle_new_user` : à la création d'un `auth.users`, crée automatiquement une bakery + membership owner
-- Triggers pour : mise à jour coût moyen pondéré, application des fournées, clôture des sessions de vente, écritures ledger
+## 2. Dashboard
 
-RLS : `SELECT/INSERT/UPDATE` scopés à `has_bakery_access(bakery_id)` ; `stock_ledger` : SELECT seulement, INSERT via triggers (SECURITY DEFINER).
+- Correction `useSalesSessions` : vérifier que les sessions ouvertes/fermées sont bien retournées et affichées. Le bloc "Dernières ventes" filtrait peut-être uniquement les fermées → afficher toutes les sessions récentes.
+- Nom boulangerie : retirer `truncate`, utiliser `break-words` + taille responsive, layout wrap sur mobile.
 
-GRANT `SELECT/INSERT/UPDATE/DELETE ... TO authenticated` + `ALL TO service_role` sur chaque table (DELETE refusé par policy sur `stock_ledger`).
+## 3. Produits / Matières premières
 
-## 2. Backend / logique
+- Retirer les selects de filtres, ne garder que la barre de recherche.
 
-- Hooks React Query dans `src/lib/` : `bakery.ts`, `raw-materials.ts`, `products.ts`, `recipes.ts`, `batches.ts`, `sales.ts`, `finance.ts`, `ledger.ts`
-- Calculs financiers côté requête SQL (vues ou agrégations) : valeur stock (matières + produits au coût), achats période, coût matières consommées, chiffre d'affaires, pertes valorisées, bénéfice brut estimé = ventes − coût matières − pertes
-- Devise par défaut FCFA (XOF), formatteur central
+## 4. Fiche produit
 
-## 3. Frontend — refonte complète des routes
+- Supprimer les lignes "Coût matière" et "Marge unitaire" dans la fiche détail.
 
-Suppression : `dashboard.tsx`, `products.tsx`, `movements.tsx`, `history.tsx` actuels.
+## 5. Recette (bug critique)
 
-Nouvelle arborescence sous `_authenticated/` :
-- `dashboard.tsx` — cockpit : KPIs financiers (valeur stock, achats 7/30j, CA, pertes, bénéfice brut), alertes seuil, fournées récentes, top produits
-- `raw-materials.tsx` — liste + création (nom, unité, prix d'achat, seuil) + détail avec bouton « Réapprovisionner »
-- `products.tsx` — liste produits fabriqués + création avec recette (sélection matières + quantités) + prix de vente
-- `batch-templates.tsx` — modèles de fournées réutilisables
-- `batches.tsx` — nouvelle fournée : choisir modèle (optionnel) → saisir manuellement consommations matières + quantités produites → validation
-- `sales.tsx` — sessions de vente : ouvrir → saisir stock initial + réappros + invendus + stock final → clôture calcule les ventes
-- `finance.tsx` — rapport financier période sélectionnable
-- `history.tsx` — historique immuable filtré (type, période, matière/produit)
+- Migration ci-dessus corrige le CHECK.
+- `RecipeEditor` : insérer avec `quantity_per_unit: null`. Texte d'intro conforme, ajout d'ingrédients libre y compris stock 0, bouton dynamique "Enregistrer la recette" / "Modifier la recette".
+- `BatchForm` : quand un produit avec recette est sélectionné, préremplir les lignes de consommation avec les matières premières de la recette (quantités vides à saisir).
 
-Landing `index.tsx` et `auth.tsx` : rebrand MonStock, Google + email/mot de passe.
+## 6. Page d'accueil
 
-Layout : rebrand MonStock, nav mise à jour, français corrigé partout.
+- Refonte `src/routes/index.tsx` avec discours commercial (contrôle stocks, réduction pertes/vols/invendus, augmentation des bénéfices), CTA "Créer un compte" et "Se connecter".
 
-Design : conserver la palette crème/brun existante dans `styles.css`, épurer, garder animations `fade-up`, cartes `card-elegant`.
+## 7. Inscription
 
-## 4. PWA
+- `src/routes/auth.tsx` : ajouter mode inscription avec champs `nom boulangerie`, `email`, `mot de passe`, `code d'inscription` obligatoire.
+- Passer `bakery_name` et `invitation_code` dans `signUp` options `data`.
+- Le trigger `handle_new_user` mis à jour valide le code, crée la subscription trial.
+- Lien WhatsApp (`https://wa.me/qr/CX26K3Z2GUMCK1?text=...`) sous le champ code + bouton "Contacter sur WhatsApp".
 
-- `public/manifest.webmanifest` : nom MonStock, `display: standalone`, thème crème
-- Icônes 192/512 générées (`imagegen`, transparent PNG)
-- `vite-plugin-pwa` (`generateSW`, `registerType: autoUpdate`, `NetworkFirst` pour navigations, exclusion `/~oauth`)
-- Wrapper d'enregistrement `src/lib/pwa-register.ts` gardé (refus preview/iframe/dev, kill-switch `?sw=off`) enregistré depuis `__root.tsx`
-- `<link rel="manifest">`, `theme-color`, `apple-touch-icon` dans head du root
-- Responsive mobile déjà en place, vérifié sur toutes les nouvelles vues
+## 8. Mon personnel (nouvelle page)
 
-## 5. Détails techniques
+- Route `src/routes/_authenticated/staff.tsx` avec garde : redirect si user n'est pas owner.
+- Hook `useIsOwner()` basé sur `bakery_members.role`.
+- UI : liste des membres, bouton "Générer un lien d'invitation" (copie le lien `/join/{token}`), max 3 staff.
+- Clic membre → drawer/modal listant `activity_log` filtré par `user_id`.
+- Boutons "Retirer" et "Transférer la gérance" (confirm).
+- Menu latéral : afficher "Mon personnel" uniquement pour owner.
 
-- Auth : Google OAuth via `lovable.auth.signInWithOAuth` (`redirect_uri: window.location.origin`) + email/password ; provider Google déjà configuré ; le trigger `handle_new_user` provisionne la bakery
-- Toutes les mutations passent par serveur RLS (client `supabase` navigateur) — pas de `createServerFn` requis pour le CRUD standard
-- Formulaires : `react-hook-form` + `zod` pour validation (prix > 0, quantités ≥ 0, unités enum)
-- Immuabilité historique : policy `stock_ledger` sans UPDATE/DELETE + INSERT restreint aux triggers SECURITY DEFINER
+## 9. Rejoindre via lien
 
-## 6. Ordre d'exécution
+- Nouvelle route publique `src/routes/join.$token.tsx` : si non connecté, redirige vers `/auth?next=/join/TOKEN`. Sinon appelle `accept_invitation(token)`.
 
-1. Migration SQL complète (table + triggers + RLS + GRANT + trigger new_user) — **approbation utilisateur requise**
-2. Suppression anciens fichiers routes
-3. Nouveaux hooks + routes + design refresh + rebrand MonStock
-4. PWA (manifest, icônes, plugin, register wrapper)
-5. Vérification build + test navigation Playwright léger
+## 10. Journalisation
 
-## Hors périmètre (à confirmer si besoin)
-- Multi-utilisateur par boulangerie avec invitations (infrastructure en place via `bakery_members` mais UI d'invitation non incluse dans ce jet)
-- Export PDF/CSV des rapports
-- Notifications push
+- Hook `useLogActivity()` (une seule fonction serveur/RPC ou insert direct via RLS) appelé dans :
+  - création/complétion fournée
+  - clôture session vente
+  - achat matière première
+  - create/update produit, create/update matière première
+
+## 11. Profil
+
+- Bloc "Statut de l'abonnement" lit `subscriptions` de la bakery, calcule les jours restants selon (status, plan).
+- Édition nom/logo bakery : bouton "Modifier" masqué pour staff.
+
+## 12. PWA
+
+- Le manifest existe. Ajouter un service worker minimal (`public/sw.js`) enregistré via un wrapper guardé (pas en preview Lovable, pas en dev, pas en iframe, `?sw=off` kill switch). Cache NetworkFirst pour navigations, CacheFirst pour assets hashés `/assets/`.
+- Enregistrement dans `src/routes/__root.tsx` via `useEffect` browser-only.
+
+## 13. Perf / sécurité
+
+- Vérifier absence de `console.log` de debug, requêtes redondantes ; s'assurer que les queries utilisent bien `staleTime` raisonnable dans `src/lib/queries.ts` (garder l'existant s'il est correct).
+- RLS relues : `bakeries` UPDATE limité au owner, `activity_log` SELECT owner uniquement, `bakery_invitations` idem, `bakery_members` DELETE via RPC (pas d'accès direct).
+
+## Points signalés comme non couverts / à confirmer
+
+- **Pas d'app admin** : conformément à la demande, aucun back-office pour émettre les codes ou marquer les subscriptions `active` (paiement). Les codes doivent donc être insérés manuellement dans Supabase.
+- **Aucun cron n'existe** pour passer `status='trial'` → `expired` à l'échéance : le frontend calcule l'affichage "fin dans X jours" mais un `subscriptions.status` ne changera pas seul. À prévoir plus tard (pg_cron ou route publique).
+- **Suppression d'un membre** : révoque l'accès via RLS mais ne supprime pas son compte auth ni son historique dans `activity_log` (par design, l'historique reste consultable par le owner).
+- **Transfert de gérance** : instantané, sans double confirmation email — bouton avec confirm() côté UI.
+- Le lien WhatsApp `https://wa.me/qr/CX26K3Z2GUMCK1` n'accepte pas de paramètre `?text=` (les liens `wa.me/qr/*` ignorent le pré-remplissage). Je conserverai le lien tel quel mais **le message ne sera pas pré-rempli**. Si un message pré-rempli est indispensable, il faut remplacer par un lien `https://wa.me/<numéro>?text=...`.
+
+Confirmer et j'exécute l'ensemble en une passe.
