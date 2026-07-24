@@ -60,7 +60,7 @@ function AuthedLayout() {
             </div>
           </Link>
           <nav className="hidden lg:flex items-center gap-1">
-            {nav.map((item) => {
+            {navItems.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link
@@ -96,7 +96,7 @@ function AuthedLayout() {
           </div>
         </div>
         <nav className="lg:hidden flex items-center gap-1.5 overflow-x-auto px-4 pb-3">
-          {nav.map((item) => {
+          {navItems.map((item) => {
             const active = pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
