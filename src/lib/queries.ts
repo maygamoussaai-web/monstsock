@@ -603,7 +603,7 @@ export function useCreateInvitation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (bakeryId: string) => {
-      const { data, error } = await supabase.rpc("create_invitation" as any, { _bakery_id: bakeryId });
+      const { data, error } = await supabase.rpc("create_bakery_invitation" as any, { _bakery_id: bakeryId });
       if (error) throw error;
       return data as string;
     },
@@ -616,7 +616,7 @@ export function useAcceptInvitation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (token: string) => {
-      const { data, error } = await supabase.rpc("accept_invitation" as any, { _token: token });
+      const { data, error } = await supabase.rpc("accept_bakery_invitation" as any, { _token: token });
       if (error) throw error;
       return data as string;
     },
@@ -644,7 +644,7 @@ export function useTransferOwnership() {
   return useMutation({
     mutationFn: async ({ bakery_id, new_owner }: { bakery_id: string; new_owner: string }) => {
       const { error } = await supabase.rpc("transfer_bakery_ownership" as any, {
-        _bakery_id: bakery_id, _new_owner: new_owner,
+        _bakery_id: bakery_id, _new_owner_id: new_owner,
       });
       if (error) throw error;
     },
