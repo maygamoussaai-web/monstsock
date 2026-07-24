@@ -31,6 +31,11 @@ function AuthedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: bakery } = useBakery();
+  const { data: currentMember } = useCurrentMember();
+  const isOwner = currentMember?.role === "owner";
+  const navItems = isOwner
+    ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
+    : nav;
 
   async function signOut() {
     await qc.cancelQueries();
