@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User } from "lucide-react";
+import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBakery } from "@/lib/queries";
+import { useBakery, useCurrentMember } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -31,6 +31,11 @@ function AuthedLayout() {
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: bakery } = useBakery();
+  const { data: currentMember } = useCurrentMember();
+  const isOwner = currentMember?.role === "owner";
+  const navItems = isOwner
+    ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
+    : nav;
 
   async function signOut() {
     await qc.cancelQueries();
@@ -55,7 +60,7 @@ function AuthedLayout() {
             </div>
           </Link>
           <nav className="hidden lg:flex items-center gap-1">
-            {nav.map((item) => {
+            {navItems.map((item) => {
               const active = pathname.startsWith(item.to);
               return (
                 <Link
@@ -91,7 +96,7 @@ function AuthedLayout() {
           </div>
         </div>
         <nav className="lg:hidden flex items-center gap-1.5 overflow-x-auto px-4 pb-3">
-          {nav.map((item) => {
+          {navItems.map((item) => {
             const active = pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
