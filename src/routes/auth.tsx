@@ -124,14 +124,45 @@ function AuthPage() {
 
           <form onSubmit={handleEmail} className="space-y-3">
             {mode === "signup" && (
-              <div>
-                <label className="text-xs text-muted-foreground">Nom de la boulangerie</label>
-                <input
-                  type="text" value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                  placeholder="Ma Boulangerie"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground">Nom de la boulangerie</label>
+                  <input
+                    type="text" required value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                    placeholder="Ma Boulangerie"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Code d'inscription</label>
+                  <input
+                    type="text" required value={invitationCode}
+                    onChange={(e) => setInvitationCode(e.target.value.trim())}
+                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
+                    placeholder="XXXXXX"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Vous n'en avez pas ?{" "}
+                    <a
+                      href={WA_LINK}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent underline underline-offset-2"
+                    >
+                      Cliquez ici pour l'obtenir
+                    </a>
+                  </p>
+                </div>
+                <a
+                  href={WA_LINK}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors"
+                >
+                  <WhatsAppIcon />
+                  Contacter sur WhatsApp
+                </a>
+              </>
             )}
             <div>
               <label className="text-xs text-muted-foreground">Email</label>
