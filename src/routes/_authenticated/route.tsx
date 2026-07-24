@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User } from "lucide-react";
+import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBakery } from "@/lib/queries";
+import { useBakery, useCurrentMember } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
