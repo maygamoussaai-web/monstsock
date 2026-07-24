@@ -14,12 +14,15 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const WA_LINK = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
+
 function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [bakeryName, setBakeryName] = useState("");
+  const [invitationCode, setInvitationCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleEmail(e: React.FormEvent) {
@@ -31,7 +34,10 @@ function AuthPage() {
           email, password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: bakeryName ? { bakery_name: bakeryName } : undefined,
+            data: {
+              bakery_name: bakeryName,
+              invitation_code: invitationCode,
+            },
           },
         });
         if (error) throw error;
@@ -41,7 +47,13 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Bienvenue !");
-        router.navigate({ to: "/dashboard" });
+        const pending = typeof window !== "undefined" ? sessionStorage.getItem("pending_join_token") : null;
+        if (pending) {
+          sessionStorage.removeItem("pending_join_token");
+          router.navigate({ to: "/join/$token", params: { token: pending } });
+        } else {
+          router.navigate({ to: "/dashboard" });
+        }
       }
     } catch (err: any) {
       toast.error(err.message ?? "Une erreur est survenue");
