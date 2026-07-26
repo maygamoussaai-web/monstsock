@@ -135,16 +135,14 @@ export function useCreatePurchase() {
       quantity: number;
       unit_price: number;
       supplier?: string | null;
-      notes?: string | null;
     }) => {
       const args: Record<string, unknown> = {
-        _bakery_id: input.bakery_id,
-        _raw_material_id: input.raw_material_id,
-        _quantity: input.quantity,
-        _unit_price: input.unit_price,
+        p_bakery_id: input.bakery_id,
+        p_raw_material_id: input.raw_material_id,
+        p_quantity: input.quantity,
+        p_unit_price: input.unit_price,
       };
-      if (input.supplier) args._supplier = input.supplier;
-      if (input.notes) args._notes = input.notes;
+      if (input.supplier) args.p_supplier = input.supplier;
       const { error } = await supabase.rpc("record_purchase", args as any);
       if (error) throw error;
     },
