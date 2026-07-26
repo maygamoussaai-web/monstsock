@@ -151,18 +151,17 @@ export function useCreatePurchase() {
   });
 }
 
+// record_product_sale (version simple, sans session) : pour une vente ponctuelle d'un produit.
 export function useRecordProductSale() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number; notes?: string | null }) => {
-      const args: Record<string, unknown> = {
-        _bakery_id: input.bakery_id,
-        _product_id: input.product_id,
-        _quantity: input.quantity,
-        _unit_price: input.unit_price,
-      };
-      if (input.notes) args._notes = input.notes;
-      const { error } = await supabase.rpc("record_product_sale", args as any);
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number }) => {
+      const { error } = await supabase.rpc("record_product_sale", {
+        p_bakery_id: input.bakery_id,
+        p_product_id: input.product_id,
+        p_quantity: input.quantity,
+        p_price: input.unit_price,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
@@ -170,21 +169,21 @@ export function useRecordProductSale() {
   });
 }
 
+// record_loss : uniquement des pertes de PRODUITS (product_id obligatoire) — pas de matières premières.
 export function useRecordLoss() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { bakery_id: string; product_id?: string | null; raw_material_id?: string | null; quantity: number; notes?: string | null }) => {
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; reason?: string | null }) => {
       const args: Record<string, unknown> = {
-        _bakery_id: input.bakery_id,
-        _product_id: input.product_id ?? null,
-        _raw_material_id: input.raw_material_id ?? null,
-        _quantity: input.quantity,
+        p_bakery_id: input.bakery_id,
+        p_product_id: input.product_id,
+        p_quantity: input.quantity,
       };
-      if (input.notes) args._notes = input.notes;
+      if (input.reason) args.p_reason = input.reason;
       const { error } = await supabase.rpc("record_loss", args as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "raw_materials", "ledger"]); },
+    onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "ledger"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -390,19 +389,16 @@ export function useCreateBatch() {
     mutationFn: async (input: {
       bakery_id: string;
       name: string;
-      template_id?: string | null;
       notes?: string | null;
       consumptions: { raw_material_id: string; quantity_used: number }[];
       outputs: { product_id: string; quantity_produced: number }[];
     }) => {
       const { error } = await supabase.rpc("record_batch", {
-        _bakery_id: input.bakery_id,
-        _name: input.name,
-        _template_id: (input.template_id ?? null) as any,
-        _notes: (input.notes ?? null) as any,
-        _consumptions: input.consumptions as any,
-        _outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
-        _auto_complete: true,
+        p_bakery_id: input.bakery_id,
+        p_name: input.name,
+        p_consumptions: input.consumptions as any,
+        p_outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
+        p_notes: input.notes ?? null,
       });
       if (error) throw error;
     },
@@ -481,22 +477,20 @@ export function useQuickSale() {
     }) => {
       if (input.quantity_sold > 0) {
         const { error } = await supabase.rpc("record_product_sale", {
-          _bakery_id: input.bakery_id,
-          _product_id: input.product_id,
-          _quantity: input.quantity_sold,
-          _unit_price: input.unit_price,
-          _notes: input.notes ?? null,
+          p_bakery_id: input.bakery_id,
+          p_product_id: input.product_id,
+          p_quantity: input.quantity_sold,
+          p_price: input.unit_price,
         } as any);
         if (error) throw error;
       }
       // Si on ne conserve pas les invendus, on les enregistre en perte (décrémente le stock)
       if (!input.keep_unsold && input.unsold > 0) {
         const { error } = await supabase.rpc("record_loss", {
-          _bakery_id: input.bakery_id,
-          _product_id: input.product_id,
-          _raw_material_id: null,
-          _quantity: input.unsold,
-          _notes: "Invendus",
+          p_bakery_id: input.bakery_id,
+          p_product_id: input.product_id,
+          p_quantity: input.unsold,
+          p_reason: input.notes ?? "Invendus",
         } as any);
         if (error) throw error;
       }
