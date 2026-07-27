@@ -193,6 +193,32 @@ export type Database = {
           unit_material_cost?: number
         }
       }
+      batch_template_ingredients: {
+        Row: {
+          id: string
+          bakery_id: string
+          template_id: string
+          raw_material_id: string
+          quantity: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          bakery_id: string
+          template_id: string
+          raw_material_id: string
+          quantity: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          bakery_id?: string
+          template_id?: string
+          raw_material_id?: string
+          quantity?: number
+          created_at?: string
+        }
+      }
       batch_template_items: {
         Row: {
           id: string
