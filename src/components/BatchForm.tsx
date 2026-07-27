@@ -37,7 +37,6 @@ export function BatchForm({
   const product = products.find((p) => p.id === productId);
   const availableMaterials = useMemo(() => materials.filter((m) => m.stock > 0), [materials]);
 
-  // Applique un modèle : préremplit produit, quantité et ingrédients
   function applyTemplate(id: string) {
     setTemplateId(id);
     if (!id) return;
@@ -61,12 +60,11 @@ export function BatchForm({
     if (initialProductId) setProductId(initialProductId);
   }, [initialProductId]);
 
-  // Préremplit les ingrédients depuis la recette du produit (si aucun modèle appliqué)
   useEffect(() => {
     if (!productId || templateId) return;
     if (recipe.length === 0) return;
     const nonEmpty = ingredients.filter((i) => i.raw_material_id);
-    if (nonEmpty.length > 0) return; // ne pas écraser une saisie en cours
+    if (nonEmpty.length > 0) return;
     setIngredients(
       recipe.map((r) => ({ raw_material_id: r.raw_material_id, quantity_used: 0 }))
     );
@@ -87,7 +85,6 @@ export function BatchForm({
     }
   }
 
-  // Validation des ingrédients
   const filledIngredients = ingredients.filter(
     (it) => it.raw_material_id && it.quantity_used > 0
   );
@@ -122,7 +119,6 @@ export function BatchForm({
       {
         bakery_id: bakeryId,
         name: `Fournée ${product?.name ?? ""} — ${new Date().toLocaleDateString("fr-FR")}`,
-        template_id: templateId || null,
         notes: notes || null,
         consumptions: filledIngredients,
         outputs: [{ product_id: productId, quantity_produced: quantityProduced }],
