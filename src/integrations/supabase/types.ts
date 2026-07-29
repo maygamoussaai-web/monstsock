@@ -739,36 +739,71 @@ export type Database = {
         Args: { _token: string }
         Returns: { bakery_name: string | null; valid: boolean; reason: string | null }[]
       }
+      has_bakery_access: {
+        Args: { _bakery_id: string }
+        Returns: boolean
+      }
       is_admin: {
         Args: { _user_id: string }
         Returns: boolean
       }
       list_bakery_members: {
         Args: { _bakery_id: string }
-        Returns: { user_id: string; email: string; role: Database["public"]["Enums"]["bakery_role"]; created_at: string }[]
+        Returns: {
+          user_id: string
+          email: string
+          role: Database["public"]["Enums"]["bakery_role"]
+          created_at: string
+        }[]
       }
-      record_batch_simple: {
-        Args: { p_batch_id: string }
-        Returns: string
-      }
+      /**
+       * record_batch — deux surcharges en base :
+       * 1) (p_batch_id uuid) → uuid  (usage interne, rarement appelé directement)
+       * 2) (p_bakery_id, p_name, p_consumptions, p_outputs, p_notes) → jsonb  (utilisé par useCreateBatch)
+       * Le SDK ne supporte qu'une signature par nom ; on expose la version complète (5 params).
+       */
       record_batch: {
-        Args: { p_bakery_id: string; p_name: string; p_consumptions: Json; p_outputs: Json; p_notes?: string | null }
+        Args: {
+          p_bakery_id: string
+          p_name: string
+          p_consumptions: Json
+          p_outputs: Json
+          p_notes?: string | null
+        }
         Returns: Json
       }
       record_loss: {
-        Args: { p_bakery_id: string; p_product_id: string; p_quantity: number; p_reason?: string | null }
+        Args: {
+          p_bakery_id: string
+          p_product_id: string
+          p_quantity: number
+          p_reason?: string | null
+        }
         Returns: string
       }
-      record_product_sale_simple: {
-        Args: { p_bakery_id: string; p_product_id: string; p_quantity: number; p_price: number }
-        Returns: string
-      }
+      /**
+       * record_product_sale — deux surcharges en base :
+       * 1) (p_bakery_id, p_product_id, p_quantity, p_price) → uuid  ← utilisée par useQuickSale / useRecordProductSale
+       * 2) (p_bakery_id, p_product_id, p_sold_quantity, p_unsold_quantity, p_keep_unsold, p_session_id) → jsonb  ← session
+       * On expose la version simple (4 params) car c'est celle appelée par le code actuel.
+       */
       record_product_sale: {
-        Args: { p_bakery_id: string; p_product_id: string; p_sold_quantity: number; p_unsold_quantity: number; p_keep_unsold: boolean; p_session_id: string }
-        Returns: Json
+        Args: {
+          p_bakery_id: string
+          p_product_id: string
+          p_quantity: number
+          p_price: number
+        }
+        Returns: string
       }
       record_purchase: {
-        Args: { p_bakery_id: string; p_raw_material_id: string; p_quantity: number; p_unit_price: number; p_supplier?: string | null }
+        Args: {
+          p_bakery_id: string
+          p_raw_material_id: string
+          p_quantity: number
+          p_unit_price: number
+          p_supplier?: string | null
+        }
         Returns: string
       }
       remove_bakery_member: {
@@ -778,6 +813,10 @@ export type Database = {
       transfer_bakery_ownership: {
         Args: { _bakery_id: string; _new_owner_id: string }
         Returns: void
+      }
+      user_has_bakery_access: {
+        Args: { p_bakery_id: string }
+        Returns: boolean
       }
     }
   }
