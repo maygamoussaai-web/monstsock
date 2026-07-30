@@ -12,9 +12,11 @@ export const Route = createFileRoute("/_authenticated/profile")({ component: Pro
 function ProfilePage() {
   const { data: bakery } = useBakery();
   const { data: member } = useCurrentMember();
+  // member peut être : undefined (chargement), null (aucune boulangerie), ou objet (membre)
   const isOwner = member?.role === "owner";
   const updateBakery = useUpdateBakery();
   const { data: subscription } = useSubscription(isOwner ? bakery?.id : undefined);
+
   const { data: user, refetch: refetchUser } = useQuery({
     queryKey: ["auth-user"],
     queryFn: async () => {
@@ -77,8 +79,25 @@ function ProfilePage() {
     }
   }
 
-  const displayName = (user?.user_metadata as any)?.full_name ?? (user?.user_metadata as any)?.name ?? "—";
+  const displayName =
+    (user?.user_metadata as any)?.full_name ??
+    (user?.user_metadata as any)?.name ??
+    "—";
+
   const currentLogo = (bakery as any)?.logo_url as string | null | undefined;
+
+  // Libellé du rôle :
+  // - null  → "Aucune boulangerie" (ne devrait pas arriver grâce au garde dans route.tsx, mais sécurité supplémentaire)
+  // - staff → "Employé"
+  // - owner → "Gérant"
+  const roleLabel =
+    member === null
+      ? "Aucune boulangerie"
+      : member === undefined
+      ? "—"
+      : isOwner
+      ? "Gérant"
+      : "Employé";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -115,15 +134,23 @@ function ProfilePage() {
             <Row label="Nom" value={displayName} />
             <Row label="E-mail" value={user?.email ?? "—"} />
             <Row label="Boulangerie" value={bakery?.name ?? "—"} />
-            <Row label="Rôle" value={isOwner ? "Gérant" : "Employé"} />
+            <Row label="Rôle" value={roleLabel} />
           </div>
         ) : (
           <div className="space-y-4">
             <Field label="Votre nom">
-              <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputCls}
+              />
             </Field>
             <Field label="E-mail">
-              <input value={user?.email ?? ""} disabled className={inputCls + " opacity-60"} />
+              <input
+                value={user?.email ?? ""}
+                disabled
+                className={inputCls + " opacity-60"}
+              />
             </Field>
             {isOwner ? (
               <>
@@ -186,7 +213,7 @@ function ProfilePage() {
               </button>
               <button
                 onClick={save}
-                disabled={saving}
+                disabled={saving || !bakery}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
               >
                 <Save className="h-4 w-4" /> Enregistrer
@@ -215,28 +242,32 @@ function SubscriptionBlock({
       };
 }) {
   if (!sub) return null;
+
   const daysLeft = (iso: string | null) => {
     if (!iso) return 0;
     const diff = new Date(iso).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   };
+
   let label: React.ReactNode;
   let danger = false;
+
   if (sub.status === "trial") {
-    label = `Essai gratuit fin dans ${daysLeft(sub.trial_end)} jours`;
+    label = `Essai gratuit — encore ${daysLeft(sub.trial_end)} jours`;
   } else if (sub.status === "active" && sub.plan === "monthly") {
-    label = `Abonnement mensuel fin dans ${daysLeft(sub.subscription_end)} jours`;
+    label = `Abonnement mensuel — encore ${daysLeft(sub.subscription_end)} jours`;
   } else if (sub.status === "active" && sub.plan === "annual") {
-    label = `Abonnement annuel fin dans ${daysLeft(sub.subscription_end)} jours`;
+    label = `Abonnement annuel — encore ${daysLeft(sub.subscription_end)} jours`;
   } else if (sub.status === "expired") {
-    label = "Abonnement expiré";
+    label = "Abonnement expiré — accès bloqué";
     danger = true;
   } else if (sub.status === "blocked") {
-    label = "Compte bloqué, contactez le support";
+    label = "Compte bloqué — contactez le support";
     danger = true;
   } else {
     return null;
   }
+
   return (
     <div className="card-elegant p-6">
       <div className="flex items-center gap-3">
@@ -245,7 +276,9 @@ function SubscriptionBlock({
         </div>
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Abonnement</p>
-          <p className={`mt-0.5 font-display text-lg ${danger ? "text-destructive" : ""}`}>{label}</p>
+          <p className={`mt-0.5 font-display text-lg ${danger ? "text-destructive" : ""}`}>
+            {label}
+          </p>
         </div>
       </div>
     </div>
