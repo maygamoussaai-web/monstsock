@@ -551,12 +551,47 @@ export function useCurrentMember() {
       if (!u.user) return null;
       const { data, error } = await supabase
         .from("bakery_members")
-        .select("bakery_id, role, user_id")
+        .select("bakery_id, role, user_id, phone")
         .eq("user_id", u.user.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { bakery_id: string; role: MemberRole; user_id: string } | null;
+      return data as { bakery_id: string; role: MemberRole; user_id: string; phone: string | null } | null;
     },
+  });
+}
+
+// Le gérant modifie SON PROPRE numéro de téléphone (indicatif + numéro déjà concaténés côté UI).
+export function useUpdateMemberPhone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (phone: string) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non connecté");
+      const { error } = await supabase
+        .from("bakery_members")
+        .update({ phone })
+        .eq("user_id", u.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Téléphone mis à jour"); invalidate(qc, ["current-member"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+// Suppression self-service de la boulangerie par son gérant (owner_delete_bakery, distinct de
+// admin_delete_bakery qui est réservé aux admins MAYGA).
+export function useDeleteBakery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (bakeryId: string) => {
+      const { error } = await supabase.rpc("owner_delete_bakery" as any, { _bakery_id: bakeryId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Boulangerie supprimée");
+      invalidate(qc, ["bakery", "current-member", "bakery-members"]);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
 
