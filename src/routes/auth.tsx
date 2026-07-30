@@ -16,6 +16,19 @@ export const Route = createFileRoute("/auth")({
 
 const WA_LINK = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
 
+// Quelques indicatifs pays courants pour la zone d'usage ; "Autre" laisse l'utilisateur taper le sien.
+const COUNTRY_CODES = [
+  { code: "+223", label: "🇲🇱 +223 (Mali)" },
+  { code: "+225", label: "🇨🇮 +225 (Côte d'Ivoire)" },
+  { code: "+221", label: "🇸🇳 +221 (Sénégal)" },
+  { code: "+226", label: "🇧🇫 +226 (Burkina Faso)" },
+  { code: "+228", label: "🇹🇬 +228 (Togo)" },
+  { code: "+229", label: "🇧🇯 +229 (Bénin)" },
+  { code: "+227", label: "🇳🇪 +227 (Niger)" },
+  { code: "+224", label: "🇬🇳 +224 (Guinée)" },
+  { code: "+33", label: "🇫🇷 +33 (France)" },
+];
+
 function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -23,6 +36,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [bakeryName, setBakeryName] = useState("");
   const [invitationCode, setInvitationCode] = useState("");
+  const [countryCode, setCountryCode] = useState("+223");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleEmail(e: React.FormEvent) {
@@ -30,6 +45,7 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        const phone = phoneNumber.trim() ? `${countryCode} ${phoneNumber.trim()}` : null;
         const { error } = await supabase.auth.signUp({
           email, password,
           options: {
@@ -37,6 +53,7 @@ function AuthPage() {
             data: {
               bakery_name: bakeryName,
               invitation_code: invitationCode,
+              phone,
             },
           },
         });
@@ -134,6 +151,27 @@ function AuthPage() {
                   />
                 </div>
                 <div>
+                  <label className="text-xs text-muted-foreground">Téléphone du gérant</label>
+                  <div className="mt-1 flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="flex-1 rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                      placeholder="70 00 00 00"
+                    />
+                  </div>
+                </div>
+                <div>
                   <label className="text-xs text-muted-foreground">Code d'inscription</label>
                   <input
                     type="text" required value={invitationCode}
@@ -222,4 +260,3 @@ function WhatsAppIcon() {
     </svg>
   );
 }
-
