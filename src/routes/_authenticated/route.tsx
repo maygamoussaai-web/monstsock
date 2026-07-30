@@ -1,8 +1,11 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Package2, Croissant, Flame, ShoppingBag, LineChart, History, LogOut, Wheat, Layers, User, Users } from "lucide-react";
+import {
+  LayoutDashboard, Package2, Croissant, Flame, ShoppingBag,
+  LineChart, History, LogOut, Wheat, Layers, User, Users, Lock,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBakery, useCurrentMember } from "@/lib/queries";
+import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -15,23 +18,107 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 const nav = [
-  { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { to: "/raw-materials", label: "Matières", icon: Package2 },
-  { to: "/products", label: "Produits", icon: Croissant },
-  { to: "/batch-templates", label: "Modèles", icon: Layers },
-  { to: "/batches", label: "Fournées", icon: Flame },
-  { to: "/sales", label: "Ventes", icon: ShoppingBag },
-  { to: "/finance", label: "Finances", icon: LineChart },
-  { to: "/history", label: "Historique", icon: History },
+  { to: "/dashboard",       label: "Tableau de bord", icon: LayoutDashboard },
+  { to: "/raw-materials",   label: "Matières",         icon: Package2 },
+  { to: "/products",        label: "Produits",         icon: Croissant },
+  { to: "/batch-templates", label: "Modèles",          icon: Layers },
+  { to: "/batches",         label: "Fournées",         icon: Flame },
+  { to: "/sales",           label: "Ventes",           icon: ShoppingBag },
+  { to: "/finance",         label: "Finances",         icon: LineChart },
+  { to: "/history",         label: "Historique",       icon: History },
 ] as const;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Écran : aucune boulangerie rattachée
+// ─────────────────────────────────────────────────────────────────────────────
+function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
+  const WA = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
+  return (
+    <div className="grid min-h-screen place-items-center bg-background px-6">
+      <div className="max-w-sm w-full text-center animate-fade-up">
+        <div className="grid h-16 w-16 mx-auto place-items-center rounded-2xl bg-secondary">
+          <Wheat className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="mt-6 font-display text-2xl">Aucune boulangerie</h1>
+        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          Votre compte n'est rattaché à aucune boulangerie.
+          Pour accéder à l'application, rejoignez une boulangerie via le lien d'invitation de votre gérant,
+          ou créez un nouveau compte gérant avec un code d'inscription.
+        </p>
+        <div className="mt-8 space-y-3">
+          <a
+            href={WA}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+          >
+            Obtenir un code d'inscription
+          </a>
+          <button
+            onClick={onSignOut}
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Écran : boulangerie bloquée ou abonnement expiré
+// ─────────────────────────────────────────────────────────────────────────────
+function SuspendedScreen({
+  status,
+  onSignOut,
+}: {
+  status: "blocked" | "expired";
+  onSignOut: () => void;
+}) {
+  const isBlocked = status === "blocked";
+  return (
+    <div className="grid min-h-screen place-items-center bg-background px-6">
+      <div className="max-w-sm w-full text-center animate-fade-up">
+        <div className="grid h-16 w-16 mx-auto place-items-center rounded-2xl bg-destructive/10">
+          <Lock className="h-8 w-8 text-destructive" />
+        </div>
+        <h1 className="mt-6 font-display text-2xl text-destructive">
+          {isBlocked ? "Accès bloqué" : "Abonnement expiré"}
+        </h1>
+        <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          {isBlocked
+            ? "L'accès à cette boulangerie a été suspendu par l'administrateur de la plateforme. Contactez le support."
+            : "L'abonnement de cette boulangerie a expiré. Contactez votre gérant ou le support pour le renouveler."}
+        </p>
+        <div className="mt-8">
+          <button
+            onClick={onSignOut}
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Layout principal
+// ─────────────────────────────────────────────────────────────────────────────
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   const { data: bakery } = useBakery();
-  const { data: currentMember } = useCurrentMember();
+  const { data: currentMember, isLoading: memberLoading } = useCurrentMember();
+  const { data: subscription, isLoading: subLoading } = useSubscription(
+    currentMember?.bakery_id ?? undefined
+  );
+
   const isOwner = currentMember?.role === "owner";
   const navItems = isOwner
     ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
@@ -44,6 +131,45 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
+  // ── 1. Chargement ────────────────────────────────────────────────────────
+  // Attendre que le membership ET l'abonnement soient chargés avant de décider
+  const isLoadingAccess =
+    memberLoading ||
+    (currentMember !== null && currentMember !== undefined && subLoading);
+
+  if (isLoadingAccess) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground">
+            <Wheat className="h-6 w-6" />
+          </div>
+          <p className="text-sm text-muted-foreground animate-pulse">Chargement…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 2. Aucune boulangerie ─────────────────────────────────────────────────
+  // Un compte sans boulangerie n'a pas accès à l'app.
+  // Cela couvre : nouveaux comptes avant activation, boulangeries supprimées par l'admin.
+  if (currentMember === null) {
+    return <NoBakeryScreen onSignOut={signOut} />;
+  }
+
+  // ── 3. Boulangerie bloquée ou abonnement expiré ───────────────────────────
+  // L'admin peut bloquer ou expirer l'abonnement depuis Bakery Boss Console.
+  // Dans les deux cas, tous les membres (gérant ET employés) perdent l'accès.
+  if (subscription?.status === "blocked" || subscription?.status === "expired") {
+    return (
+      <SuspendedScreen
+        status={subscription.status as "blocked" | "expired"}
+        onSignOut={signOut}
+      />
+    );
+  }
+
+  // ── 4. Accès normal ───────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
@@ -59,6 +185,7 @@ function AuthedLayout() {
               </p>
             </div>
           </Link>
+
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const active = pathname.startsWith(item.to);
@@ -77,6 +204,7 @@ function AuthedLayout() {
               );
             })}
           </nav>
+
           <div className="flex items-center gap-2">
             <Link
               to="/profile"
@@ -95,6 +223,7 @@ function AuthedLayout() {
             </button>
           </div>
         </div>
+
         <nav className="lg:hidden flex items-center gap-1.5 overflow-x-auto px-4 pb-3">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.to);
@@ -113,9 +242,11 @@ function AuthedLayout() {
           })}
         </nav>
       </header>
+
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10 animate-fade-up">
         <Outlet />
       </main>
+
       <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
         MonStock · Gestion pour boulangeries artisanales
       </footer>
