@@ -1,7 +1,6 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
 import { Wheat, Loader2, Eye, EyeOff } from "lucide-react";
 
@@ -80,18 +79,6 @@ function AuthPage() {
     }
   }
 
-  async function handleGoogle() {
-    setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) {
-      toast.error(result.error.message ?? "Connexion Google impossible");
-      setLoading(false);
-      return;
-    }
-    if (result.redirected) return;
-    router.navigate({ to: "/dashboard" });
-  }
-
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
@@ -127,20 +114,9 @@ function AuthPage() {
             {mode === "signin" ? "Accédez à votre boulangerie." : "Ouvrez votre espace en une minute."}
           </p>
 
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
-            className="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-secondary transition-colors disabled:opacity-60"
-          >
-            <GoogleIcon />
-            Continuer avec Google
-          </button>
+          <RisingLoafFlourish />
 
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
-            <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <form onSubmit={handleEmail} className="space-y-3">
+          <form onSubmit={handleEmail} className="mt-8 space-y-3">
             {mode === "signup" && (
               <>
                 <div>
@@ -255,14 +231,92 @@ function AuthPage() {
   );
 }
 
-function GoogleIcon() {
+// ─────────────────────────────────────────────────────────────────────────────
+// RisingLoafFlourish — remplace l'ancien bouton "Continuer avec Google" (retiré,
+// plus utilisé). Petite animation 100% maison aux couleurs MonStock : un pain
+// stylisé qui "lève" doucement (comme une pâte en fermentation), entouré d'un
+// halo de farine tournant et de volutes de vapeur qui montent — un clin d'œil
+// au métier plutôt qu'un simple ornement générique. Pur CSS/SVG, aucune
+// dépendance externe, ne bloque aucune interaction.
+// ─────────────────────────────────────────────────────────────────────────────
+function RisingLoafFlourish() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.2 35 26.7 36 24 36c-5.2 0-9.6-3.1-11.3-7.5l-6.5 5C9.6 39.6 16.3 44 24 44z"/>
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.2 5.2C41 34.8 44 29.9 44 24c0-1.2-.1-2.3-.4-3.5z"/>
-    </svg>
+    <div className="relative mt-8 flex flex-col items-center select-none" aria-hidden="true">
+      <style>{`
+        @keyframes ms-rise {
+          0%, 100% { transform: scaleY(1) translateY(0); }
+          50% { transform: scaleY(1.06) translateY(-3px); }
+        }
+        @keyframes ms-steam {
+          0%   { transform: translateY(0) scaleX(1); opacity: 0; }
+          15%  { opacity: 0.55; }
+          100% { transform: translateY(-26px) scaleX(1.4); opacity: 0; }
+        }
+        @keyframes ms-flour-spin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes ms-speck {
+          0%, 100% { opacity: 0.25; transform: scale(0.85); }
+          50%      { opacity: 0.9;  transform: scale(1); }
+        }
+        .ms-loaf-wrap { animation: ms-rise 3.6s ease-in-out infinite; transform-origin: bottom center; }
+        .ms-steam-1 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 0s; }
+        .ms-steam-2 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 0.9s; }
+        .ms-steam-3 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 1.8s; }
+        .ms-flour-ring { animation: ms-flour-spin 14s linear infinite; transform-origin: 60px 60px; }
+        .ms-speck { animation: ms-speck 2.4s ease-in-out infinite; }
+      `}</style>
+
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+        {/* Halo de farine : petits grains tournant lentement autour du pain */}
+        <g className="ms-flour-ring">
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const r = 50;
+            const cx = 60 + Math.cos(angle) * r;
+            const cy = 60 + Math.sin(angle) * r;
+            return (
+              <circle
+                key={i}
+                className="ms-speck"
+                cx={cx}
+                cy={cy}
+                r={i % 2 === 0 ? 2 : 1.3}
+                fill="hsl(var(--accent))"
+                opacity={0.5}
+                style={{ animationDelay: `${i * 0.25}s` }}
+              />
+            );
+          })}
+        </g>
+
+        {/* Volutes de vapeur */}
+        <path className="ms-steam-1" d="M50 46c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam-2" d="M60 44c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam-3" d="M70 46c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+
+        {/* Pain stylisé qui "lève" */}
+        <g className="ms-loaf-wrap">
+          <ellipse cx="60" cy="76" rx="30" ry="18" fill="hsl(var(--primary))" />
+          <path
+            d="M34 74c2-14 12-24 26-24s24 10 26 24"
+            fill="none"
+            stroke="hsl(var(--primary-foreground) / 0.35)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          {/* grignes (entailles du boulanger) */}
+          <path d="M46 62c2 6 2 12 0 18" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M60 58c2 8 2 16 0 24" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M74 62c-2 6-2 12 0 18" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        </g>
+      </svg>
+
+      <p className="mt-2 text-[11px] text-muted-foreground italic">
+        Ça lève, ça pousse, ça marche.
+      </p>
+    </div>
   );
 }
 
