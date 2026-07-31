@@ -3,7 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
-import { Wheat, Loader2 } from "lucide-react";
+import { Wheat, Loader2, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/auth")({
 
 const WA_LINK = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
 
-// Quelques indicatifs pays courants pour la zone d'usage ; "Autre" laisse l'utilisateur taper le sien.
+// Quelques indicatifs pays courants pour la zone d'usage ; l'utilisateur peut aussi taper le sien.
 const COUNTRY_CODES = [
   { code: "+223", label: "🇲🇱 +223 (Mali)" },
   { code: "+225", label: "🇨🇮 +225 (Côte d'Ivoire)" },
@@ -34,6 +34,7 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [bakeryName, setBakeryName] = useState("");
   const [invitationCode, setInvitationCode] = useState("");
   const [countryCode, setCountryCode] = useState("+223");
@@ -212,11 +213,23 @@ function AuthPage() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Mot de passe</label>
-              <input
-                type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                placeholder="••••••••"
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit" disabled={loading}
