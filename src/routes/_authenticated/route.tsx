@@ -12,9 +12,8 @@ import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 // Définir VITE_SUPPORT_WA dans .env :
 // VITE_SUPPORT_WA=https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription
 // ─────────────────────────────────────────────────────────────────────────────
-const SUPPORT_WA =
-  import.meta.env.VITE_SUPPORT_WA ??
-  "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
+const SUPPORT_WA_URL =
+  "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
