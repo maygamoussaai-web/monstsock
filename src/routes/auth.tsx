@@ -114,7 +114,7 @@ function AuthPage() {
             {mode === "signin" ? "Accédez à votre boulangerie." : "Ouvrez votre espace en une minute."}
           </p>
 
-          <RisingLoafFlourish />
+          <BaguetteFlourish />
 
           <form onSubmit={handleEmail} className="mt-8 space-y-3">
             {mode === "signup" && (
@@ -232,95 +232,123 @@ function AuthPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RisingLoafFlourish — remplace l'ancien bouton "Continuer avec Google" (retiré,
-// plus utilisé). Petite animation 100% maison aux couleurs MonStock : un pain
-// stylisé qui "lève" doucement (comme une pâte en fermentation), entouré d'un
-// halo de farine tournant et de volutes de vapeur qui montent.
+// BaguetteFlourish — remplace l'ancien bouton "Continuer avec Google" (retiré,
+// plus utilisé). Des morceaux de pâte pâle convergent, un éclat de farine
+// marque le moment où ils se rejoignent, puis une baguette se forme (couleur
+// croûte orange foncé) avec ses grignes, un halo chaud qui pulse et un peu de
+// vapeur — puis elle s'efface et le cycle recommence, en boucle continue.
 //
-// Important : le thème MonStock définit ses couleurs en oklch() (voir
-// src/styles.css, ex. --primary: oklch(0.32 0.05 45)). On utilise donc les
-// variables directement via var(--primary) / var(--accent), JAMAIS enveloppées
-// dans hsl(...) — hsl(var(--primary)) donnerait hsl(oklch(...)), une couleur
-// invalide, ce qui rendait le SVG invisible. La transparence se fait via
-// l'attribut SVG "opacity" séparé, pas en append "/ alpha" dans la couleur.
+// Couleurs définies en local (--dough, --crust, etc.) plutôt que via les
+// tokens du thème (oklch) : plus simple à faire tourner de façon fiable pour
+// une animation autonome, sans dépendre du format des variables globales.
 // ─────────────────────────────────────────────────────────────────────────────
-function RisingLoafFlourish() {
+function BaguetteFlourish() {
   return (
     <div className="relative mt-8 flex flex-col items-center select-none" aria-hidden="true">
       <style>{`
-        @keyframes ms-rise {
-          0%, 100% { transform: scaleY(1) translateY(0); }
-          50% { transform: scaleY(1.06) translateY(-3px); }
+        .ms-bag {
+          --dough: #f3e6c8;
+          --crust: #a8541f;
+          --crust-dark: #7d3c14;
+          --accent: #c97c3d;
+          --glow: #e8b06b;
         }
-        @keyframes ms-steam {
-          0%   { transform: translateY(0) scaleX(1); opacity: 0; }
-          15%  { opacity: 0.55; }
-          100% { transform: translateY(-26px) scaleX(1.4); opacity: 0; }
+        @keyframes ms-piece-move {
+          0%   { transform: translate(var(--dx0), var(--dy0)); }
+          30%  { transform: translate(0, 0); }
+          46%  { transform: translate(0, 0); }
+          90%  { transform: translate(0, 0); }
+          100% { transform: translate(var(--dx0), var(--dy0)); }
         }
-        @keyframes ms-flour-spin {
-          0%   { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        @keyframes ms-piece-fade {
+          0%   { opacity: 1; }
+          36%  { opacity: 1; }
+          46%  { opacity: 0; }
+          90%  { opacity: 0; }
+          100% { opacity: 1; }
         }
-        @keyframes ms-speck {
-          0%, 100% { opacity: 0.25; transform: scale(0.85); }
-          50%      { opacity: 0.9;  transform: scale(1); }
+        .ms-piece { animation: ms-piece-move 6.5s ease-in-out infinite, ms-piece-fade 6.5s ease-in-out infinite; }
+
+        @keyframes ms-burst {
+          0%, 42% { opacity: 0; transform: scale(0.4); }
+          47%     { opacity: 0.9; transform: scale(1); }
+          58%     { opacity: 0; transform: scale(1.5); }
+          100%    { opacity: 0; transform: scale(0.4); }
         }
-        .ms-loaf-wrap { animation: ms-rise 3.6s ease-in-out infinite; transform-origin: bottom center; }
-        .ms-steam-1 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 0s; }
-        .ms-steam-2 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 0.9s; }
-        .ms-steam-3 { animation: ms-steam 2.8s ease-in infinite; animation-delay: 1.8s; }
-        .ms-flour-ring { animation: ms-flour-spin 14s linear infinite; transform-origin: 60px 60px; }
-        .ms-speck { animation: ms-speck 2.4s ease-in-out infinite; }
+        .ms-burst-dot { animation: ms-burst 6.5s ease-out infinite; transform-origin: center; }
+
+        @keyframes ms-baguette-in {
+          0%, 44%  { opacity: 0; transform: scale(0.75); }
+          52%      { opacity: 1; transform: scale(1.03); }
+          58%      { opacity: 1; transform: scale(1); }
+          82%      { opacity: 1; transform: scale(1); }
+          92%      { opacity: 0; transform: scale(0.8); }
+          100%     { opacity: 0; transform: scale(0.75); }
+        }
+        @keyframes ms-baguette-color {
+          0%, 50%  { fill: var(--dough); }
+          64%      { fill: var(--crust); }
+          100%     { fill: var(--crust); }
+        }
+        .ms-baguette-wrap { animation: ms-baguette-in 6.5s ease-in-out infinite; transform-origin: 62px 66px; }
+        .ms-baguette-body { animation: ms-baguette-color 6.5s ease-in-out infinite; }
+
+        @keyframes ms-glow-pulse {
+          0%, 48%  { opacity: 0; }
+          60%      { opacity: 0.5; }
+          70%      { opacity: 0.25; }
+          80%      { opacity: 0.45; }
+          88%      { opacity: 0; }
+          100%     { opacity: 0; }
+        }
+        .ms-glow { animation: ms-glow-pulse 6.5s ease-in-out infinite; }
+
+        @keyframes ms-steam-rise {
+          0%, 55%  { opacity: 0; transform: translateY(0) scaleX(1); }
+          62%      { opacity: 0.5; }
+          85%      { opacity: 0; transform: translateY(-16px) scaleX(1.3); }
+          100%     { opacity: 0; }
+        }
+        .ms-steam { animation: ms-steam-rise 6.5s ease-in infinite; }
       `}</style>
 
-      <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-        {/* Halo de farine : petits grains tournant lentement autour du pain */}
-        <g className="ms-flour-ring">
-          {Array.from({ length: 8 }).map((_, i) => {
-            const angle = (i / 8) * Math.PI * 2;
-            const r = 50;
-            const cx = 60 + Math.cos(angle) * r;
-            const cy = 60 + Math.sin(angle) * r;
-            return (
-              <circle
-                key={i}
-                className="ms-speck"
-                cx={cx}
-                cy={cy}
-                r={i % 2 === 0 ? 2 : 1.3}
-                fill="var(--accent)"
-                opacity={0.5}
-                style={{ animationDelay: `${i * 0.25}s` }}
-              />
-            );
-          })}
-        </g>
+      <svg className="ms-bag" width="150" height="130" viewBox="0 0 150 130" fill="none">
+        <ellipse className="ms-glow" cx="75" cy="66" rx="52" ry="26" fill="var(--glow)" opacity={0} />
 
-        {/* Volutes de vapeur */}
-        <path className="ms-steam-1" d="M50 46c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam-2" d="M60 44c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam-3" d="M70 46c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam" d="M55 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam" d="M75 36c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "0.5s" }} />
+        <path className="ms-steam" d="M95 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "1s" }} />
 
-        {/* Pain stylisé qui "lève" */}
-        <g className="ms-loaf-wrap">
-          <ellipse cx="60" cy="76" rx="30" ry="18" fill="var(--primary)" />
+        <circle className="ms-burst-dot" cx="62" cy="58" r="2" fill="#fff8ea" />
+        <circle className="ms-burst-dot" cx="88" cy="60" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.05s" }} />
+        <circle className="ms-burst-dot" cx="75" cy="48" r="1.8" fill="#fff8ea" style={{ animationDelay: "0.1s" }} />
+        <circle className="ms-burst-dot" cx="70" cy="80" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.08s" }} />
+        <circle className="ms-burst-dot" cx="95" cy="76" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.15s" }} />
+        <circle className="ms-burst-dot" cx="55" cy="72" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.12s" }} />
+
+        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "-34px", ["--dy0" as any]: "-14px" }} cx="62" cy="66" rx="9" ry="8" fill="var(--dough)" />
+        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "34px", ["--dy0" as any]: "-10px" }} cx="88" cy="66" rx="9" ry="8" fill="var(--dough)" />
+        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "-22px", ["--dy0" as any]: "22px" }} cx="68" cy="66" rx="8" ry="7" fill="var(--dough)" />
+        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "24px", ["--dy0" as any]: "24px" }} cx="82" cy="66" rx="8" ry="7" fill="var(--dough)" />
+        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "0px", ["--dy0" as any]: "-30px" }} cx="75" cy="66" rx="8" ry="7" fill="var(--dough)" />
+
+        <g className="ms-baguette-wrap">
           <path
-            d="M34 74c2-14 12-24 26-24s24 10 26 24"
-            fill="none"
-            stroke="var(--primary-foreground)"
-            strokeOpacity={0.35}
-            strokeWidth="2"
-            strokeLinecap="round"
+            className="ms-baguette-body"
+            d="M18 66c0-7 8-11 15-11h84c7 0 15 4 15 11s-8 11-15 11H33c-7 0-15-4-15-11z"
+            fill="var(--dough)"
           />
-          {/* grignes (entailles du boulanger) */}
-          <path d="M46 62c2 6 2 12 0 18" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
-          <path d="M60 58c2 8 2 16 0 24" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
-          <path d="M74 62c-2 6-2 12 0 18" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M40 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
+          <path d="M58 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
+          <path d="M76 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
+          <path d="M94 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
+          <path d="M110 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
+          <path d="M28 60c20-6 74-6 94 0" stroke="#ffe6b8" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity={0.4} />
         </g>
       </svg>
 
-      <p className="mt-2 text-[11px] text-muted-foreground italic">
-        Ça lève, ça pousse, ça marche.
+      <p className="mt-1 text-[11px] italic text-muted-foreground text-center max-w-[220px]">
+        Chaque grain compte, jusqu'à la dernière baguette.
       </p>
     </div>
   );
