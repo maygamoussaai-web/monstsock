@@ -7,15 +7,46 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lien support WhatsApp — externalisé en variable d'environnement (correction M1).
+// Définir VITE_SUPPORT_WA dans .env :
+// VITE_SUPPORT_WA=https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPPORT_WA =
+  import.meta.env.VITE_SUPPORT_WA ??
+  "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
+
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
+    // ── Vérification 1 : utilisateur authentifié ──────────────────────────
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
   },
   component: AuthedLayout,
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route enfant /staff — garde owner vérifiée en base (correction C4).
+// Ce fichier exporte aussi createStaffRoute pour que src/routes/_authenticated/staff.tsx
+// puisse l'importer et s'en servir comme beforeLoad.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function requireOwner() {
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) throw redirect({ to: "/auth" });
+
+  // Vérification du rôle directement en base — pas de dépendance à l'état React.
+  const { data: member, error } = await supabase
+    .from("bakery_members")
+    .select("role")
+    .eq("user_id", authData.user.id)
+    .maybeSingle();
+
+  if (error || !member || member.role !== "owner") {
+    throw redirect({ to: "/dashboard" });
+  }
+}
 
 const nav = [
   { to: "/dashboard",       label: "Tableau de bord", icon: LayoutDashboard },
@@ -32,7 +63,6 @@ const nav = [
 // Écran : aucune boulangerie rattachée
 // ─────────────────────────────────────────────────────────────────────────────
 function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
-  const WA = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
   return (
     <div className="grid min-h-screen place-items-center bg-background px-6">
       <div className="max-w-sm w-full text-center animate-fade-up">
@@ -47,7 +77,7 @@ function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
         </p>
         <div className="mt-8 space-y-3">
           <a
-            href={WA}
+            href={SUPPORT_WA}
             target="_blank"
             rel="noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
@@ -132,7 +162,7 @@ function AuthedLayout() {
   }
 
   // ── 1. Chargement ────────────────────────────────────────────────────────
-  // Attendre que le membership ET l'abonnement soient chargés avant de décider
+  // Attendre que le membership ET l'abonnement soient chargés avant de décider.
   const isLoadingAccess =
     memberLoading ||
     (currentMember !== null && currentMember !== undefined && subLoading);
@@ -152,14 +182,14 @@ function AuthedLayout() {
 
   // ── 2. Aucune boulangerie ─────────────────────────────────────────────────
   // Un compte sans boulangerie n'a pas accès à l'app.
-  // Cela couvre : nouveaux comptes avant activation, boulangeries supprimées par l'admin.
+  // Cela couvre : nouveaux comptes avant activation, boulangeries supprimées.
   if (currentMember === null) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
   // ── 3. Boulangerie bloquée ou abonnement expiré ───────────────────────────
-  // L'admin peut bloquer ou expirer l'abonnement depuis Bakery Boss Console.
-  // Dans les deux cas, tous les membres (gérant ET employés) perdent l'accès.
+  // L'admin peut bloquer ou expirer l'abonnement depuis Bakery Boss Control.
+  // Tous les membres (gérant ET employés) perdent l'accès.
   if (subscription?.status === "blocked" || subscription?.status === "expired") {
     return (
       <SuspendedScreen
