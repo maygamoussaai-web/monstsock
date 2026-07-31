@@ -111,7 +111,7 @@ function AuthPage() {
             {mode === "signin" ? "Bon retour" : "Bienvenue"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "signin" ? "Accédez à votre boulangerie." : "Monstock sera votre meilleur employé."}
+            {mode === "signin" ? "Accédez à votre boulangerie." : "Ouvrez votre espace en une minute."}
           </p>
 
           <RisingLoafFlourish />
