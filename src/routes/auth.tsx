@@ -235,9 +235,14 @@ function AuthPage() {
 // RisingLoafFlourish — remplace l'ancien bouton "Continuer avec Google" (retiré,
 // plus utilisé). Petite animation 100% maison aux couleurs MonStock : un pain
 // stylisé qui "lève" doucement (comme une pâte en fermentation), entouré d'un
-// halo de farine tournant et de volutes de vapeur qui montent — un clin d'œil
-// au métier plutôt qu'un simple ornement générique. Pur CSS/SVG, aucune
-// dépendance externe, ne bloque aucune interaction.
+// halo de farine tournant et de volutes de vapeur qui montent.
+//
+// Important : le thème MonStock définit ses couleurs en oklch() (voir
+// src/styles.css, ex. --primary: oklch(0.32 0.05 45)). On utilise donc les
+// variables directement via var(--primary) / var(--accent), JAMAIS enveloppées
+// dans hsl(...) — hsl(var(--primary)) donnerait hsl(oklch(...)), une couleur
+// invalide, ce qui rendait le SVG invisible. La transparence se fait via
+// l'attribut SVG "opacity" séparé, pas en append "/ alpha" dans la couleur.
 // ─────────────────────────────────────────────────────────────────────────────
 function RisingLoafFlourish() {
   return (
@@ -283,7 +288,7 @@ function RisingLoafFlourish() {
                 cx={cx}
                 cy={cy}
                 r={i % 2 === 0 ? 2 : 1.3}
-                fill="hsl(var(--accent))"
+                fill="var(--accent)"
                 opacity={0.5}
                 style={{ animationDelay: `${i * 0.25}s` }}
               />
@@ -292,24 +297,25 @@ function RisingLoafFlourish() {
         </g>
 
         {/* Volutes de vapeur */}
-        <path className="ms-steam-1" d="M50 46c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam-2" d="M60 44c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam-3" d="M70 46c-4-6 4-10 0-16" stroke="hsl(var(--accent))" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam-1" d="M50 46c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam-2" d="M60 44c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <path className="ms-steam-3" d="M70 46c-4-6 4-10 0-16" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" fill="none" />
 
         {/* Pain stylisé qui "lève" */}
         <g className="ms-loaf-wrap">
-          <ellipse cx="60" cy="76" rx="30" ry="18" fill="hsl(var(--primary))" />
+          <ellipse cx="60" cy="76" rx="30" ry="18" fill="var(--primary)" />
           <path
             d="M34 74c2-14 12-24 26-24s24 10 26 24"
             fill="none"
-            stroke="hsl(var(--primary-foreground) / 0.35)"
+            stroke="var(--primary-foreground)"
+            strokeOpacity={0.35}
             strokeWidth="2"
             strokeLinecap="round"
           />
           {/* grignes (entailles du boulanger) */}
-          <path d="M46 62c2 6 2 12 0 18" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
-          <path d="M60 58c2 8 2 16 0 24" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
-          <path d="M74 62c-2 6-2 12 0 18" stroke="hsl(var(--primary-foreground) / 0.5)" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M46 62c2 6 2 12 0 18" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M60 58c2 8 2 16 0 24" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
+          <path d="M74 62c-2 6-2 12 0 18" stroke="var(--primary-foreground)" strokeOpacity={0.5} strokeWidth="2" strokeLinecap="round" fill="none" />
         </g>
       </svg>
 
