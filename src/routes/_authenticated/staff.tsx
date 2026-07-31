@@ -10,11 +10,21 @@ import {
   useTransferOwnership,
   useMemberActivity,
 } from "@/lib/queries";
+import { requireOwner } from "@/routes/_authenticated/route";
 import { Modal } from "@/components/Modal";
 import { Users, Link2, Copy, Crown, Trash2, UserRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/staff")({ component: StaffPage });
+export const Route = createFileRoute("/_authenticated/staff")({
+  // ── Protection serveur (correction C4) ───────────────────────────────────
+  // requireOwner() vérifie le rôle directement en base avant le rendu.
+  // Un employé qui navigue manuellement vers /staff est redirigé vers /dashboard
+  // sans que le composant ne soit jamais affiché — même sans JavaScript.
+  beforeLoad: async () => {
+    await requireOwner();
+  },
+  component: StaffPage,
+});
 
 type MemberRow = { user_id: string; email: string | null; role: "owner" | "staff"; created_at: string };
 
@@ -34,6 +44,9 @@ function StaffPage() {
   const { data: member, isLoading: memLoading } = useCurrentMember();
   const { data: bakery } = useBakery();
 
+  // Le beforeLoad garantit qu'on n'arrive ici qu'en tant qu'owner.
+  // Ce garde React est conservé comme filet de sécurité UI (ex: changement de rôle
+  // pendant la session sans rechargement de page).
   if (memLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -72,7 +85,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
       const url = `${window.location.origin}/join/${token}`;
       setInviteLink(url);
     } catch {
-      /* toast handled */
+      /* toast handled in mutation */
     }
   }
 
