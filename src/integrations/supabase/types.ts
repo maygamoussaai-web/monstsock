@@ -66,6 +66,8 @@ export type Database = {
           created_at: string
           updated_at: string
           logo_url: string | null
+          /** Null = boulangerie active. Non-null = supprimée (soft-delete). */
+          deleted_at: string | null
         }
         Insert: {
           id?: string
@@ -75,6 +77,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           logo_url?: string | null
+          deleted_at?: string | null
         }
         Update: {
           id?: string
@@ -84,6 +87,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
           logo_url?: string | null
+          deleted_at?: string | null
         }
       }
       bakery_invitations: {
@@ -124,18 +128,22 @@ export type Database = {
           user_id: string
           role: Database["public"]["Enums"]["bakery_role"]
           created_at: string
+          /** Numéro de téléphone du membre (indicatif + numéro, ex: "+22370000000"). Nullable. */
+          phone: string | null
         }
         Insert: {
           bakery_id: string
           user_id: string
           role?: Database["public"]["Enums"]["bakery_role"]
           created_at?: string
+          phone?: string | null
         }
         Update: {
           bakery_id?: string
           user_id?: string
           role?: Database["public"]["Enums"]["bakery_role"]
           created_at?: string
+          phone?: string | null
         }
       }
       batch_consumptions: {
@@ -757,10 +765,10 @@ export type Database = {
         }[]
       }
       /**
-       * record_batch — deux surcharges en base :
-       * 1) (p_batch_id uuid) → uuid  (usage interne, rarement appelé directement)
-       * 2) (p_bakery_id, p_name, p_consumptions, p_outputs, p_notes) → jsonb  (utilisé par useCreateBatch)
-       * Le SDK ne supporte qu'une signature par nom ; on expose la version complète (5 params).
+       * record_batch — enregistre une fournée complète atomiquement.
+       * Décrémente les matières premières, incrémente le stock des produits,
+       * écrit dans le stock_ledger et l'activity_log.
+       * Vérifie l'accès à la boulangerie ET le statut d'abonnement (actif/trial).
        */
       record_batch: {
         Args: {
@@ -772,6 +780,11 @@ export type Database = {
         }
         Returns: Json
       }
+      /**
+       * record_loss — enregistre une perte de PRODUIT FINI (pas de matière première).
+       * Décrémente le stock du produit et écrit dans le ledger.
+       * Vérifie l'accès à la boulangerie ET le statut d'abonnement.
+       */
       record_loss: {
         Args: {
           p_bakery_id: string
@@ -782,10 +795,10 @@ export type Database = {
         Returns: string
       }
       /**
-       * record_product_sale — deux surcharges en base :
-       * 1) (p_bakery_id, p_product_id, p_quantity, p_price) → uuid  ← utilisée par useQuickSale / useRecordProductSale
-       * 2) (p_bakery_id, p_product_id, p_sold_quantity, p_unsold_quantity, p_keep_unsold, p_session_id) → jsonb  ← session
-       * On expose la version simple (4 params) car c'est celle appelée par le code actuel.
+       * record_product_sale — vente ponctuelle d'un produit fini (hors session).
+       * Décrémente le stock et inscrit la vente dans le ledger.
+       * Utilisé par useRecordProductSale et useQuickSale dans queries.ts.
+       * Signature active en base : (p_bakery_id, p_product_id, p_quantity, p_price) → uuid
        */
       record_product_sale: {
         Args: {
@@ -810,6 +823,15 @@ export type Database = {
         Args: { _bakery_id: string; _user_id: string }
         Returns: void
       }
+      /**
+       * subscription_active — vérifie qu'une boulangerie a un abonnement valide.
+       * Retourne true si status IN ('trial','active') ET les dates d'expiration
+       * ne sont pas dépassées. Appelée en garde dans toutes les RPCs critiques.
+       */
+      subscription_active: {
+        Args: { _bakery_id: string }
+        Returns: boolean
+      }
       transfer_bakery_ownership: {
         Args: { _bakery_id: string; _new_owner_id: string }
         Returns: void
@@ -817,6 +839,24 @@ export type Database = {
       user_has_bakery_access: {
         Args: { p_bakery_id: string }
         Returns: boolean
+      }
+      /**
+       * owner_delete_bakery — suppression PHYSIQUE complète de la boulangerie
+       * et de tous ses membres auth.users (sauf admins). Réservé à l'owner.
+       * À utiliser avec précaution — irréversible.
+       */
+      owner_delete_bakery: {
+        Args: { _bakery_id: string }
+        Returns: void
+      }
+      /**
+       * owner_soft_delete_bakery — suppression LOGIQUE (soft-delete) de la boulangerie.
+       * Met deleted_at à now() sans effacer les données. Préférable à owner_delete_bakery
+       * pour permettre une restauration éventuelle par l'admin.
+       */
+      owner_soft_delete_bakery: {
+        Args: { _bakery_id: string }
+        Returns: void
       }
     }
   }
