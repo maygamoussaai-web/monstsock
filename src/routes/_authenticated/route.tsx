@@ -61,6 +61,47 @@ const nav = [
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AnimatedLoadingBackground — nappes de couleur chaude, floutées, qui dérivent
+// et pulsent très doucement derrière le loader et le texte "Chargement…".
+// Reste discret (opacité faible) pour ne pas nuire à la lisibilité du texte.
+// ─────────────────────────────────────────────────────────────────────────────
+function AnimatedLoadingBackground() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <style>{`
+        @keyframes ms-blob-a {
+          0%, 100% { transform: translate(-6%, -4%) scale(1); }
+          50%      { transform: translate(4%, 6%) scale(1.12); }
+        }
+        @keyframes ms-blob-b {
+          0%, 100% { transform: translate(5%, 3%) scale(1); }
+          50%      { transform: translate(-6%, -5%) scale(1.08); }
+        }
+        @keyframes ms-blob-c {
+          0%, 100% { transform: translate(0%, 6%) scale(1); }
+          50%      { transform: translate(3%, -6%) scale(1.15); }
+        }
+        .ms-blob-a { animation: ms-blob-a 14s ease-in-out infinite; }
+        .ms-blob-b { animation: ms-blob-b 18s ease-in-out infinite; }
+        .ms-blob-c { animation: ms-blob-c 16s ease-in-out infinite; }
+      `}</style>
+      <div
+        className="ms-blob-a absolute -top-1/4 -left-1/4 h-[60vmax] w-[60vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #e8b06b55 0%, transparent 70%)" }}
+      />
+      <div
+        className="ms-blob-b absolute -bottom-1/4 -right-1/4 h-[55vmax] w-[55vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #a8541f3d 0%, transparent 70%)" }}
+      />
+      <div
+        className="ms-blob-c absolute top-1/3 right-1/4 h-[40vmax] w-[40vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #c97c3d33 0%, transparent 70%)" }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BaguetteLoader — icône de l'écran de chargement. Une baguette (couleur croûte
 // orange foncé) tourne en orbite circulaire autour d'un halo chaud, avec une
 // traînée de particules de farine derrière elle. Remplace l'ancien Wheat statique.
@@ -245,8 +286,9 @@ function AuthedLayout() {
 
   if (isLoadingAccess) {
     return (
-      <div className="grid min-h-screen place-items-center bg-background">
-        <div className="flex flex-col items-center gap-4">
+      <div className="relative grid min-h-screen place-items-center overflow-hidden bg-background">
+        <AnimatedLoadingBackground />
+        <div className="relative z-10 flex flex-col items-center gap-4">
           <BaguetteLoader />
           <p className="text-sm text-muted-foreground animate-pulse">Chargement…</p>
         </div>
