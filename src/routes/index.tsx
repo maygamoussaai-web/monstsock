@@ -21,6 +21,47 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AnimatedHeroBackground — nappes de couleur chaude, floutées, qui dérivent et
+// pulsent très doucement derrière l'accroche de la page d'accueil. Volontairement
+// discret (faible opacité) pour ne pas gêner la lecture du texte au-dessus.
+// ─────────────────────────────────────────────────────────────────────────────
+function AnimatedHeroBackground() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <style>{`
+        @keyframes ms-hero-blob-a {
+          0%, 100% { transform: translate(-6%, -6%) scale(1); }
+          50%      { transform: translate(4%, 5%) scale(1.12); }
+        }
+        @keyframes ms-hero-blob-b {
+          0%, 100% { transform: translate(5%, 4%) scale(1); }
+          50%      { transform: translate(-5%, -4%) scale(1.08); }
+        }
+        @keyframes ms-hero-blob-c {
+          0%, 100% { transform: translate(2%, 6%) scale(1); }
+          50%      { transform: translate(-3%, -5%) scale(1.15); }
+        }
+        .ms-hero-blob-a { animation: ms-hero-blob-a 16s ease-in-out infinite; }
+        .ms-hero-blob-b { animation: ms-hero-blob-b 20s ease-in-out infinite; }
+        .ms-hero-blob-c { animation: ms-hero-blob-c 18s ease-in-out infinite; }
+      `}</style>
+      <div
+        className="ms-hero-blob-a absolute -top-1/3 -left-1/4 h-[50vmax] w-[50vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #e8b06b4d 0%, transparent 70%)" }}
+      />
+      <div
+        className="ms-hero-blob-b absolute -bottom-1/3 right-0 h-[45vmax] w-[45vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #a8541f33 0%, transparent 70%)" }}
+      />
+      <div
+        className="ms-hero-blob-c absolute top-0 right-1/4 h-[32vmax] w-[32vmax] rounded-full blur-3xl"
+        style={{ background: "radial-gradient(circle, #c97c3d2e 0%, transparent 70%)" }}
+      />
+    </div>
+  );
+}
+
 function Landing() {
   return (
     <div className="min-h-screen bg-background">
@@ -39,29 +80,32 @@ function Landing() {
         </Link>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 pt-12 pb-16">
-        <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Conçu pour les boulangeries artisanales
-          </span>
-          <h1 className="mt-6 text-balance font-display text-5xl leading-[1.05] text-foreground sm:text-6xl">
-            Reprenez le <span className="italic text-accent">contrôle</span><br/>de votre fournil.
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Chaque sac de farine, chaque baguette, chaque invendu compte. MonStock traque chaque mouvement du stock,
-            démasque les pertes silencieuses et transforme votre boulangerie en une machine à marges nettes.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              to="/auth"
-              className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-lift)] transition-transform hover:-translate-y-0.5"
-            >
-              Ouvrir mon compte
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <a href="#pourquoi" className="inline-flex items-center rounded-full border border-border bg-card px-6 py-3 text-sm hover:bg-secondary">
-              Pourquoi MonStock
-            </a>
+      <section className="relative overflow-hidden">
+        <AnimatedHeroBackground />
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-12 pb-16">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Conçu pour les boulangeries artisanales
+            </span>
+            <h1 className="mt-6 text-balance font-display text-5xl leading-[1.05] text-foreground sm:text-6xl">
+              Reprenez le <span className="italic text-accent">contrôle</span><br/>de votre fournil.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
+              Chaque sac de farine, chaque baguette, chaque invendu compte. MonStock traque chaque mouvement du stock,
+              démasque les pertes silencieuses et transforme votre boulangerie en une machine à marges nettes.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                to="/auth"
+                className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-lift)] transition-transform hover:-translate-y-0.5"
+              >
+                Ouvrir mon compte
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a href="#pourquoi" className="inline-flex items-center rounded-full border border-border bg-card px-6 py-3 text-sm hover:bg-secondary">
+                Pourquoi MonStock
+              </a>
+            </div>
           </div>
         </div>
       </section>
