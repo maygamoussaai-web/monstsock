@@ -12,7 +12,11 @@ import {
 } from "@/lib/queries";
 import { requireOwner } from "@/routes/_authenticated/route";
 import { Modal } from "@/components/Modal";
-import { Users, Link2, Copy, Crown, Trash2, UserRound, Loader2 } from "lucide-react";
+import {
+  Users, Link2, Copy, Crown, Trash2, UserRound, Loader2,
+  ShoppingCart, Flame, ShoppingBag, TrendingDown, ClipboardList,
+  ArrowLeft, Clock,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/staff")({
@@ -225,6 +229,33 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Journal d'activité d'un membre : liste des actions, puis détail au clic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ActivityRow = {
+  id: string;
+  bakery_id: string;
+  user_id: string;
+  action_type: string;
+  description: string | null;
+  created_at: string;
+};
+
+// Libellé + icône lisibles pour chaque type d'action enregistré par activity_log
+// (voir record_purchase / record_batch / record_product_sale / record_loss / close_sales_session).
+const ACTION_META: Record<string, { label: string; icon: typeof ShoppingCart }> = {
+  purchase: { label: "Réapprovisionnement", icon: ShoppingCart },
+  batch: { label: "Fournée", icon: Flame },
+  sale: { label: "Vente", icon: ShoppingBag },
+  loss: { label: "Perte", icon: TrendingDown },
+  sales_session: { label: "Clôture de session", icon: ClipboardList },
+};
+
+function actionMeta(type: string) {
+  return ACTION_META[type] ?? { label: type, icon: ClipboardList };
+}
+
 function MemberActivityModal({
   member,
   bakeryId,
@@ -235,6 +266,56 @@ function MemberActivityModal({
   onClose: () => void;
 }) {
   const { data: activity = [], isLoading } = useMemberActivity(member.user_id, bakeryId);
+  const [detail, setDetail] = useState<ActivityRow | null>(null);
+
+  // Vue détail d'une action précise — remplace la liste tant qu'elle est ouverte.
+  if (detail) {
+    const meta = actionMeta(detail.action_type);
+    const Icon = meta.icon;
+    return (
+      <Modal
+        title="Détail de l'action"
+        subtitle={member.email ?? "Membre"}
+        onClose={onClose}
+        size="lg"
+      >
+        <button
+          onClick={() => setDetail(null)}
+          className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Retour au journal
+        </button>
+        <div className="rounded-xl border border-border bg-card/60 p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-accent shrink-0">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                {meta.label}
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                <Clock className="h-3 w-3" />
+                {new Date(detail.created_at).toLocaleString("fr-FR", {
+                  dateStyle: "full",
+                  timeStyle: "short",
+                })}
+              </p>
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
+              Description
+            </p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+              {detail.description ?? "Aucune description disponible."}
+            </p>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       title={member.email ?? "Membre"}
@@ -250,22 +331,31 @@ function MemberActivityModal({
         <p className="text-sm text-muted-foreground">Aucune action enregistrée pour ce membre.</p>
       ) : (
         <ul className="space-y-2">
-          {activity.map((a) => (
-            <li
-              key={a.id}
-              className="rounded-xl border border-border bg-card/60 p-3 text-sm flex items-start justify-between gap-3"
-            >
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {a.action_type}
-                </p>
-                <p className="mt-0.5 truncate">{a.description ?? "—"}</p>
-              </div>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {new Date(a.created_at).toLocaleString("fr-FR")}
-              </span>
-            </li>
-          ))}
+          {activity.map((a) => {
+            const meta = actionMeta(a.action_type);
+            const Icon = meta.icon;
+            return (
+              <li key={a.id}>
+                <button
+                  onClick={() => setDetail(a)}
+                  className="w-full rounded-xl border border-border bg-card/60 p-3 text-sm flex items-start gap-3 text-left hover:border-accent/50 hover:bg-secondary/40 transition-colors"
+                >
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-accent shrink-0">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      {meta.label}
+                    </p>
+                    <p className="mt-0.5 truncate">{a.description ?? "—"}</p>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {new Date(a.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Modal>
