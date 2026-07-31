@@ -2,18 +2,20 @@ import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } fr
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package2, Croissant, Flame, ShoppingBag,
-  LineChart, History, LogOut, Wheat, Layers, User, Users, Lock,
+  LineChart, History, LogOut, Wheat, Layers, User, Users, Lock, MessageCircle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lien support WhatsApp — externalisé en variable d'environnement (correction M1).
-// Définir VITE_SUPPORT_WA dans .env :
-// VITE_SUPPORT_WA=https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription
+// Lien support WhatsApp — utilisé pour obtenir un code d'inscription (NoBakeryScreen)
+// et pour contacter l'admin MAYGA depuis un compte bloqué/expiré (SuspendedScreen).
+// Même numéro que dans auth.tsx et profile.tsx.
 // ─────────────────────────────────────────────────────────────────────────────
 const SUPPORT_WA_URL =
   "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
+const ADMIN_WA_URL =
+  "https://wa.me/22360673302?text=Bonjour%2C%20mon%20acc%C3%A8s%20%C3%A0%20MonStock%20est%20bloqu%C3%A9%2Fexpir%C3%A9%2C%20pouvez-vous%20m%27aider%20%3F";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -60,6 +62,13 @@ const nav = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Écran : aucune boulangerie rattachée
+//
+// Note : ce cas ne couvre plus la suppression de boulangerie ni le retrait d'un
+// employé — dans ces deux cas, le compte Auth Supabase de la personne est
+// désormais supprimé (owner_delete_bakery / admin_delete_bakery / remove_bakery_member),
+// donc elle échoue dès l'écran de connexion et n'atteint jamais ce layout.
+// Cet écran ne sert plus que pour un compte authentifié qui n'a jamais été
+// rattaché à une boulangerie (cas limite / sécurité supplémentaire).
 // ─────────────────────────────────────────────────────────────────────────────
 function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
   return (
@@ -76,7 +85,7 @@ function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
         </p>
         <div className="mt-8 space-y-3">
           <a
-            href={SUPPORT_WA}
+            href={SUPPORT_WA_URL}
             target="_blank"
             rel="noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
@@ -97,6 +106,13 @@ function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Écran : boulangerie bloquée ou abonnement expiré
+//
+// - "blocked" : accès suspendu par l'admin MAYGA. Les données restent conservées
+//   en base, seul l'accès est coupé. Écran inchangé sur le fond, on ajoute juste
+//   le lien de contact qui manquait.
+// - "expired" : couvre à la fois un abonnement que l'admin a marqué "expired"
+//   ET une expiration naturelle (date de fin dépassée) détectée côté client
+//   dans AuthedLayout, sans action de l'admin nécessaire.
 // ─────────────────────────────────────────────────────────────────────────────
 function SuspendedScreen({
   status,
@@ -117,10 +133,19 @@ function SuspendedScreen({
         </h1>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
           {isBlocked
-            ? "L'accès à cette boulangerie a été suspendu par l'administrateur de la plateforme. Contactez le support."
-            : "L'abonnement de cette boulangerie a expiré. Contactez votre gérant ou le support pour le renouveler."}
+            ? "L'accès à cette boulangerie a été suspendu par l'administrateur de la plateforme. Vos données restent conservées. Contactez l'admin MAYGA pour rétablir l'accès."
+            : "L'abonnement de cette boulangerie a expiré. Vos données restent conservées. Contactez l'admin MAYGA pour le renouveler."}
         </p>
-        <div className="mt-8">
+        <div className="mt-8 space-y-3">
+          <a
+            href={ADMIN_WA_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Contacter l'admin MAYGA
+          </a>
           <button
             onClick={onSignOut}
             className="w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -180,22 +205,29 @@ function AuthedLayout() {
   }
 
   // ── 2. Aucune boulangerie ─────────────────────────────────────────────────
-  // Un compte sans boulangerie n'a pas accès à l'app.
-  // Cela couvre : nouveaux comptes avant activation, boulangeries supprimées.
   if (currentMember === null) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
   // ── 3. Boulangerie bloquée ou abonnement expiré ───────────────────────────
-  // L'admin peut bloquer ou expirer l'abonnement depuis Bakery Boss Control.
-  // Tous les membres (gérant ET employés) perdent l'accès.
-  if (subscription?.status === "blocked" || subscription?.status === "expired") {
-    return (
-      <SuspendedScreen
-        status={subscription.status as "blocked" | "expired"}
-        onSignOut={signOut}
-      />
-    );
+  // "expired" couvre : status déjà marqué "expired" par l'admin, OU date de fin
+  // (subscription_end / trial_end) dépassée sans qu'aucune action de l'admin
+  // n'ait été nécessaire — l'expiration naturelle doit bloquer l'accès elle aussi.
+  const now = Date.now();
+  const pastEnd = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < now;
+  const isNaturallyExpired =
+    (subscription?.status === "active" && pastEnd(subscription.subscription_end)) ||
+    (subscription?.status === "trial" && pastEnd(subscription.trial_end));
+
+  const accessStatus: "blocked" | "expired" | null =
+    subscription?.status === "blocked"
+      ? "blocked"
+      : subscription?.status === "expired" || isNaturallyExpired
+      ? "expired"
+      : null;
+
+  if (accessStatus) {
+    return <SuspendedScreen status={accessStatus} onSignOut={signOut} />;
   }
 
   // ── 4. Accès normal ───────────────────────────────────────────────────────
