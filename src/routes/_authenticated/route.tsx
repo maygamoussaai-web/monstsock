@@ -61,6 +61,58 @@ const nav = [
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BaguetteLoader — icône de l'écran de chargement. Une baguette (couleur croûte
+// orange foncé) tourne en orbite circulaire autour d'un halo chaud, avec une
+// traînée de particules de farine derrière elle. Remplace l'ancien Wheat statique.
+// Couleurs définies en local, indépendantes des tokens du thème (oklch).
+// ─────────────────────────────────────────────────────────────────────────────
+function BaguetteLoader() {
+  return (
+    <div className="relative" aria-hidden="true">
+      <style>{`
+        .ms-loader {
+          --crust: #a8541f;
+          --crust-dark: #7d3c14;
+          --accent: #c97c3d;
+          --glow: #e8b06b;
+        }
+        @keyframes ms-orbit-spin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes ms-glow-breathe {
+          0%, 100% { opacity: 0.35; transform: scale(1); }
+          50%      { opacity: 0.6;  transform: scale(1.08); }
+        }
+        @keyframes ms-trail-fade {
+          0%, 100% { opacity: var(--base-op); }
+        }
+        .ms-orbit { animation: ms-orbit-spin 1.6s linear infinite; transform-origin: 50px 50px; }
+        .ms-loader-glow { animation: ms-glow-breathe 1.6s ease-in-out infinite; transform-origin: 50px 50px; }
+      `}</style>
+      <svg className="ms-loader" width="56" height="56" viewBox="0 0 100 100" fill="none">
+        <circle className="ms-loader-glow" cx="50" cy="50" r="34" fill="var(--glow)" opacity={0.4} />
+
+        <g className="ms-orbit">
+          {/* Traînée de farine derrière la baguette */}
+          <circle cx="50" cy="20" r="2.4" fill="var(--accent)" style={{ ["--base-op" as any]: 0.15, opacity: 0.15 }} transform="rotate(24 50 50)" />
+          <circle cx="50" cy="20" r="2.8" fill="var(--accent)" style={{ ["--base-op" as any]: 0.3, opacity: 0.3 }} transform="rotate(14 50 50)" />
+          <circle cx="50" cy="20" r="3.2" fill="var(--accent)" style={{ ["--base-op" as any]: 0.5, opacity: 0.5 }} transform="rotate(7 50 50)" />
+
+          {/* Petite baguette, tangente à l'orbite */}
+          <g transform="translate(50 16) rotate(90)">
+            <rect x="-11" y="-3.4" width="22" height="6.8" rx="3.4" fill="var(--crust)" />
+            <line x1="-6" y1="-2" x2="-4" y2="2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
+            <line x1="-1.5" y1="-2.2" x2="0.5" y2="2.2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
+            <line x1="3" y1="-2" x2="5" y2="2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Écran : aucune boulangerie rattachée
 //
 // Note : ce cas ne couvre plus la suppression de boulangerie ni le retrait d'un
@@ -195,9 +247,7 @@ function AuthedLayout() {
     return (
       <div className="grid min-h-screen place-items-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <Wheat className="h-6 w-6" />
-          </div>
+          <BaguetteLoader />
           <p className="text-sm text-muted-foreground animate-pulse">Chargement…</p>
         </div>
       </div>
