@@ -107,7 +107,7 @@ function RawMaterialsPage() {
                     key={m.id}
                     onClick={() => setDetailFor(m.id)}
                     style={stagger(idx, 35)}
-                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{m.name}</p>
