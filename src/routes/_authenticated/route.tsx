@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
+import { BaguetteLoader } from "@/components/Loader";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lien support WhatsApp — utilisé pour obtenir un code d'inscription (NoBakeryScreen)
@@ -102,58 +103,6 @@ function AnimatedLoadingBackground() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BaguetteLoader — icône de l'écran de chargement. Une baguette (couleur croûte
-// orange foncé) tourne en orbite circulaire autour d'un halo chaud, avec une
-// traînée de particules de farine derrière elle. Remplace l'ancien Wheat statique.
-// Couleurs définies en local, indépendantes des tokens du thème (oklch).
-// ─────────────────────────────────────────────────────────────────────────────
-function BaguetteLoader() {
-  return (
-    <div className="relative" aria-hidden="true">
-      <style>{`
-        .ms-loader {
-          --crust: #a8541f;
-          --crust-dark: #7d3c14;
-          --accent: #c97c3d;
-          --glow: #e8b06b;
-        }
-        @keyframes ms-orbit-spin {
-          0%   { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes ms-glow-breathe {
-          0%, 100% { opacity: 0.35; transform: scale(1); }
-          50%      { opacity: 0.6;  transform: scale(1.08); }
-        }
-        @keyframes ms-trail-fade {
-          0%, 100% { opacity: var(--base-op); }
-        }
-        .ms-orbit { animation: ms-orbit-spin 1.6s linear infinite; transform-origin: 50px 50px; }
-        .ms-loader-glow { animation: ms-glow-breathe 1.6s ease-in-out infinite; transform-origin: 50px 50px; }
-      `}</style>
-      <svg className="ms-loader" width="56" height="56" viewBox="0 0 100 100" fill="none">
-        <circle className="ms-loader-glow" cx="50" cy="50" r="34" fill="var(--glow)" opacity={0.4} />
-
-        <g className="ms-orbit">
-          {/* Traînée de farine derrière la baguette */}
-          <circle cx="50" cy="20" r="2.4" fill="var(--accent)" style={{ ["--base-op" as any]: 0.15, opacity: 0.15 }} transform="rotate(24 50 50)" />
-          <circle cx="50" cy="20" r="2.8" fill="var(--accent)" style={{ ["--base-op" as any]: 0.3, opacity: 0.3 }} transform="rotate(14 50 50)" />
-          <circle cx="50" cy="20" r="3.2" fill="var(--accent)" style={{ ["--base-op" as any]: 0.5, opacity: 0.5 }} transform="rotate(7 50 50)" />
-
-          {/* Petite baguette, tangente à l'orbite */}
-          <g transform="translate(50 16) rotate(90)">
-            <rect x="-11" y="-3.4" width="22" height="6.8" rx="3.4" fill="var(--crust)" />
-            <line x1="-6" y1="-2" x2="-4" y2="2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
-            <line x1="-1.5" y1="-2.2" x2="0.5" y2="2.2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
-            <line x1="3" y1="-2" x2="5" y2="2" stroke="var(--crust-dark)" strokeWidth="1.1" strokeLinecap="round" />
-          </g>
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Écran : aucune boulangerie rattachée
 //
 // Note : ce cas ne couvre plus la suppression de boulangerie ni le retrait d'un
@@ -181,13 +130,13 @@ function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
             href={SUPPORT_WA_URL}
             target="_blank"
             rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            className="btn-press btn-shimmer flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
           >
             Obtenir un code d'inscription
           </a>
           <button
             onClick={onSignOut}
-            className="w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            className="btn-press w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary"
           >
             Se déconnecter
           </button>
@@ -234,14 +183,14 @@ function SuspendedScreen({
             href={ADMIN_WA_URL}
             target="_blank"
             rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            className="btn-press btn-shimmer flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
           >
             <MessageCircle className="h-4 w-4" />
             Contacter l'admin MAYGA
           </a>
           <button
             onClick={onSignOut}
-            className="w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            className="btn-press w-full rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary"
           >
             Se déconnecter
           </button>
@@ -346,7 +295,7 @@ function AuthedLayout() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`rounded-full px-3 py-2 text-xs transition-colors ${
+                  className={`rounded-full px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 ${
                     active
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -361,17 +310,17 @@ function AuthedLayout() {
           <div className="flex items-center gap-2">
             <Link
               to="/profile"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+              className="btn-press inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary"
               title="Profil"
             >
-              <User className="h-3.5 w-3.5" />
+              <User className="h-3.5 w-3.5 icon-pop" />
               <span className="hidden sm:inline">Profil</span>
             </Link>
             <button
               onClick={signOut}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+              className="btn-press inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-3.5 w-3.5 icon-pop" />
               <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
@@ -385,7 +334,7 @@ function AuthedLayout() {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] ${
+                className={`btn-press inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] ${
                   active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                 }`}
               >
@@ -396,7 +345,8 @@ function AuthedLayout() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10 animate-fade-up">
+      {/* key={pathname} : rejoue l'animation d'entrée à chaque changement de page */}
+      <main key={pathname} className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10 animate-page-in">
         <Outlet />
       </main>
 
