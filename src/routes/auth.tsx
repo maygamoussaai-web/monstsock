@@ -192,7 +192,7 @@ function AuthPage() {
               <div className="relative mt-1">
                 <input
                   type={showPassword ? "text" : "password"}
-                  required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                  required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
                   placeholder="••••••••"
                 />
@@ -237,10 +237,6 @@ function AuthPage() {
 // marque le moment où ils se rejoignent, puis une baguette se forme (couleur
 // croûte orange foncé) avec ses grignes, un halo chaud qui pulse et un peu de
 // vapeur — puis elle s'efface et le cycle recommence, en boucle continue.
-//
-// Couleurs définies en local (--dough, --crust, etc.) plutôt que via les
-// tokens du thème (oklch) : plus simple à faire tourner de façon fiable pour
-// une animation autonome, sans dépendre du format des variables globales.
 // ─────────────────────────────────────────────────────────────────────────────
 function BaguetteFlourish() {
   return (
