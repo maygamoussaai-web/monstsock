@@ -722,6 +722,9 @@ export type Database = {
         }
       }
     }
+    Views: {
+      [_ in never]: never
+    }
     Enums: {
       bakery_role: "owner" | "staff"
       batch_status: "draft" | "completed"
@@ -858,6 +861,9 @@ export type Database = {
         Args: { _bakery_id: string }
         Returns: void
       }
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
