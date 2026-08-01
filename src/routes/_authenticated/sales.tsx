@@ -14,21 +14,39 @@ function SalesPage() {
   const [q, setQ] = useState("");
   const [date, setDate] = useState("");
 
-  const recentSales = useMemo(
-    () =>
-      ledger
-        .filter((l) => l.kind === "sale" || l.kind === "loss")
-        .filter((l) => {
-          if (q) {
-            const name = (l.products?.name ?? l.raw_materials?.name ?? "").toLowerCase();
-            if (!name.includes(q.toLowerCase())) return false;
-          }
-          if (date && new Date(l.created_at).toISOString().slice(0, 10) !== date) return false;
-          return true;
-        })
-        .slice(0, 100),
-    [ledger, q, date]
-  );
+  // Regroupe chaque vente avec sa perte liée (invendus jetés, ref_id -> vente), pour ne
+  // jamais présenter une vente comme une "perte" : la perte apparaît en détail sous la
+  // vente, pas comme une ligne "Perte" séparée et sans contexte.
+  const recentSales = useMemo(() => {
+    const bySaleId = new Map<string, typeof ledger[number] & { linkedLoss?: typeof ledger[number] }>();
+    const standaloneLosses: typeof ledger = [];
+
+    for (const l of ledger) {
+      if (l.kind === "sale") bySaleId.set(l.id, { ...l });
+    }
+    for (const l of ledger) {
+      if (l.kind === "loss") {
+        const parent = l.ref_id ? bySaleId.get(l.ref_id) : undefined;
+        if (parent) parent.linkedLoss = l;
+        else standaloneLosses.push(l);
+      }
+    }
+
+    const rows = [...bySaleId.values(), ...standaloneLosses].sort((a, b) =>
+      a.created_at < b.created_at ? 1 : -1
+    );
+
+    return rows
+      .filter((l) => {
+        if (q) {
+          const name = (l.products?.name ?? l.raw_materials?.name ?? "").toLowerCase();
+          if (!name.includes(q.toLowerCase())) return false;
+        }
+        if (date && new Date(l.created_at).toISOString().slice(0, 10) !== date) return false;
+        return true;
+      })
+      .slice(0, 100);
+  }, [ledger, q, date]);
 
   return (
     <div className="space-y-6">
@@ -89,6 +107,13 @@ function SalesPage() {
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)}</p>
+                {/* Une vente reste une vente : la perte liée (invendus jetés) apparaît ici
+                    en détail, jamais comme une ligne "Perte" à part. */}
+                {l.linkedLoss && (
+                  <p className="mt-0.5 text-xs text-destructive">
+                    dont perte (invendus jetés) : −{formatMoney(Math.abs(l.linkedLoss.delta_value))}
+                  </p>
+                )}
               </div>
               <div className="text-right shrink-0">
                 <p className="text-xs text-muted-foreground">
