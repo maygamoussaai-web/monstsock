@@ -28,6 +28,15 @@ export type Database = {
           description?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       admin_email_allowlist: {
         Row: {
@@ -42,6 +51,7 @@ export type Database = {
           email?: string
           created_at?: string
         }
+        Relationships: []
       }
       admins: {
         Row: {
@@ -56,6 +66,7 @@ export type Database = {
           user_id?: string
           created_at?: string
         }
+        Relationships: []
       }
       bakeries: {
         Row: {
@@ -89,6 +100,7 @@ export type Database = {
           logo_url?: string | null
           deleted_at?: string | null
         }
+        Relationships: []
       }
       bakery_invitations: {
         Row: {
@@ -121,6 +133,15 @@ export type Database = {
           expires_at?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "bakery_invitations_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       bakery_members: {
         Row: {
@@ -145,6 +166,15 @@ export type Database = {
           created_at?: string
           phone?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "bakery_members_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batch_consumptions: {
         Row: {
@@ -174,6 +204,29 @@ export type Database = {
           unit_cost?: number
           line_cost?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "batch_consumptions_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_consumptions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_consumptions_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batch_outputs: {
         Row: {
@@ -200,6 +253,29 @@ export type Database = {
           quantity_produced?: number
           unit_material_cost?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "batch_outputs_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_outputs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_outputs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batch_template_ingredients: {
         Row: {
@@ -226,6 +302,29 @@ export type Database = {
           quantity?: number
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "batch_template_ingredients_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_ingredients_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "batch_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_ingredients_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batch_template_items: {
         Row: {
@@ -249,6 +348,29 @@ export type Database = {
           product_id?: string
           planned_quantity?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "batch_template_items_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "batch_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_template_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batch_templates: {
         Row: {
@@ -275,6 +397,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "batch_templates_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       batches: {
         Row: {
@@ -319,6 +450,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "batches_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batches_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "batch_templates"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       invitation_codes: {
         Row: {
@@ -351,6 +498,7 @@ export type Database = {
           notes?: string | null
           created_at?: string | null
         }
+        Relationships: []
       }
       losses: {
         Row: {
@@ -383,6 +531,22 @@ export type Database = {
           created_by?: string | null
           created_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "losses_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "losses_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       product_recipes: {
         Row: {
@@ -409,6 +573,29 @@ export type Database = {
           quantity_per_unit?: number | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "product_recipes_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_recipes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_recipes_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       products: {
         Row: {
@@ -450,6 +637,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "products_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       raw_material_purchases: {
         Row: {
@@ -488,6 +684,22 @@ export type Database = {
           created_at?: string
           created_by?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "raw_material_purchases_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raw_material_purchases_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       raw_materials: {
         Row: {
@@ -529,6 +741,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "raw_materials_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       sales_session_items: {
         Row: {
@@ -588,6 +809,29 @@ export type Database = {
           revenue?: number | null
           updated_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "sales_session_items_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_session_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sales_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_session_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       sales_sessions: {
         Row: {
@@ -632,6 +876,15 @@ export type Database = {
           closed_at?: string | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "sales_sessions_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       stock_ledger: {
         Row: {
@@ -673,6 +926,29 @@ export type Database = {
           note?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "stock_ledger_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_raw_material_id_fkey"
+            columns: ["raw_material_id"]
+            isOneToOne: false
+            referencedRelation: "raw_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       subscriptions: {
         Row: {
@@ -720,7 +996,26 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_bakery_id_fkey"
+            columns: ["bakery_id"]
+            isOneToOne: false
+            referencedRelation: "bakeries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_invitation_code_id_fkey"
+            columns: ["invitation_code_id"]
+            isOneToOne: false
+            referencedRelation: "invitation_codes"
+            referencedColumns: ["id"]
+          }
+        ]
       }
+    }
+    Views: {
+      [_ in never]: never
     }
     Enums: {
       bakery_role: "owner" | "staff"
@@ -858,6 +1153,9 @@ export type Database = {
         Args: { _bakery_id: string }
         Returns: void
       }
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }

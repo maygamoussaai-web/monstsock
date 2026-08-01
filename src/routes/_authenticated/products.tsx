@@ -14,6 +14,8 @@ import {
 } from "@/lib/queries";
 import { formatMoney, formatQty, PRODUCT_UNITS, UNIT_LABEL } from "@/lib/format";
 import { Plus, Search, Croissant, Trash2, ChefHat, Pencil } from "lucide-react";
+import { EmptyState } from "@/components/Loader";
+import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
 import { BatchForm } from "@/components/BatchForm";
 
@@ -53,7 +55,7 @@ function ProductsPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouveau produit
         </button>
@@ -86,19 +88,19 @@ function ProductsPage() {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                    Aucun produit fabriqué. Créez-en un pour commencer.
+                  <td colSpan={4} className="px-4">
+                    <EmptyState icon={Croissant} title="Aucun produit" description="Créez votre premier produit fabriqué pour lancer une fournée." />
                   </td>
                 </tr>
               )}
-              {filtered.map((p) => {
+              {filtered.map((p, idx) => {
                 const low = p.stock <= p.low_stock_threshold;
                 return (
                   <tr
                     key={p.id}
                     onClick={() => setDetailFor(p.id)}
-                    className={`cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                    style={stagger(idx, 35)}
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{p.name}</p>
@@ -116,10 +118,10 @@ function ProductsPage() {
                     >
                       <button
                         onClick={() => setBatchFor(p.id)}
-                        className="rounded-lg p-2 hover:bg-secondary"
+                        className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                         title="Nouvelle fournée"
                       >
-                        <ChefHat className="h-4 w-4 text-accent" />
+                        <ChefHat className="h-4 w-4 text-accent icon-pop" />
                       </button>
                     </td>
                   </tr>
@@ -230,7 +232,7 @@ function ProductDetail({
           <div className="flex gap-2 pt-3">
             <button
               onClick={onOpenBatch}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
+              className="btn-press btn-shimmer flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
             >
               <ChefHat className="h-4 w-4" /> Nouvelle fournée
             </button>
@@ -319,7 +321,7 @@ function ProductDetail({
             <button
               onClick={save}
               disabled={update.isPending}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
+              className="btn-press btn-shimmer flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
             >
               Enregistrer
             </button>
@@ -441,7 +443,7 @@ function ProductForm({
       </p>
       <button
         disabled={submitting}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
       >
         Créer le produit
       </button>
@@ -549,7 +551,7 @@ function RecipeEditor({ product }: { product: Product }) {
             <button
               type="button"
               onClick={() => removeLine(idx)}
-              className="rounded-lg p-2 hover:bg-secondary"
+              className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
               aria-label="Retirer"
             >
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -578,7 +580,7 @@ function RecipeEditor({ product }: { product: Product }) {
         type="button"
         onClick={save}
         disabled={!firstOk || hasDup || upsert.isPending || del.isPending || (!dirty && hasExisting)}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
       >
         {upsert.isPending || del.isPending
           ? "Enregistrement…"

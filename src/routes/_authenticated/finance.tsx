@@ -4,6 +4,8 @@ import { useLedger, useRawMaterials, useProducts, usePurchases } from "@/lib/que
 import { formatMoney, formatQty, formatDateTime, UNIT_LABEL } from "@/lib/format";
 import { LineChart, Wallet, ShoppingBag, TrendingDown, TrendingUp, Package2, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/Modal";
+import { AnimatedNumber, stagger } from "@/components/motion";
+import { EmptyState, SkeletonRows } from "@/components/Loader";
 
 export const Route = createFileRoute("/_authenticated/finance")({ component: FinancePage });
 
@@ -19,7 +21,7 @@ type DetailKey = null | "stock" | "purchases" | "revenue" | "losses";
 function FinancePage() {
   const [range, setRange] = useState<typeof RANGES[number]["key"]>("30");
   const [detail, setDetail] = useState<DetailKey>(null);
-  const { data: ledger = [] } = useLedger(2000);
+  const { data: ledger = [], isLoading: ledgerLoading } = useLedger(2000);
   const { data: materials = [] } = useRawMaterials();
   const { data: products = [] } = useProducts();
   const { data: purchases = [] } = usePurchases(500);
@@ -62,32 +64,38 @@ function FinancePage() {
         </div>
         <div className="flex rounded-full border border-border bg-card p-1">
           {RANGES.map((r) => (
-            <button key={r.key} onClick={() => setRange(r.key)} className={`px-3 py-1.5 text-xs rounded-full transition-colors ${range === r.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
+            <button key={r.key} onClick={() => setRange(r.key)} className={`px-3 py-1.5 text-xs rounded-full transition-all duration-200 active:scale-95 ${range === r.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
           ))}
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Kpi onClick={() => setDetail("stock")} icon={Wallet} label="Valeur du stock" value={formatMoney(stats.stockMat + stats.stockProd)} sub={`Matières ${formatMoney(stats.stockMat)} · Produits ${formatMoney(stats.stockProd)}`} />
-        <Kpi onClick={() => setDetail("purchases")} icon={Package2} label="Achats" value={formatMoney(stats.purchasesTotal)} />
-        <Kpi onClick={() => setDetail("revenue")} icon={ShoppingBag} label="Chiffre d'affaires" value={formatMoney(stats.revenue)} />
-        <Kpi onClick={() => setDetail("losses")} icon={stats.gross >= 0 ? TrendingUp : TrendingDown} label="Bénéfice brut" value={formatMoney(stats.gross)} sub={`Coût matières ${formatMoney(stats.matCost)} · Pertes ${formatMoney(stats.losses)}`} />
+        <Kpi onClick={() => setDetail("stock")} icon={Wallet} label="Valeur du stock" index={0} value={stats.stockMat + stats.stockProd} sub={`Matières ${formatMoney(stats.stockMat)} · Produits ${formatMoney(stats.stockProd)}`} />
+        <Kpi onClick={() => setDetail("purchases")} icon={Package2} label="Achats" index={1} value={stats.purchasesTotal} />
+        <Kpi onClick={() => setDetail("revenue")} icon={ShoppingBag} label="Chiffre d'affaires" index={2} value={stats.revenue} />
+        <Kpi onClick={() => setDetail("losses")} icon={stats.gross >= 0 ? TrendingUp : TrendingDown} label="Bénéfice brut" index={3} value={stats.gross} sub={`Coût matières ${formatMoney(stats.matCost)} · Pertes ${formatMoney(stats.losses)}`} />
       </div>
 
-      <div className="card-elegant p-6">
+      <div className="card-elegant card-elegant-hover p-6">
         <div className="flex items-center gap-2 mb-4">
           <LineChart className="h-4 w-4 text-accent" />
           <h2 className="font-display text-xl">Top produits</h2>
         </div>
-        {stats.topProducts.length === 0 && <p className="text-sm text-muted-foreground">Pas encore de ventes sur la période.</p>}
+        {ledgerLoading && <SkeletonRows rows={4} />}
+        {!ledgerLoading && stats.topProducts.length === 0 && (
+          <EmptyState icon={ShoppingBag} title="Pas encore de ventes" description="Les produits les plus rentables de la période s'afficheront ici." />
+        )}
         <div className="space-y-2">
           {stats.topProducts.map((p, i) => {
             const max = stats.topProducts[0].value || 1;
             return (
-              <div key={i}>
+              <div key={i} className="animate-fade-up" style={stagger(i)}>
                 <div className="flex justify-between text-sm mb-1"><span>{p.name}</span><span className="text-muted-foreground">{formatMoney(p.value)}</span></div>
                 <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                  <div className="h-full bg-[var(--gradient-crust)]" style={{ width: `${(p.value / max) * 100}%` }} />
+                  <div
+                    className="h-full bg-[var(--gradient-crust)] transition-[width] duration-700 ease-out"
+                    style={{ width: `${(p.value / max) * 100}%` }}
+                  />
                 </div>
               </div>
             );
@@ -123,18 +131,21 @@ function FinancePage() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub, onClick }: { icon: any; label: string; value: string; sub?: string; onClick?: () => void }) {
+function Kpi({ icon: Icon, label, value, sub, onClick, index = 0 }: { icon: any; label: string; value: number; sub?: string; onClick?: () => void; index?: number }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="card-elegant p-4 sm:p-5 text-left hover:border-accent/60 transition-colors focus:outline-none focus:border-accent"
+      style={stagger(index)}
+      className="card-elegant card-elegant-hover btn-press animate-fade-up p-4 sm:p-5 text-left hover:border-accent/60 focus:outline-none focus:border-accent"
     >
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-4 w-4" />
         <p className="text-[10px] uppercase tracking-[0.2em]">{label}</p>
       </div>
-      <p className="mt-2 font-display text-xl sm:text-2xl">{value}</p>
+      <p className="mt-2 font-display text-xl sm:text-2xl">
+        <AnimatedNumber value={value} format={(v) => formatMoney(v)} />
+      </p>
       {sub && <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{sub}</p>}
     </button>
   );
@@ -176,7 +187,8 @@ function StockDetail({ materials, products }: { materials: any[]; products: any[
 }
 
 function PurchasesDetail({ purchases }: { purchases: any[] }) {
-  if (purchases.length === 0) return <p className="text-sm text-muted-foreground">Aucun réapprovisionnement sur la période.</p>;
+  if (purchases.length === 0)
+    return <EmptyState icon={Package2} title="Aucun réapprovisionnement" description="Aucun achat de matière première sur la période." />;
   return (
     <ul className="divide-y divide-border text-sm">
       {purchases.map((p) => (
@@ -196,7 +208,8 @@ function PurchasesDetail({ purchases }: { purchases: any[] }) {
 }
 
 function SalesDetail({ sales }: { sales: any[] }) {
-  if (sales.length === 0) return <p className="text-sm text-muted-foreground">Aucune vente sur la période.</p>;
+  if (sales.length === 0)
+    return <EmptyState icon={ShoppingBag} title="Aucune vente" description="Aucune vente enregistrée sur la période." />;
   return (
     <ul className="divide-y divide-border text-sm">
       {sales.map((l) => (
@@ -217,11 +230,7 @@ function SalesDetail({ sales }: { sales: any[] }) {
 
 function LossesDetail({ losses }: { losses: any[] }) {
   if (losses.length === 0)
-    return (
-      <p className="text-sm text-muted-foreground flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4" /> Aucune perte enregistrée sur la période.
-      </p>
-    );
+    return <EmptyState icon={AlertTriangle} title="Aucune perte" description="Rien ne s'est perdu sur la période — bonne nouvelle." />;
   return (
     <ul className="divide-y divide-border text-sm">
       {losses.map((l) => {

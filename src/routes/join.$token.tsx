@@ -1,4 +1,5 @@
 // Fichier à placer à : src/routes/join.$token.tsx (remplace entièrement l'ancien)
+import { BaguetteLoader } from "@/components/Loader";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -48,7 +49,7 @@ function JoinPage() {
   }
 
   if (isLoading || user === undefined) {
-    return <Centered><Loader2 className="h-6 w-6 animate-spin text-accent" /></Centered>;
+    return <Centered><BaguetteLoader size={40} /></Centered>;
   }
 
   if (!preview?.valid) {
@@ -86,7 +87,7 @@ function JoinPage() {
       <button
         onClick={handleAccept}
         disabled={accept.isPending}
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
       >
         {accept.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
         Accepter l'invitation
@@ -163,7 +164,7 @@ function RegisterOrLogin({ token, bakeryName }: { token: string; bakeryName: str
         </div>
         <button
           type="submit" disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {mode === "signup" ? "Créer mon compte" : "Se connecter"}

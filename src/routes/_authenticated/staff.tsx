@@ -1,3 +1,4 @@
+import { BaguetteLoader } from "@/components/Loader";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -54,7 +55,7 @@ function StaffPage() {
   if (memLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <BaguetteLoader size={40} />
       </div>
     );
   }
@@ -129,7 +130,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
           <button
             onClick={generate}
             disabled={!canInvite || createInvite.isPending}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs text-primary-foreground disabled:opacity-50"
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs text-primary-foreground disabled:opacity-50"
           >
             {createInvite.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Générer un lien d'invitation
@@ -145,7 +146,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
             <code className="flex-1 truncate text-xs">{inviteLink}</code>
             <button
               onClick={copyLink}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary"
+              className="btn-press inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary"
             >
               <Copy className="h-3.5 w-3.5" /> Copier
             </button>
@@ -160,7 +161,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
         </div>
         {isLoading ? (
           <div className="py-8 flex justify-center text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <BaguetteLoader size={40} />
           </div>
         ) : members.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun membre pour le moment.</p>
@@ -196,7 +197,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
                           transferOwn.mutate({ bakery_id: bakeryId, new_owner: m.user_id });
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary"
+                      className="btn-press inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs hover:bg-secondary"
                     >
                       <Crown className="h-3.5 w-3.5" /> Transférer
                     </button>
@@ -325,7 +326,7 @@ function MemberActivityModal({
     >
       {isLoading ? (
         <div className="py-8 flex justify-center text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <BaguetteLoader size={40} />
         </div>
       ) : activity.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucune action enregistrée pour ce membre.</p>
@@ -338,7 +339,7 @@ function MemberActivityModal({
               <li key={a.id}>
                 <button
                   onClick={() => setDetail(a)}
-                  className="w-full rounded-xl border border-border bg-card/60 p-3 text-sm flex items-start gap-3 text-left hover:border-accent/50 hover:bg-secondary/40 transition-colors"
+                  className="btn-press w-full rounded-xl border border-border bg-card/60 p-3 text-sm flex items-start gap-3 text-left hover:border-accent/50 hover:bg-secondary/40 transition-colors"
                 >
                   <div className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-accent shrink-0">
                     <Icon className="h-4 w-4" />
