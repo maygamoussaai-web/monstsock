@@ -123,7 +123,10 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
   const [productId, setProductId] = useState("");
   const [unsold, setUnsold] = useState<number>(0);
   const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [keepUnsold, setKeepUnsold] = useState<boolean | null>(null);
+  // Répartition des invendus : combien restent en stock (kept) vs combien partent à la
+  // poubelle (thrown). La somme des deux ne doit jamais dépasser "unsold".
+  const [kept, setKept] = useState<number>(0);
+  const [thrown, setThrown] = useState<number>(0);
 
   const product = products.find((p) => p.id === productId);
   const stock = product?.stock ?? 0;
@@ -135,12 +138,18 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
   const stockValue = stock * effectivePrice;
 
   const overUnsold = unsold > stock;
+  const splitTotal = kept + thrown;
+  const splitExceeds = splitTotal > unsold;
+  const remaining = Math.max(0, unsold - splitTotal);
+
   const canSubmit =
     !!productId &&
     !overUnsold &&
     unsold >= 0 &&
     effectivePrice >= 0 &&
-    (unsold === 0 || keepUnsold !== null) &&
+    !splitExceeds &&
+    kept >= 0 &&
+    thrown >= 0 &&
     !sale.isPending;
 
   function onSelectProduct(id: string) {
@@ -148,20 +157,32 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
     const p = products.find((x) => x.id === id);
     setUnitPrice(p?.sale_price ?? 0);
     setUnsold(0);
-    setKeepUnsold(null);
+    setKept(0);
+    setThrown(0);
+  }
+
+  function onUnsoldChange(v: number) {
+    setUnsold(v);
+    // Par défaut, tant que rien n'est précisé, on considère les invendus comme conservés
+    // (comportement le moins destructeur) — l'utilisateur peut ensuite répartir précisément.
+    setKept(v);
+    setThrown(0);
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || !product) return;
+    // Le "reste" (invendus non explicitement affectés) est conservé en stock par défaut —
+    // on l'inclut dans kept_quantity pour que le détail affiché dans l'historique soit exact.
+    const keptFinal = kept + remaining;
     sale.mutate(
       {
         bakery_id: bakeryId,
         product_id: product.id,
         quantity_sold: vendus,
         unit_price: effectivePrice,
-        unsold,
-        keep_unsold: unsold === 0 ? true : (keepUnsold ?? true),
+        kept_quantity: keptFinal,
+        thrown_quantity: thrown,
       },
       { onSuccess: onDone }
     );
@@ -209,7 +230,7 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
               max={stock}
               step="0.01"
               value={unsold}
-              onChange={(e) => setUnsold(+e.target.value)}
+              onChange={(e) => onUnsoldChange(+e.target.value)}
               className={inputCls + (overUnsold ? " border-destructive" : "")}
             />
           </Field>
@@ -246,24 +267,42 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
           {unsold > 0 && (
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
-                Conserver les invendus ?
+                Que faire des {formatQty(unsold, UNIT_LABEL[product.unit])} invendus ?
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setKeepUnsold(true)}
-                  className={`rounded-xl border px-3 py-2 text-sm transition-colors ${keepUnsold === true ? "border-accent bg-accent/10 text-accent" : "border-border"}`}
-                >
-                  Oui, garder en stock
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setKeepUnsold(false)}
-                  className={`rounded-xl border px-3 py-2 text-sm transition-colors ${keepUnsold === false ? "border-destructive bg-destructive/10 text-destructive" : "border-border"}`}
-                >
-                  Non, à jeter (perte)
-                </button>
+                <Field label="Conservés en stock">
+                  <input
+                    type="number"
+                    min={0}
+                    max={unsold}
+                    step="0.01"
+                    value={kept}
+                    onChange={(e) => setKept(+e.target.value)}
+                    className={inputCls + (splitExceeds ? " border-destructive" : "")}
+                  />
+                </Field>
+                <Field label="Jetés (perte)">
+                  <input
+                    type="number"
+                    min={0}
+                    max={unsold}
+                    step="0.01"
+                    value={thrown}
+                    onChange={(e) => setThrown(+e.target.value)}
+                    className={inputCls + (splitExceeds ? " border-destructive" : "")}
+                  />
+                </Field>
               </div>
+              {splitExceeds ? (
+                <p className="mt-2 text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  La somme des deux ({formatQty(splitTotal, UNIT_LABEL[product.unit])}) dépasse les invendus.
+                </p>
+              ) : remaining > 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {formatQty(remaining, UNIT_LABEL[product.unit])} restants seront considérés comme conservés en stock.
+                </p>
+              ) : null}
             </div>
           )}
         </>
