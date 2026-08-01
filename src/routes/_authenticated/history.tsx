@@ -46,10 +46,21 @@ function HistoryPage() {
     })();
 
     const byBatch = new Map<string, Group>();
+    const byRef = new Map<string, Group>(); // ventes qui ont une perte liée (invendus jetés)
     const list: Group[] = [];
+    const filtered = (ledger as LedgerRow[]).filter((l) => new Date(l.created_at).getTime() >= since);
 
-    for (const l of ledger as LedgerRow[]) {
-      if (new Date(l.created_at).getTime() < since) continue;
+    // Passe 1 : les ventes d'abord, pour que les pertes liées (ref_id) aient un groupe à rejoindre.
+    for (const l of filtered) {
+      if (l.kind === "sale") {
+        const g: Group = { key: l.id, kind: "sale", createdAt: l.created_at, entries: [l] };
+        list.push(g);
+        byRef.set(l.id, g);
+      }
+    }
+
+    // Passe 2 : fournées (regroupées par ref_id) et le reste.
+    for (const l of filtered) {
       const k = l.kind;
       if (k === "batch_consume" || k === "batch_produce") {
         const key = `batch:${l.ref_id ?? l.id}`;
@@ -61,7 +72,16 @@ function HistoryPage() {
         }
         g.entries.push(l);
         if (l.created_at < g.createdAt) g.createdAt = l.created_at;
-      } else if (k === "sale" || k === "purchase" || k === "loss" || k === "adjustment") {
+      } else if (k === "loss") {
+        // Une perte issue des invendus d'une vente rapide (ref_id -> la vente) rejoint la
+        // carte de cette vente au lieu d'apparaître comme une perte à part entière.
+        const parent = l.ref_id ? byRef.get(l.ref_id) : undefined;
+        if (parent) {
+          parent.entries.push(l);
+        } else {
+          list.push({ key: l.id, kind: "loss", createdAt: l.created_at, entries: [l] });
+        }
+      } else if (k === "purchase" || k === "adjustment") {
         list.push({ key: l.id, kind: k, createdAt: l.created_at, entries: [l] });
       }
     }
@@ -202,14 +222,29 @@ function BatchLines({ entries }: { entries: LedgerRow[] }) {
   );
 }
 
+// Vente, avec éventuellement une perte liée (invendus jetés) affichée comme détail
+// supplémentaire — plus jamais comme une carte "Perte" séparée et déconnectée du contexte.
 function SaleLines({ entries }: { entries: LedgerRow[] }) {
-  const e = entries[0];
+  const sale = entries.find((e) => e.kind === "sale") ?? entries[0];
+  const linkedLoss = entries.find((e) => e.kind === "loss");
+  const name = sale.products?.name ?? "—";
+  const unit = sale.products?.unit;
+
   return (
     <>
-      <p>• {line("-", Math.abs(e.delta_quantity), e.products?.unit, e.products?.name ?? "—")}</p>
+      <p>• {line("-", Math.abs(sale.delta_quantity), unit, name)}</p>
       <p className="text-muted-foreground">
-        Chiffre d'affaires : <span className="text-accent">+{formatMoney(e.delta_value)}</span>
+        Chiffre d'affaires : <span className="text-accent">+{formatMoney(sale.delta_value)}</span>
       </p>
+      {/* Détail invendus (conservés / jetés), écrit dans la note par record_quick_sale */}
+      {sale.note && sale.note !== "Vente" && (
+        <p className="text-muted-foreground">{sale.note.replace(/^Vente\s*·\s*/, "")}</p>
+      )}
+      {linkedLoss && (
+        <p className="text-muted-foreground">
+          dont perte (invendus jetés) : <span className="text-destructive">{formatMoney(-Math.abs(linkedLoss.delta_value))}</span>
+        </p>
+      )}
     </>
   );
 }
@@ -226,6 +261,8 @@ function PurchaseLines({ entries }: { entries: LedgerRow[] }) {
   );
 }
 
+// Pertes indépendantes uniquement — plus les pertes issues des invendus d'une vente,
+// désormais regroupées dans la carte "Vente" correspondante (voir SaleLines).
 function LossLines({ entries }: { entries: LedgerRow[] }) {
   const e = entries[0];
   const name = e.products?.name ?? e.raw_materials?.name ?? "—";
