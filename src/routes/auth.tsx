@@ -58,12 +58,12 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Compte créé. Vous pouvez vous connecter.");
+        toast.success("Votre compte a été créé avec plaisir. Vous pouvez à présent vous connecter.");
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Bienvenue !");
+        toast.success("Bienvenue, ravi de vous revoir.");
         const pending = typeof window !== "undefined" ? sessionStorage.getItem("pending_join_token") : null;
         if (pending) {
           sessionStorage.removeItem("pending_join_token");
@@ -73,7 +73,13 @@ function AuthPage() {
         }
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Une erreur est survenue");
+      // MonStock refuse l'accès avec courtoisie : jamais le message technique brut de
+      // Supabase (souvent en anglais), toujours une formule polie qui invite à réessayer.
+      if (mode === "signup") {
+        toast.error("Je ne suis pas parvenu à créer ce compte pour le moment. Veuillez vérifier les informations saisies, puis réessayer.");
+      } else {
+        toast.error("Ces identifiants ne me sont malheureusement pas familiers. Vérifions ensemble l'adresse e-mail et le mot de passe, puis réessayons.");
+      }
     } finally {
       setLoading(false);
     }
