@@ -151,7 +151,8 @@ export function useCreatePurchase() {
   });
 }
 
-// record_product_sale (version simple, sans session) : pour une vente ponctuelle d'un produit.
+// record_product_sale (version simple, sans session) : pour une vente ponctuelle d'un produit,
+// sans invendus à répartir. useQuickSale (plus bas) gère le cas avec invendus.
 export function useRecordProductSale() {
   const qc = useQueryClient();
   return useMutation({
@@ -487,33 +488,27 @@ export function useCloseSalesSession() {
   });
 }
 
-// ------- Quick single-product sale (record_product_sale + optional loss) --------
+// ------- Quick single-product sale --------
+// Répartit les invendus (s'il y en a) entre "conservés en stock" et "jetés (perte)".
+// La somme des deux ne doit jamais dépasser le nombre d'invendus (vérifié côté UI dans sales.tsx).
+// Tout est fait en une seule transaction atomique côté base (record_quick_sale), et la ligne de
+// perte est liée à la ligne de vente (ref_id) pour qu'elles apparaissent ensemble dans l'historique.
 export function useQuickSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
-      unsold: number; keep_unsold: boolean; notes?: string | null;
+      kept_quantity: number; thrown_quantity: number;
     }) => {
-      if (input.quantity_sold > 0) {
-        const { error } = await supabase.rpc("record_product_sale", {
-          p_bakery_id: input.bakery_id,
-          p_product_id: input.product_id,
-          p_quantity: input.quantity_sold,
-          p_price: input.unit_price,
-        } as any);
-        if (error) throw error;
-      }
-      // Si on ne conserve pas les invendus, on les enregistre en perte (décrémente le stock)
-      if (!input.keep_unsold && input.unsold > 0) {
-        const { error } = await supabase.rpc("record_loss", {
-          p_bakery_id: input.bakery_id,
-          p_product_id: input.product_id,
-          p_quantity: input.unsold,
-          p_reason: input.notes ?? "Invendus",
-        } as any);
-        if (error) throw error;
-      }
+      const { error } = await supabase.rpc("record_quick_sale" as any, {
+        p_bakery_id: input.bakery_id,
+        p_product_id: input.product_id,
+        p_quantity_sold: input.quantity_sold,
+        p_unit_price: input.unit_price,
+        p_kept_quantity: input.kept_quantity,
+        p_thrown_quantity: input.thrown_quantity,
+      });
+      if (error) throw error;
     },
     onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
