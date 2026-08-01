@@ -28,6 +28,7 @@ export type Database = {
           description?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       admin_email_allowlist: {
         Row: {
@@ -42,6 +43,7 @@ export type Database = {
           email?: string
           created_at?: string
         }
+        Relationships: []
       }
       admins: {
         Row: {
@@ -56,6 +58,7 @@ export type Database = {
           user_id?: string
           created_at?: string
         }
+        Relationships: []
       }
       bakeries: {
         Row: {
@@ -89,6 +92,7 @@ export type Database = {
           logo_url?: string | null
           deleted_at?: string | null
         }
+        Relationships: []
       }
       bakery_invitations: {
         Row: {
@@ -121,6 +125,7 @@ export type Database = {
           expires_at?: string
           created_at?: string
         }
+        Relationships: []
       }
       bakery_members: {
         Row: {
@@ -145,6 +150,7 @@ export type Database = {
           created_at?: string
           phone?: string | null
         }
+        Relationships: []
       }
       batch_consumptions: {
         Row: {
@@ -174,6 +180,7 @@ export type Database = {
           unit_cost?: number
           line_cost?: number
         }
+        Relationships: []
       }
       batch_outputs: {
         Row: {
@@ -200,6 +207,7 @@ export type Database = {
           quantity_produced?: number
           unit_material_cost?: number
         }
+        Relationships: []
       }
       batch_template_ingredients: {
         Row: {
@@ -226,6 +234,7 @@ export type Database = {
           quantity?: number
           created_at?: string
         }
+        Relationships: []
       }
       batch_template_items: {
         Row: {
@@ -249,6 +258,7 @@ export type Database = {
           product_id?: string
           planned_quantity?: number
         }
+        Relationships: []
       }
       batch_templates: {
         Row: {
@@ -275,6 +285,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       batches: {
         Row: {
@@ -319,6 +330,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       invitation_codes: {
         Row: {
@@ -351,6 +363,7 @@ export type Database = {
           notes?: string | null
           created_at?: string | null
         }
+        Relationships: []
       }
       losses: {
         Row: {
@@ -383,6 +396,7 @@ export type Database = {
           created_by?: string | null
           created_at?: string | null
         }
+        Relationships: []
       }
       product_recipes: {
         Row: {
@@ -409,6 +423,7 @@ export type Database = {
           quantity_per_unit?: number | null
           created_at?: string
         }
+        Relationships: []
       }
       products: {
         Row: {
@@ -450,6 +465,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       raw_material_purchases: {
         Row: {
@@ -488,6 +504,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
         }
+        Relationships: []
       }
       raw_materials: {
         Row: {
@@ -529,6 +546,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       sales_session_items: {
         Row: {
@@ -588,6 +606,7 @@ export type Database = {
           revenue?: number | null
           updated_at?: string | null
         }
+        Relationships: []
       }
       sales_sessions: {
         Row: {
@@ -632,6 +651,7 @@ export type Database = {
           closed_at?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       stock_ledger: {
         Row: {
@@ -673,6 +693,7 @@ export type Database = {
           note?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -720,6 +741,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
         }
+        Relationships: []
       }
     }
     Views: {
