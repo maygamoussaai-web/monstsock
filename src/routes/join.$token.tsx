@@ -86,7 +86,7 @@ function JoinPage() {
       <button
         onClick={handleAccept}
         disabled={accept.isPending}
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
       >
         {accept.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
         Accepter l'invitation
@@ -163,7 +163,7 @@ function RegisterOrLogin({ token, bakeryName }: { token: string; bakeryName: str
         </div>
         <button
           type="submit" disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {mode === "signup" ? "Créer mon compte" : "Se connecter"}

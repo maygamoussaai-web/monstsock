@@ -83,7 +83,7 @@ function AuthPage() {
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+          <div className="btn-press btn-shimmer grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Wheat className="h-5 w-5" />
           </div>
           <div>
@@ -172,7 +172,7 @@ function AuthPage() {
                   href={WA_LINK}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors"
+                  className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors"
                 >
                   <WhatsAppIcon />
                   Contacter sur WhatsApp
@@ -209,7 +209,7 @@ function AuthPage() {
             </div>
             <button
               type="submit" disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
+              className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "signin" ? "Se connecter" : "Créer un compte"}

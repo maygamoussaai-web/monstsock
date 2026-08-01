@@ -53,7 +53,7 @@ function ProductsPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouveau produit
         </button>
@@ -116,7 +116,7 @@ function ProductsPage() {
                     >
                       <button
                         onClick={() => setBatchFor(p.id)}
-                        className="rounded-lg p-2 hover:bg-secondary"
+                        className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                         title="Nouvelle fournée"
                       >
                         <ChefHat className="h-4 w-4 text-accent" />
@@ -230,7 +230,7 @@ function ProductDetail({
           <div className="flex gap-2 pt-3">
             <button
               onClick={onOpenBatch}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
+              className="btn-press btn-shimmer flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
             >
               <ChefHat className="h-4 w-4" /> Nouvelle fournée
             </button>
@@ -319,7 +319,7 @@ function ProductDetail({
             <button
               onClick={save}
               disabled={update.isPending}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
+              className="btn-press btn-shimmer flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
             >
               Enregistrer
             </button>
@@ -441,7 +441,7 @@ function ProductForm({
       </p>
       <button
         disabled={submitting}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
       >
         Créer le produit
       </button>
@@ -549,7 +549,7 @@ function RecipeEditor({ product }: { product: Product }) {
             <button
               type="button"
               onClick={() => removeLine(idx)}
-              className="rounded-lg p-2 hover:bg-secondary"
+              className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
               aria-label="Retirer"
             >
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -578,7 +578,7 @@ function RecipeEditor({ product }: { product: Product }) {
         type="button"
         onClick={save}
         disabled={!firstOk || hasDup || upsert.isPending || del.isPending || (!dirty && hasExisting)}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
       >
         {upsert.isPending || del.isPending
           ? "Enregistrement…"

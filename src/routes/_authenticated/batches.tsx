@@ -44,7 +44,7 @@ function BatchesPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouvelle fournée
         </button>

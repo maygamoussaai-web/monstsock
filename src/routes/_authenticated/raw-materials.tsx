@@ -57,7 +57,7 @@ function RawMaterialsPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouvelle matière
         </button>
@@ -127,7 +127,7 @@ function RawMaterialsPage() {
                     <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setRestockFor(m.id)}
-                        className="rounded-lg p-2 hover:bg-secondary"
+                        className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                         title="Réapprovisionner"
                       >
                         <PackagePlus className="h-4 w-4 text-accent" />
@@ -236,7 +236,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
           <div className="flex gap-2 pt-3">
             <button
               onClick={() => setEditing(true)}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
+              className="btn-press btn-shimmer flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground"
             >
               <Pencil className="h-4 w-4" /> Modifier
             </button>
@@ -317,7 +317,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
             <button
               onClick={save}
               disabled={update.isPending}
-              className="flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
+              className="btn-press btn-shimmer flex-1 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
             >
               Enregistrer
             </button>
@@ -427,7 +427,7 @@ function MaterialForm({ onSubmit, submitting }: { onSubmit: (v: any) => void; su
       </Field>
       <button
         disabled={submitting}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
       >
         Enregistrer
       </button>
@@ -504,7 +504,7 @@ function RestockForm({
       </Field>
       <button
         disabled={submitting}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-60"
       >
         Enregistrer le réapprovisionnement
       </button>

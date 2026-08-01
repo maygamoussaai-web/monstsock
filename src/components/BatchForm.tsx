@@ -225,7 +225,7 @@ export function BatchForm({
                   <button
                     type="button"
                     onClick={() => removeIngredient(idx)}
-                    className="rounded-lg p-2 hover:bg-secondary"
+                    className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                     aria-label="Retirer"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -281,7 +281,7 @@ export function BatchForm({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
       >
         {create.isPending ? "Enregistrement…" : "Enregistrer la fournée"}
       </button>

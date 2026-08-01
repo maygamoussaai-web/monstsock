@@ -42,7 +42,7 @@ function SalesPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouvelle vente
         </button>
@@ -272,7 +272,7 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
       >
         {sale.isPending ? "Enregistrement…" : "Enregistrer la vente"}
       </button>

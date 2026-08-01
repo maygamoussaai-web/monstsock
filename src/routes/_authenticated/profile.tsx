@@ -154,7 +154,7 @@ function ProfilePage() {
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-2 text-xs hover:bg-secondary"
+              className="btn-press inline-flex items-center gap-2 rounded-full border border-border px-3 py-2 text-xs hover:bg-secondary"
             >
               <Pencil className="h-3.5 w-3.5" /> Modifier
             </button>
@@ -216,7 +216,7 @@ function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => fileRef.current?.click()}
-                      className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs hover:bg-secondary"
+                      className="btn-press inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs hover:bg-secondary"
                     >
                       <Upload className="h-3.5 w-3.5" /> Choisir un fichier
                     </button>
@@ -257,7 +257,7 @@ function ProfilePage() {
               <button
                 onClick={save}
                 disabled={saving || !bakery}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
+                className="btn-press btn-shimmer flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm text-primary-foreground disabled:opacity-50"
               >
                 <Save className="h-4 w-4" /> Enregistrer
               </button>

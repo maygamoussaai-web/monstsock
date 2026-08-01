@@ -36,7 +36,7 @@ function TemplatesPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" /> Nouveau modèle
         </button>
@@ -220,7 +220,7 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
                   <button
                     type="button"
                     onClick={() => remove(idx)}
-                    className="rounded-lg p-2 hover:bg-secondary"
+                    className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </button>
@@ -243,7 +243,7 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
 
       <button
         disabled={!canSubmit}
-        className="w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
+        className="btn-press btn-shimmer w-full rounded-xl bg-primary py-3 text-sm text-primary-foreground disabled:opacity-50"
       >
         {create.isPending ? "Enregistrement…" : "Enregistrer le modèle"}
       </button>
