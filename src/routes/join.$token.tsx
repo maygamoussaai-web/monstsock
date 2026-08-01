@@ -1,4 +1,5 @@
 // Fichier à placer à : src/routes/join.$token.tsx (remplace entièrement l'ancien)
+import { BaguetteLoader } from "@/components/Loader";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -48,7 +49,7 @@ function JoinPage() {
   }
 
   if (isLoading || user === undefined) {
-    return <Centered><Loader2 className="h-6 w-6 animate-spin text-accent" /></Centered>;
+    return <Centered><BaguetteLoader size={40} /></Centered>;
   }
 
   if (!preview?.valid) {

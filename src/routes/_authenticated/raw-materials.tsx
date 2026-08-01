@@ -11,6 +11,8 @@ import {
 } from "@/lib/queries";
 import { formatMoney, formatQty, MATERIAL_UNITS, UNIT_LABEL } from "@/lib/format";
 import { Plus, Search, Package2, Trash2, PackagePlus, Pencil } from "lucide-react";
+import { EmptyState } from "@/components/Loader";
+import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
 // Re-exports pour compatibilité avec anciens imports (au cas où)
@@ -93,19 +95,19 @@ function RawMaterialsPage() {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    <Package2 className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                    Aucune matière. Commencez par en ajouter une.
+                  <td colSpan={7} className="px-4">
+                    <EmptyState icon={Package2} title="Aucune matière" description="Commencez par ajouter une matière première à votre inventaire." />
                   </td>
                 </tr>
               )}
-              {filtered.map((m) => {
+              {filtered.map((m, idx) => {
                 const low = m.stock <= m.low_stock_threshold;
                 return (
                   <tr
                     key={m.id}
                     onClick={() => setDetailFor(m.id)}
-                    className={`cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                    style={stagger(idx, 35)}
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{m.name}</p>

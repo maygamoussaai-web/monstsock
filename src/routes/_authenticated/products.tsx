@@ -14,6 +14,8 @@ import {
 } from "@/lib/queries";
 import { formatMoney, formatQty, PRODUCT_UNITS, UNIT_LABEL } from "@/lib/format";
 import { Plus, Search, Croissant, Trash2, ChefHat, Pencil } from "lucide-react";
+import { EmptyState } from "@/components/Loader";
+import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
 import { BatchForm } from "@/components/BatchForm";
 
@@ -86,19 +88,19 @@ function ProductsPage() {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    <Croissant className="mx-auto mb-2 h-6 w-6 opacity-40" />
-                    Aucun produit fabriqué. Créez-en un pour commencer.
+                  <td colSpan={4} className="px-4">
+                    <EmptyState icon={Croissant} title="Aucun produit" description="Créez votre premier produit fabriqué pour lancer une fournée." />
                   </td>
                 </tr>
               )}
-              {filtered.map((p) => {
+              {filtered.map((p, idx) => {
                 const low = p.stock <= p.low_stock_threshold;
                 return (
                   <tr
                     key={p.id}
                     onClick={() => setDetailFor(p.id)}
-                    className={`cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                    style={stagger(idx, 35)}
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{p.name}</p>
@@ -119,7 +121,7 @@ function ProductsPage() {
                         className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                         title="Nouvelle fournée"
                       >
-                        <ChefHat className="h-4 w-4 text-accent" />
+                        <ChefHat className="h-4 w-4 text-accent icon-pop" />
                       </button>
                     </td>
                   </tr>

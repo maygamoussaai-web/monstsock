@@ -1,3 +1,4 @@
+import { BaguetteLoader } from "@/components/Loader";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -54,7 +55,7 @@ function StaffPage() {
   if (memLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
+        <BaguetteLoader size={40} />
       </div>
     );
   }
@@ -160,7 +161,7 @@ function OwnerView({ bakeryId, bakeryName }: { bakeryId: string; bakeryName: str
         </div>
         {isLoading ? (
           <div className="py-8 flex justify-center text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <BaguetteLoader size={40} />
           </div>
         ) : members.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun membre pour le moment.</p>
@@ -325,7 +326,7 @@ function MemberActivityModal({
     >
       {isLoading ? (
         <div className="py-8 flex justify-center text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
+          <BaguetteLoader size={40} />
         </div>
       ) : activity.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucune action enregistrée pour ce membre.</p>
