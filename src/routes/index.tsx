@@ -10,8 +10,8 @@ import {
   LineChart,
   ShieldCheck,
   Scale,
-  EyeOff,
   TrendingUp,
+  Smartphone,
   Sunrise,
   Sun,
   Moon,
@@ -246,6 +246,30 @@ const NUMBERS = [
   { value: 24, suffix: " h/24", label: "un employé qui ne prend jamais de pause" },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sa fiche de poste — trois cartes normales (aucune n'est mise en avant) :
+// 1) la rigueur sur les matières, 2) sa vraie vocation de financier (pertes ET
+// marges réunies dans une seule idée), 3) sa disponibilité partout et la gestion
+// d'équipe.
+// ─────────────────────────────────────────────────────────────────────────────
+const POSTE = [
+  {
+    i: Scale,
+    t: "Il dénombre chaque gramme, sans jamais approximer",
+    d: "Farine, sucre, beurre, levure : il connaît la quantité exacte qui demeure en réserve, ce qu'elle vous a coûté, et vous avertit avant la rupture.",
+  },
+  {
+    i: TrendingUp,
+    t: "Il est, avant tout, votre financier",
+    d: "Invendus, casse, écarts entre stock théorique et réel, coût matière, chiffre d'affaires, bénéfice brut : rien ne lui échappe. Ce qui se voit se corrige, et la rentabilité de votre fournil devient enfin lisible — pas celle du carnet de notes.",
+  },
+  {
+    i: Smartphone,
+    t: "Toujours à son poste, même depuis votre lit",
+    d: "Téléphone, ordinateur, en boutique ou chez vous : consultez les finances de votre boulangerie où que vous soyez. Formez votre équipe, accordez des accès à vos employés, et gardez un œil sur chacune de leurs actions.",
+  },
+];
+
 function Landing() {
   const reduced = useReducedMotion();
   const scrollY = useScrollY(!reduced);
@@ -300,23 +324,7 @@ function Landing() {
           <h2 className="mt-2 font-display text-3xl sm:text-4xl">Trois choses qu'il fait mieux que n'importe qui</h2>
         </Reveal>
         <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              i: Scale,
-              t: "Il compte chaque gramme, sans jamais estimer",
-              d: "Farine, sucre, beurre, levure : il connaît la quantité exacte qui reste, ce qu'elle vous a coûté, et vous prévient avant la rupture.",
-            },
-            {
-              i: EyeOff,
-              t: "Il voit ce que personne ne voit",
-              d: "Invendus, casse, écarts entre le stock théorique et le réel : il met les pertes silencieuses sur la table. Ce qui se voit se corrige.",
-            },
-            {
-              i: TrendingUp,
-              t: "Il vous dit la vérité sur vos marges",
-              d: "Coût matière réel, chiffre d'affaires, pertes, bénéfice brut : la rentabilité de votre fournil, pas celle du carnet de notes.",
-            },
-          ].map((f, i) => (
+          {POSTE.map((f, i) => (
             <Reveal key={f.t} delay={i * 90}>
               <TiltGlowCard className="card-elegant grain h-full p-8">
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
