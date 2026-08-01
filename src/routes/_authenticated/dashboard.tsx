@@ -18,7 +18,9 @@ function Dashboard() {
 
   const kpis = useMemo(() => {
     const stockValueMat = materials.reduce((s, m) => s + m.stock * (m.avg_cost || 0), 0);
-    const stockValueProd = products.reduce((s, p) => s + p.stock * (p.material_cost || 0), 0);
+    // Valeur du stock des PRODUITS = leur propre prix (sale_price), pas le coût des
+    // matières consommées pour les fabriquer.
+    const stockValueProd = products.reduce((s, p) => s + p.stock * (p.sale_price || 0), 0);
     const now = Date.now();
     const since7 = now - 7 * 86400_000;
     const since30 = now - 30 * 86400_000;
