@@ -1,18 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useBakery, useRawMaterials, useProducts, useBatches, usePurchases, useLedger } from "@/lib/queries";
 import { formatMoney, formatQty, formatDateTime, UNIT_LABEL } from "@/lib/format";
-import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet, ShieldCheck } from "lucide-react";
 import { useMemo } from "react";
+import { AnimatedNumber, stagger } from "@/components/motion";
+import { EmptyState, SkeletonRows } from "@/components/Loader";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 function Dashboard() {
   const { data: bakery } = useBakery();
-  const { data: materials = [] } = useRawMaterials();
+  const { data: materials = [], isLoading: matLoading } = useRawMaterials();
   const { data: products = [] } = useProducts();
   const { data: batches = [] } = useBatches(5);
   const { data: purchases = [] } = usePurchases(50);
-  const { data: ledger = [] } = useLedger(300);
+  const { data: ledger = [], isLoading: ledgerLoading } = useLedger(300);
 
   const kpis = useMemo(() => {
     const stockValueMat = materials.reduce((s, m) => s + m.stock * (m.avg_cost || 0), 0);
@@ -56,22 +58,25 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Kpi icon={Wallet} label="Valeur du stock" value={formatMoney(kpis.stockValueMat + kpis.stockValueProd)} sub={`${formatMoney(kpis.stockValueMat)} matières · ${formatMoney(kpis.stockValueProd)} produits`} />
-        <Kpi icon={Package2} label="Achats (7 j)" value={formatMoney(kpis.purchases7)} />
-        <Kpi icon={ShoppingBag} label="CA (30 j)" value={formatMoney(kpis.revenue30)} />
-        <Kpi icon={TrendingUp} label="Bénéfice brut (30 j)" value={formatMoney(kpis.grossProfit30)} sub={`Coût matières ${formatMoney(kpis.matCost30)} · Pertes ${formatMoney(kpis.loss30)}`} />
+        <Kpi index={0} icon={Wallet} label="Valeur du stock" value={kpis.stockValueMat + kpis.stockValueProd} sub={`${formatMoney(kpis.stockValueMat)} matières · ${formatMoney(kpis.stockValueProd)} produits`} />
+        <Kpi index={1} icon={Package2} label="Achats (7 j)" value={kpis.purchases7} />
+        <Kpi index={2} icon={ShoppingBag} label="CA (30 j)" value={kpis.revenue30} />
+        <Kpi index={3} icon={TrendingUp} label="Bénéfice brut (30 j)" value={kpis.grossProfit30} sub={`Coût matières ${formatMoney(kpis.matCost30)} · Pertes ${formatMoney(kpis.loss30)}`} />
       </div>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 card-elegant p-6">
+        <div className="lg:col-span-2 card-elegant card-elegant-hover p-6">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl">Alertes de stock faible</h2>
             <span className="text-xs text-muted-foreground">{lowStock.length} élément(s)</span>
           </div>
           <div className="mt-4 divide-y divide-border">
-            {lowStock.length === 0 && <p className="py-6 text-sm text-muted-foreground">Aucune alerte — vos stocks sont au-dessus des seuils.</p>}
-            {lowStock.map((x) => (
-              <div key={x.id + x.kind} className="py-3 flex items-center justify-between gap-3">
+            {matLoading && <div className="py-3"><SkeletonRows rows={3} /></div>}
+            {!matLoading && lowStock.length === 0 && (
+              <EmptyState icon={ShieldCheck} title="Aucune alerte" description="Tous vos stocks sont au-dessus de leurs seuils." />
+            )}
+            {lowStock.map((x, i) => (
+              <div key={x.id + x.kind} className="animate-fade-up py-3 flex items-center justify-between gap-3" style={stagger(i)}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-4 w-4" /></div>
                   <div className="min-w-0">
@@ -100,9 +105,11 @@ function Dashboard() {
         <div className="card-elegant p-6">
           <h2 className="font-display text-xl">Dernières fournées</h2>
           <div className="mt-4 space-y-3">
-            {batches.length === 0 && <p className="text-sm text-muted-foreground">Aucune fournée enregistrée.</p>}
-            {batches.map((b) => (
-              <div key={b.id} className="flex items-center justify-between text-sm">
+            {batches.length === 0 && (
+              <EmptyState icon={Flame} title="Aucune fournée" description="Vos productions apparaîtront ici dès la première fournée enregistrée." />
+            )}
+            {batches.map((b, i) => (
+              <div key={b.id} className="animate-fade-up flex items-center justify-between text-sm" style={stagger(i)}>
                 <div>
                   <p className="font-medium">{b.name}</p>
                   <p className="text-xs text-muted-foreground">{formatDateTime(b.created_at)} · {b.batch_outputs.length} produit(s)</p>
@@ -117,10 +124,11 @@ function Dashboard() {
           <div className="mt-4 space-y-3">
             {(() => {
               const sales = ledger.filter((l) => l.kind === "sale").slice(0, 6);
+              if (ledgerLoading) return <SkeletonRows rows={3} />;
               if (sales.length === 0)
-                return <p className="text-sm text-muted-foreground">Aucune vente enregistrée.</p>;
-              return sales.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-sm">
+                return <EmptyState icon={ShoppingBag} title="Aucune vente" description="Ouvrez une session de vente pour voir vos ventes du jour ici." />;
+              return sales.map((s, i) => (
+                <div key={s.id} className="animate-fade-up flex items-center justify-between text-sm" style={stagger(i)}>
                   <div className="min-w-0">
                     <p className="font-medium truncate">{s.products?.name ?? "Produit"}</p>
                     <p className="text-xs text-muted-foreground">
@@ -138,14 +146,16 @@ function Dashboard() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub }: { icon: any; label: string; value: string; sub?: string }) {
+function Kpi({ icon: Icon, label, value, sub, index = 0 }: { icon: any; label: string; value: number; sub?: string; index?: number }) {
   return (
-    <div className="card-elegant p-4 sm:p-5">
+    <div className="card-elegant card-elegant-hover animate-fade-up p-4 sm:p-5" style={stagger(index)}>
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-4 w-4" />
         <p className="text-[10px] uppercase tracking-[0.2em]">{label}</p>
       </div>
-      <p className="mt-2 font-display text-xl sm:text-2xl">{value}</p>
+      <p className="mt-2 font-display text-xl sm:text-2xl">
+        <AnimatedNumber value={value} format={(v) => formatMoney(v)} />
+      </p>
       {sub && <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{sub}</p>}
     </div>
   );
@@ -153,8 +163,8 @@ function Kpi({ icon: Icon, label, value, sub }: { icon: any; label: string; valu
 
 function ShortcutLink({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
   return (
-    <Link to={to} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm hover:bg-secondary transition-colors">
-      <Icon className="h-4 w-4 text-accent" /> {label}
+    <Link to={to} className="btn-press group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm hover:bg-secondary">
+      <Icon className="h-4 w-4 text-accent transition-transform duration-250 group-hover:-translate-y-0.5 group-hover:rotate-[-6deg]" /> {label}
     </Link>
   );
 }
