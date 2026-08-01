@@ -33,7 +33,10 @@ function FinancePage() {
     const filt = ledger.filter((l) => new Date(l.created_at).getTime() > since);
     const purch = purchases.filter((p) => new Date(p.created_at).getTime() > since);
     const stockMat = materials.reduce((s, m) => s + m.stock * (m.avg_cost || 0), 0);
-    const stockProd = products.reduce((s, p) => s + p.stock * (p.material_cost || 0), 0);
+    // Valeur du stock des PRODUITS = leur propre prix (sale_price), pas le coût des
+    // matières consommées pour les fabriquer. Les matières premières, elles, restent
+    // valorisées à leur coût d'achat (avg_cost) — seule la valorisation des produits change.
+    const stockProd = products.reduce((s, p) => s + p.stock * (p.sale_price || 0), 0);
     const sales = filt.filter((l) => l.kind === "sale");
     const revenue = sales.reduce((s, l) => s + l.delta_value, 0);
     const purchasesTotal = purch.reduce((s, p) => s + p.total_price, 0);
@@ -176,7 +179,8 @@ function StockDetail({ materials, products }: { materials: any[]; products: any[
             <li key={p.id} className="flex justify-between py-2 gap-2">
               <span className="truncate">{p.name}</span>
               <span className="text-muted-foreground whitespace-nowrap">
-                {formatQty(p.stock, UNIT_LABEL[p.unit])} · <strong className="text-foreground">{formatMoney(p.stock * (p.material_cost || 0))}</strong>
+                {/* Valorisé au prix de vente du produit (sa propre valeur), pas à son coût matière. */}
+                {formatQty(p.stock, UNIT_LABEL[p.unit])} · <strong className="text-foreground">{formatMoney(p.stock * (p.sale_price || 0))}</strong>
               </span>
             </li>
           ))}
