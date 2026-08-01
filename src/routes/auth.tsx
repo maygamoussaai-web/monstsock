@@ -83,7 +83,7 @@ function AuthPage() {
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
         <div className="flex items-center gap-3">
-          <div className="btn-press btn-shimmer grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Wheat className="h-5 w-5" />
           </div>
           <div>

@@ -277,7 +277,7 @@ function AuthedLayout() {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="btn-press btn-shimmer grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
               <Wheat className="h-5 w-5" />
             </div>
             <div className="hidden sm:block">
