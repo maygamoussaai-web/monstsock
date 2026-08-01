@@ -158,7 +158,7 @@ function RegisterOrLogin({ token, bakeryName }: { token: string; bakeryName: str
         <div>
           <label className="text-xs text-muted-foreground">Mot de passe</label>
           <input
-            type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+            type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
             className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent"
           />
         </div>
