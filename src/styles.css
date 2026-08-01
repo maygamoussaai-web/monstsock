@@ -171,3 +171,119 @@
 }
 
 @utility animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOUVEMENT — micro-interactions transverses (subtiles, 200–400 ms)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes ms-scale-fade-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes ms-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ms-scale-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.97) translateY(4px); }
+}
+@keyframes ms-shimmer-sweep {
+  0%       { transform: translateX(-130%) skewX(-18deg); }
+  22%, 100% { transform: translateX(240%) skewX(-18deg); }
+}
+@keyframes ms-skeleton-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.9; }
+}
+@keyframes ms-float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+@keyframes ms-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-modal-in { animation: ms-scale-fade-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-modal-out { animation: ms-scale-fade-out 0.16s ease-in both; }
+@utility animate-overlay-in { animation: ms-overlay-in 0.2s ease-out both; }
+@utility animate-page-in { animation: ms-page-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-float-soft { animation: ms-float-soft 3.4s ease-in-out infinite; }
+
+/* Apparition au scroll (piloté par <Reveal />) */
+@utility reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@utility reveal-in { opacity: 1; transform: none; }
+
+/* Boutons — lift au survol, feedback tactile au clic */
+@utility btn-press {
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, background-color 0.2s ease, opacity 0.2s ease;
+  &:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-lift); }
+  &:active { transform: translateY(0) scale(0.97); box-shadow: var(--shadow-soft); }
+  &:disabled { transform: none; box-shadow: none; }
+}
+
+/* CTA — reflet discret qui traverse le bouton toutes les quelques secondes */
+@utility btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 45%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.28), transparent);
+    animation: ms-shimmer-sweep 5.5s ease-in-out infinite;
+  }
+}
+
+/* Icônes cliquables — micro-rebond + légère rotation */
+@utility icon-pop {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  &:hover { transform: translateY(-1.5px) rotate(-6deg) scale(1.08); }
+  &:active { transform: scale(0.92); }
+}
+
+/* Squelettes de chargement */
+@utility skeleton {
+  background: color-mix(in oklab, var(--color-secondary) 82%, var(--color-background));
+  border-radius: var(--radius-md);
+  animation: ms-skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Carte inclinable avec lueur suivant le curseur (page d'accueil) */
+@utility tilt-glow {
+  position: relative;
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+  &:hover { box-shadow: var(--shadow-lift); }
+}
+@utility tilt-glow-light {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--glow-op, 0);
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    260px circle at var(--glow-x, 50%) var(--glow-y, 50%),
+    color-mix(in oklab, var(--color-accent) 22%, transparent),
+    transparent 70%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}
