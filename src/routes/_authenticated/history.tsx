@@ -31,7 +31,10 @@ const PERIODS = [
 ] as const;
 
 function HistoryPage() {
-  const { data: ledger = [] } = useLedger(1000);
+  // 1000 lignes récupérées à chaque visite pesait inutilement sur le réseau (surtout en
+  // connexion mobile) et sur le rendu (autant de cartes). 300 couvre largement l'usage
+  // quotidien d'une boulangerie sans ralentir la page.
+  const { data: ledger = [] } = useLedger(300);
   const [kind, setKind] = useState<string>("all");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("all");
   const [q, setQ] = useState("");
