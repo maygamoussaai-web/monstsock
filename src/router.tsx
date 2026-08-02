@@ -25,6 +25,14 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 30_000,
+    // Deuxième cause du lag : par défaut TanStack Router ne précharge RIEN — le code
+    // (chunk JS) de la page de destination n'est demandé qu'au moment du clic, ce qui
+    // ajoute un aller-retour réseau visible avant même que la page ne commence à
+    // s'afficher, surtout sur une connexion mobile lente. "intent" déclenche ce
+    // téléchargement dès le survol (ou le premier contact tactile) d'un lien, donc le
+    // code est déjà en cache la plupart du temps quand l'utilisateur clique réellement.
+    defaultPreload: "intent",
+    defaultPreloadDelay: 50,
   });
 
   return router;
