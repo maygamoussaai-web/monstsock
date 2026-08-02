@@ -9,7 +9,9 @@ export const Route = createFileRoute("/_authenticated/sales")({ component: Sales
 
 function SalesPage() {
   const { data: bakery } = useBakery();
-  const { data: ledger = [] } = useLedger(500);
+  // La liste affichée est de toute façon limitée à 100 lignes plus bas : pas besoin
+  // d'en récupérer 500 à chaque visite, ça alourdit juste le chargement réseau.
+  const { data: ledger = [] } = useLedger(200);
   const [showNew, setShowNew] = useState(false);
   const [q, setQ] = useState("");
   const [date, setDate] = useState("");
