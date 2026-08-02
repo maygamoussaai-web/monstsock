@@ -7,10 +7,17 @@ import {
   useUpdateRawMaterial,
   useDeleteRawMaterial,
   useCreatePurchase,
+  useAllRawMaterialUnits,
+  useRawMaterialUnits,
+  useCreateRawMaterialUnit,
+  useUpdateRawMaterialUnit,
+  useDeleteRawMaterialUnit,
   type RawMaterial,
+  type CustomUnit,
 } from "@/lib/queries";
 import { formatMoney, formatQty, MATERIAL_UNITS, UNIT_LABEL } from "@/lib/format";
-import { Plus, Search, Package2, Trash2, PackagePlus, Pencil } from "lucide-react";
+import { toClassicQuantity, formatStockDisplay } from "@/lib/units";
+import { Plus, Search, Package2, Trash2, PackagePlus, Pencil, Ruler, X } from "lucide-react";
 import { EmptyState } from "@/components/Loader";
 import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
@@ -25,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/raw-materials")({
 function RawMaterialsPage() {
   const { data: bakery } = useBakery();
   const { data: materials = [] } = useRawMaterials();
+  const { data: allUnits = [] } = useAllRawMaterialUnits(bakery?.id);
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [restockFor, setRestockFor] = useState<string | null>(null);
@@ -32,6 +40,19 @@ function RawMaterialsPage() {
 
   const create = useCreateRawMaterial();
   const purchase = useCreatePurchase();
+
+  const unitsByMaterial = useMemo(() => {
+    const map: Record<string, CustomUnit[]> = {};
+    for (const u of allUnits) {
+      (map[u.raw_material_id] ??= []).push(u);
+    }
+    return map;
+  }, [allUnits]);
+
+  function displayUnitFor(m: RawMaterial): CustomUnit | null {
+    if (!m.display_unit_id) return null;
+    return (unitsByMaterial[m.id] ?? []).find((u) => u.id === m.display_unit_id) ?? null;
+  }
 
   const filtered = useMemo(
     () =>
@@ -114,7 +135,7 @@ function RawMaterialsPage() {
                       <p className="text-xs text-muted-foreground">{UNIT_LABEL[m.unit]}</p>
                     </td>
                     <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>
-                      {formatQty(m.stock, UNIT_LABEL[m.unit])}
+                      {formatStockDisplay(m.stock, UNIT_LABEL[m.unit], displayUnitFor(m))}
                     </td>
                     <td className="px-4 py-3 text-right hidden sm:table-cell text-muted-foreground">
                       {formatQty(m.low_stock_threshold, UNIT_LABEL[m.unit])}
@@ -159,6 +180,7 @@ function RawMaterialsPage() {
           <RestockForm
             unit={UNIT_LABEL[restockMat.unit]}
             defaultPrice={restockMat.purchase_price}
+            customUnits={unitsByMaterial[restockMat.id] ?? []}
             submitting={purchase.isPending}
             onSubmit={(v) =>
               purchase.mutate(
@@ -181,15 +203,18 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
   const [editing, setEditing] = useState(false);
   const update = useUpdateRawMaterial();
   const del = useDeleteRawMaterial();
+  const { data: units = [] } = useRawMaterialUnits(material.id);
   const [form, setForm] = useState({
     name: material.name,
     unit: material.unit,
     purchase_price: material.purchase_price,
     low_stock_threshold: material.low_stock_threshold,
     notes: material.notes ?? "",
+    display_unit_id: material.display_unit_id ?? "",
   });
 
   const unitLabel = UNIT_LABEL[material.unit];
+  const displayUnit = units.find((u) => u.id === material.display_unit_id) ?? null;
 
   function save() {
     update.mutate(
@@ -200,6 +225,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
         purchase_price: form.purchase_price,
         low_stock_threshold: form.low_stock_threshold,
         notes: form.notes || null,
+        display_unit_id: (form.display_unit_id || null) as any,
       },
       { onSuccess: () => setEditing(false) }
     );
@@ -212,7 +238,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
           <Row label="Unité" value={unitLabel} />
           <Row
             label="Stock actuel"
-            value={<strong>{formatQty(material.stock, unitLabel)}</strong>}
+            value={<strong>{formatStockDisplay(material.stock, unitLabel, displayUnit)}</strong>}
           />
           <Row
             label="Seuil bas"
@@ -232,6 +258,9 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
               </p>
             </div>
           )}
+
+          <CustomUnitsSection material={material} classicUnitLabel={unitLabel} units={units} />
+
           <p className="text-[11px] text-muted-foreground italic pt-2">
             Le stock évolue uniquement via réapprovisionnement ou consommation en fournée.
           </p>
@@ -298,6 +327,20 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
               className={inputCls}
             />
           </Field>
+          <Field label="Unité principale d'affichage" hint="Comment le stock est affiché dans l'app">
+            <select
+              value={form.display_unit_id}
+              onChange={(e) => setForm({ ...form, display_unit_id: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">Unité classique ({unitLabel})</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} (= {u.factor} {unitLabel})
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Notes">
             <textarea
               rows={3}
@@ -327,6 +370,175 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
         </div>
       )}
     </Modal>
+  );
+}
+
+// Gestion des unités personnalisées d'une matière : liste, ajout, édition inline, suppression.
+// Purement une couche d'interface — ne touche jamais au stock (toujours en unité classique).
+function CustomUnitsSection({
+  material,
+  classicUnitLabel,
+  units,
+}: {
+  material: RawMaterial;
+  classicUnitLabel: string;
+  units: CustomUnit[];
+}) {
+  const create = useCreateRawMaterialUnit();
+  const update = useUpdateRawMaterialUnit();
+  const del = useDeleteRawMaterialUnit();
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2 pt-2">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+          <Ruler className="h-3.5 w-3.5" /> Unités personnalisées
+        </p>
+        {!adding && (
+          <button
+            onClick={() => setAdding(true)}
+            className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+          >
+            <Plus className="h-3 w-3" /> Ajouter
+          </button>
+        )}
+      </div>
+
+      {units.length === 0 && !adding && (
+        <p className="text-xs text-muted-foreground italic">
+          Aucune unité personnalisée (ex : sac de 50 kg, carton, palette…).
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {units.map((u) =>
+          editingId === u.id ? (
+            <CustomUnitForm
+              key={u.id}
+              classicUnitLabel={classicUnitLabel}
+              initial={u}
+              submitting={update.isPending}
+              onCancel={() => setEditingId(null)}
+              onSubmit={(v) => update.mutate({ id: u.id, ...v }, { onSuccess: () => setEditingId(null) })}
+            />
+          ) : (
+            <div
+              key={u.id}
+              className="flex items-center justify-between rounded-xl bg-secondary/50 px-3 py-2 text-sm"
+            >
+              <span>
+                {u.name} <span className="text-muted-foreground">= {u.factor} {classicUnitLabel}</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setEditingId(u.id)}
+                  className="rounded-lg p-1.5 hover:bg-secondary active:scale-95"
+                  aria-label="Modifier"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Supprimer l'unité « ${u.name} » ?`)) del.mutate(u.id);
+                  }}
+                  className="rounded-lg p-1.5 hover:bg-secondary active:scale-95"
+                  aria-label="Supprimer"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </div>
+            </div>
+          )
+        )}
+
+        {adding && (
+          <CustomUnitForm
+            classicUnitLabel={classicUnitLabel}
+            submitting={create.isPending}
+            onCancel={() => setAdding(false)}
+            onSubmit={(v) =>
+              create.mutate(
+                {
+                  bakery_id: material.bakery_id,
+                  raw_material_id: material.id,
+                  ...v,
+                  display_order: units.length,
+                },
+                { onSuccess: () => setAdding(false) }
+              )
+            }
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomUnitForm({
+  classicUnitLabel,
+  initial,
+  submitting,
+  onSubmit,
+  onCancel,
+}: {
+  classicUnitLabel: string;
+  initial?: CustomUnit;
+  submitting: boolean;
+  onSubmit: (v: { name: string; factor: number }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [factor, setFactor] = useState(initial?.factor ?? 0);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!name.trim() || factor <= 0) return;
+        onSubmit({ name: name.trim(), factor });
+      }}
+      className="rounded-xl border border-border p-3 bg-background/40 space-y-2"
+    >
+      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            autoFocus
+            required
+            placeholder="Ex : Sac de 50 kg"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputCls}
+          />
+          <div className="relative">
+            <input
+              type="number"
+              required
+              min={0.0001}
+              step="0.0001"
+              placeholder={`Équivaut à (${classicUnitLabel})`}
+              value={factor || ""}
+              onChange={(e) => setFactor(+e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg p-2 hover:bg-secondary active:scale-95"
+          aria-label="Annuler"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <button
+        disabled={submitting}
+        className="btn-press w-full rounded-lg bg-primary py-2 text-xs text-primary-foreground disabled:opacity-60"
+      >
+        {initial ? "Enregistrer" : "Ajouter l'unité"}
+      </button>
+    </form>
   );
 }
 
@@ -442,32 +654,56 @@ function RestockForm({
   submitting,
   defaultPrice,
   unit,
+  customUnits,
 }: {
   onSubmit: (v: any) => void;
   submitting: boolean;
   defaultPrice: number;
   unit: string;
+  customUnits: CustomUnit[];
 }) {
   const [quantity, setQ] = useState(0);
   const [unit_price, setP] = useState(defaultPrice);
+  const [unitId, setUnitId] = useState<string>("");
   const [supplier, setS] = useState("");
   const [notes, setN] = useState("");
+
+  const selectedUnit = customUnits.find((u) => u.id === unitId) ?? null;
+  const qtyLabel = selectedUnit ? selectedUnit.name : unit;
+  const priceLabel = selectedUnit ? `Prix par ${selectedUnit.name}` : "Prix unitaire (FCFA)";
+  const classicQty = toClassicQuantity(quantity, unitId || null, customUnits);
+  // Le prix saisi est toujours "par unité choisie" ; on le ramène en prix par unité classique
+  // pour l'enregistrement (record_purchase attend un prix par unité classique).
+  const classicUnitPrice = selectedUnit && selectedUnit.factor > 0 ? unit_price / selectedUnit.factor : unit_price;
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (quantity <= 0 || unit_price <= 0) return;
         onSubmit({
-          quantity,
-          unit_price,
+          quantity: classicQty,
+          unit_price: classicUnitPrice,
           supplier: supplier || null,
           notes: notes || null,
         });
       }}
       className="space-y-3"
     >
+      {customUnits.length > 0 && (
+        <Field label="Unité de saisie">
+          <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={inputCls}>
+            <option value="">Unité classique ({unit})</option>
+            {customUnits.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} (= {u.factor} {unit})
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <Field label={`Quantité (${unit})`}>
+        <Field label={`Quantité (${qtyLabel})`}>
           <input
             type="number"
             required
@@ -478,7 +714,7 @@ function RestockForm({
             className={inputCls}
           />
         </Field>
-        <Field label="Prix unitaire (FCFA)">
+        <Field label={priceLabel}>
           <input
             type="number"
             required
@@ -490,8 +726,13 @@ function RestockForm({
           />
         </Field>
       </div>
-      <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm">
-        Total : <strong>{formatMoney(quantity * unit_price)}</strong>
+      <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
+        <div>Total : <strong>{formatMoney(quantity * unit_price)}</strong></div>
+        {selectedUnit && (
+          <div className="text-xs text-muted-foreground">
+            Soit {formatQty(classicQty, unit)} au stock
+          </div>
+        )}
       </div>
       <Field label="Fournisseur">
         <input value={supplier} onChange={(e) => setS(e.target.value)} className={inputCls} />
