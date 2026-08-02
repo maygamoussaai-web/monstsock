@@ -7,10 +7,13 @@ import {
   useRawMaterials,
   useCreateBatch,
   useRecipe,
+  useAllRawMaterialUnits,
+  type CustomUnit,
 } from "@/lib/queries";
 import { formatQty, UNIT_LABEL } from "@/lib/format";
+import { toClassicQuantity } from "@/lib/units";
 
-type Ingredient = { raw_material_id: string; quantity_used: number };
+type Ingredient = { raw_material_id: string; quantity_used: number; unit_id: string | null };
 
 export function BatchForm({
   bakeryId,
@@ -24,18 +27,33 @@ export function BatchForm({
   const { data: templates = [] } = useBatchTemplates();
   const { data: products = [] } = useProducts();
   const { data: materials = [] } = useRawMaterials();
+  const { data: allUnits = [] } = useAllRawMaterialUnits(bakeryId);
   const create = useCreateBatch();
+
+  const unitsByMaterial = useMemo(() => {
+    const map: Record<string, CustomUnit[]> = {};
+    for (const u of allUnits) {
+      (map[u.raw_material_id] ??= []).push(u);
+    }
+    return map;
+  }, [allUnits]);
 
   const [templateId, setTemplateId] = useState("");
   const [productId, setProductId] = useState(initialProductId ?? "");
   const [quantityProduced, setQuantityProduced] = useState<number>(0);
   const [ingredients, setIngredients] = useState<Ingredient[]>([
-    { raw_material_id: "", quantity_used: 0 },
+    { raw_material_id: "", quantity_used: 0, unit_id: null },
   ]);
   const [notes, setNotes] = useState("");
 
   const product = products.find((p) => p.id === productId);
   const availableMaterials = useMemo(() => materials.filter((m) => m.stock > 0), [materials]);
+
+  // Quantité de la ligne, ramenée en unité classique (celle utilisée par le stock).
+  function classicQtyFor(it: Ingredient): number {
+    const units = it.raw_material_id ? unitsByMaterial[it.raw_material_id] ?? [] : [];
+    return toClassicQuantity(it.quantity_used, it.unit_id, units);
+  }
 
   function applyTemplate(id: string) {
     setTemplateId(id);
@@ -49,6 +67,7 @@ export function BatchForm({
         tpl.batch_template_ingredients.map((i) => ({
           raw_material_id: i.raw_material_id,
           quantity_used: Number(i.quantity),
+          unit_id: null,
         }))
       );
     }
@@ -66,7 +85,7 @@ export function BatchForm({
     const nonEmpty = ingredients.filter((i) => i.raw_material_id);
     if (nonEmpty.length > 0) return;
     setIngredients(
-      recipe.map((r) => ({ raw_material_id: r.raw_material_id, quantity_used: 0 }))
+      recipe.map((r) => ({ raw_material_id: r.raw_material_id, quantity_used: 0, unit_id: null }))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, recipe.length, templateId]);
@@ -75,11 +94,11 @@ export function BatchForm({
     setIngredients(ingredients.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
   function addIngredient() {
-    setIngredients([...ingredients, { raw_material_id: "", quantity_used: 0 }]);
+    setIngredients([...ingredients, { raw_material_id: "", quantity_used: 0, unit_id: null }]);
   }
   function removeIngredient(idx: number) {
     if (ingredients.length === 1) {
-      setIngredients([{ raw_material_id: "", quantity_used: 0 }]);
+      setIngredients([{ raw_material_id: "", quantity_used: 0, unit_id: null }]);
     } else {
       setIngredients(ingredients.filter((_, i) => i !== idx));
     }
@@ -94,8 +113,9 @@ export function BatchForm({
     .map((it) => {
       const m = materials.find((x) => x.id === it.raw_material_id);
       if (!m) return null;
-      if (it.quantity_used > m.stock) {
-        return `Stock insuffisant pour ${m.name} : disponible ${formatQty(m.stock, UNIT_LABEL[m.unit])}, demandé ${formatQty(it.quantity_used, UNIT_LABEL[m.unit])}.`;
+      const classicQty = classicQtyFor(it);
+      if (classicQty > m.stock) {
+        return `Stock insuffisant pour ${m.name} : disponible ${formatQty(m.stock, UNIT_LABEL[m.unit])}, demandé ${formatQty(classicQty, UNIT_LABEL[m.unit])}.`;
       }
       return null;
     })
@@ -120,7 +140,10 @@ export function BatchForm({
         bakery_id: bakeryId,
         name: `Fournée ${product?.name ?? ""} — ${new Date().toLocaleDateString("fr-FR")}`,
         notes: notes || null,
-        consumptions: filledIngredients,
+        consumptions: filledIngredients.map((it) => ({
+          raw_material_id: it.raw_material_id,
+          quantity_used: classicQtyFor(it),
+        })),
         outputs: [{ product_id: productId, quantity_produced: quantityProduced }],
       },
       { onSuccess: onDone }
@@ -197,13 +220,17 @@ export function BatchForm({
         <div className="space-y-2">
           {ingredients.map((it, idx) => {
             const m = materials.find((x) => x.id === it.raw_material_id);
-            const overStock = m && it.quantity_used > m.stock;
+            const materialUnits = it.raw_material_id ? unitsByMaterial[it.raw_material_id] ?? [] : [];
+            const classicQty = classicQtyFor(it);
+            const overStock = m && classicQty > m.stock;
             return (
               <div key={idx} className="rounded-xl border border-border p-3 bg-background/40">
                 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
                   <select
                     value={it.raw_material_id}
-                    onChange={(e) => updateIngredient(idx, { raw_material_id: e.target.value })}
+                    onChange={(e) =>
+                      updateIngredient(idx, { raw_material_id: e.target.value, unit_id: null })
+                    }
                     className={inputCls}
                     required={idx === 0}
                   >
@@ -242,7 +269,26 @@ export function BatchForm({
                     placeholder={m ? `Quantité en ${UNIT_LABEL[m.unit]}` : "Quantité"}
                     required={idx === 0}
                   />
+                  {materialUnits.length > 0 && (
+                    <select
+                      value={it.unit_id ?? ""}
+                      onChange={(e) => updateIngredient(idx, { unit_id: e.target.value || null })}
+                      className={inputCls + " max-w-[45%]"}
+                    >
+                      <option value="">{m ? UNIT_LABEL[m.unit] : "unité"}</option>
+                      {materialUnits.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+                {it.unit_id && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Soit {formatQty(classicQty, m ? UNIT_LABEL[m.unit] : "")}
+                  </p>
+                )}
                 {overStock && (
                   <p className="mt-1 text-xs text-destructive flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
