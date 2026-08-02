@@ -1,1161 +1,155 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
+  }
   public: {
     Tables: {
-      activity_log: {
-        Row: {
-          id: string
-          bakery_id: string
-          user_id: string
-          action_type: string
-          description: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          user_id: string
-          action_type: string
-          description?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          user_id?: string
-          action_type?: string
-          description?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "activity_log_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      admin_email_allowlist: {
-        Row: {
-          email: string
-          created_at: string
-        }
-        Insert: {
-          email: string
-          created_at?: string
-        }
-        Update: {
-          email?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      admins: {
-        Row: {
-          user_id: string
-          created_at: string
-        }
-        Insert: {
-          user_id: string
-          created_at?: string
-        }
-        Update: {
-          user_id?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      bakeries: {
-        Row: {
-          id: string
-          name: string
-          currency: string
-          address: string | null
-          created_at: string
-          updated_at: string
-          logo_url: string | null
-          /** Null = boulangerie active. Non-null = supprimée (soft-delete). */
-          deleted_at: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          currency?: string
-          address?: string | null
-          created_at?: string
-          updated_at?: string
-          logo_url?: string | null
-          deleted_at?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          currency?: string
-          address?: string | null
-          created_at?: string
-          updated_at?: string
-          logo_url?: string | null
-          deleted_at?: string | null
-        }
-        Relationships: []
-      }
-      bakery_invitations: {
-        Row: {
-          id: string
-          bakery_id: string
-          token: string
-          created_by: string
-          used_by: string | null
-          used_at: string | null
-          expires_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          token?: string
-          created_by: string
-          used_by?: string | null
-          used_at?: string | null
-          expires_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          token?: string
-          created_by?: string
-          used_by?: string | null
-          used_at?: string | null
-          expires_at?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bakery_invitations_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      bakery_members: {
-        Row: {
-          bakery_id: string
-          user_id: string
-          role: Database["public"]["Enums"]["bakery_role"]
-          created_at: string
-          /** Numéro de téléphone du membre (indicatif + numéro, ex: "+22370000000"). Nullable. */
-          phone: string | null
-        }
-        Insert: {
-          bakery_id: string
-          user_id: string
-          role?: Database["public"]["Enums"]["bakery_role"]
-          created_at?: string
-          phone?: string | null
-        }
-        Update: {
-          bakery_id?: string
-          user_id?: string
-          role?: Database["public"]["Enums"]["bakery_role"]
-          created_at?: string
-          phone?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bakery_members_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batch_consumptions: {
-        Row: {
-          id: string
-          bakery_id: string
-          batch_id: string
-          raw_material_id: string
-          quantity_used: number
-          unit_cost: number
-          line_cost: number
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          batch_id: string
-          raw_material_id: string
-          quantity_used: number
-          unit_cost?: number
-          line_cost?: number
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          batch_id?: string
-          raw_material_id?: string
-          quantity_used?: number
-          unit_cost?: number
-          line_cost?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_consumptions_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_consumptions_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "batches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_consumptions_raw_material_id_fkey"
-            columns: ["raw_material_id"]
-            isOneToOne: false
-            referencedRelation: "raw_materials"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batch_outputs: {
-        Row: {
-          id: string
-          bakery_id: string
-          batch_id: string
-          product_id: string
-          quantity_produced: number
-          unit_material_cost: number
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          batch_id: string
-          product_id: string
-          quantity_produced: number
-          unit_material_cost?: number
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          batch_id?: string
-          product_id?: string
-          quantity_produced?: number
-          unit_material_cost?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_outputs_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_outputs_batch_id_fkey"
-            columns: ["batch_id"]
-            isOneToOne: false
-            referencedRelation: "batches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_outputs_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batch_template_ingredients: {
-        Row: {
-          id: string
-          bakery_id: string
-          template_id: string
-          raw_material_id: string
-          quantity: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          template_id: string
-          raw_material_id: string
-          quantity: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          template_id?: string
-          raw_material_id?: string
-          quantity?: number
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_template_ingredients_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_template_ingredients_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "batch_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_template_ingredients_raw_material_id_fkey"
-            columns: ["raw_material_id"]
-            isOneToOne: false
-            referencedRelation: "raw_materials"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batch_template_items: {
-        Row: {
-          id: string
-          bakery_id: string
-          template_id: string
-          product_id: string
-          planned_quantity: number
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          template_id: string
-          product_id: string
-          planned_quantity: number
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          template_id?: string
-          product_id?: string
-          planned_quantity?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_template_items_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_template_items_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "batch_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batch_template_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batch_templates: {
-        Row: {
-          id: string
-          bakery_id: string
-          name: string
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          name: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          name?: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batch_templates_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      batches: {
-        Row: {
-          id: string
-          bakery_id: string
-          template_id: string | null
-          name: string
-          status: Database["public"]["Enums"]["batch_status"]
-          notes: string | null
-          total_material_cost: number
-          produced_at: string
-          completed_at: string | null
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          template_id?: string | null
-          name: string
-          status?: Database["public"]["Enums"]["batch_status"]
-          notes?: string | null
-          total_material_cost?: number
-          produced_at?: string
-          completed_at?: string | null
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          template_id?: string | null
-          name?: string
-          status?: Database["public"]["Enums"]["batch_status"]
-          notes?: string | null
-          total_material_cost?: number
-          produced_at?: string
-          completed_at?: string | null
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "batches_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "batches_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "batch_templates"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      invitation_codes: {
-        Row: {
-          id: string
-          code: string
-          used: boolean | null
-          used_by: string | null
-          used_at: string | null
-          created_by: string | null
-          notes: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          code: string
-          used?: boolean | null
-          used_by?: string | null
-          used_at?: string | null
-          created_by?: string | null
-          notes?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          code?: string
-          used?: boolean | null
-          used_by?: string | null
-          used_at?: string | null
-          created_by?: string | null
-          notes?: string | null
-          created_at?: string | null
-        }
-        Relationships: []
-      }
-      losses: {
-        Row: {
-          id: string
-          bakery_id: string
-          product_id: string
-          quantity: number
-          reason: string | null
-          source_sale_item_id: string | null
-          created_by: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          product_id: string
-          quantity: number
-          reason?: string | null
-          source_sale_item_id?: string | null
-          created_by?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          product_id?: string
-          quantity?: number
-          reason?: string | null
-          source_sale_item_id?: string | null
-          created_by?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "losses_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "losses_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      product_recipes: {
-        Row: {
-          id: string
-          bakery_id: string
-          product_id: string
-          raw_material_id: string
-          quantity_per_unit: number | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          product_id: string
-          raw_material_id: string
-          quantity_per_unit?: number | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          product_id?: string
-          raw_material_id?: string
-          quantity_per_unit?: number | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_recipes_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_recipes_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_recipes_raw_material_id_fkey"
-            columns: ["raw_material_id"]
-            isOneToOne: false
-            referencedRelation: "raw_materials"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      products: {
-        Row: {
-          id: string
-          bakery_id: string
-          name: string
-          unit: Database["public"]["Enums"]["product_unit"]
-          sale_price: number
-          stock: number
-          low_stock_threshold: number
-          material_cost: number
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          name: string
-          unit?: Database["public"]["Enums"]["product_unit"]
-          sale_price: number
-          stock?: number
-          low_stock_threshold?: number
-          material_cost?: number
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          name?: string
-          unit?: Database["public"]["Enums"]["product_unit"]
-          sale_price?: number
-          stock?: number
-          low_stock_threshold?: number
-          material_cost?: number
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      raw_material_purchases: {
-        Row: {
-          id: string
-          bakery_id: string
-          raw_material_id: string
-          quantity: number
-          unit_price: number
-          total_price: number
-          supplier: string | null
-          notes: string | null
-          created_at: string
-          created_by: string | null
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          raw_material_id: string
-          quantity: number
-          unit_price: number
-          total_price: number
-          supplier?: string | null
-          notes?: string | null
-          created_at?: string
-          created_by?: string | null
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          raw_material_id?: string
-          quantity?: number
-          unit_price?: number
-          total_price?: number
-          supplier?: string | null
-          notes?: string | null
-          created_at?: string
-          created_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "raw_material_purchases_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "raw_material_purchases_raw_material_id_fkey"
-            columns: ["raw_material_id"]
-            isOneToOne: false
-            referencedRelation: "raw_materials"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      raw_materials: {
-        Row: {
-          id: string
-          bakery_id: string
-          name: string
-          unit: Database["public"]["Enums"]["material_unit"]
-          purchase_price: number
-          avg_cost: number
-          stock: number
-          low_stock_threshold: number
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          name: string
-          unit: Database["public"]["Enums"]["material_unit"]
-          purchase_price: number
-          avg_cost?: number
-          stock?: number
-          low_stock_threshold?: number
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          name?: string
-          unit?: Database["public"]["Enums"]["material_unit"]
-          purchase_price?: number
-          avg_cost?: number
-          stock?: number
-          low_stock_threshold?: number
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "raw_materials_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      sales_session_items: {
-        Row: {
-          id: string
-          bakery_id: string
-          session_id: string
-          product_id: string
-          opening_stock: number
-          restocked: number
-          closing_stock: number
-          unsold: number
-          price_at_sale: number
-          unit_cost_at_sale: number
-          quantity_sold: number
-          unsold_quantity: number | null
-          keep_unsold: boolean | null
-          loss_quantity: number | null
-          stock_before_sale: number | null
-          revenue: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          session_id: string
-          product_id: string
-          opening_stock?: number
-          restocked?: number
-          closing_stock?: number
-          unsold?: number
-          price_at_sale?: number
-          unit_cost_at_sale?: number
-          quantity_sold?: number
-          unsold_quantity?: number | null
-          keep_unsold?: boolean | null
-          loss_quantity?: number | null
-          stock_before_sale?: number | null
-          revenue?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          session_id?: string
-          product_id?: string
-          opening_stock?: number
-          restocked?: number
-          closing_stock?: number
-          unsold?: number
-          price_at_sale?: number
-          unit_cost_at_sale?: number
-          quantity_sold?: number
-          unsold_quantity?: number | null
-          keep_unsold?: boolean | null
-          loss_quantity?: number | null
-          stock_before_sale?: number | null
-          revenue?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_session_items_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_session_items_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sales_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_session_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      sales_sessions: {
-        Row: {
-          id: string
-          bakery_id: string
-          name: string
-          status: Database["public"]["Enums"]["sales_status"]
-          session_date: string
-          notes: string | null
-          total_revenue: number
-          total_loss_value: number
-          created_by: string | null
-          created_at: string
-          closed_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          name: string
-          status?: Database["public"]["Enums"]["sales_status"]
-          session_date?: string
-          notes?: string | null
-          total_revenue?: number
-          total_loss_value?: number
-          created_by?: string | null
-          created_at?: string
-          closed_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          name?: string
-          status?: Database["public"]["Enums"]["sales_status"]
-          session_date?: string
-          notes?: string | null
-          total_revenue?: number
-          total_loss_value?: number
-          created_by?: string | null
-          created_at?: string
-          closed_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_sessions_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      stock_ledger: {
-        Row: {
-          id: string
-          bakery_id: string
-          kind: Database["public"]["Enums"]["ledger_kind"]
-          ref_id: string | null
-          raw_material_id: string | null
-          product_id: string | null
-          delta_quantity: number
-          delta_value: number
-          user_id: string | null
-          note: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          bakery_id: string
-          kind: Database["public"]["Enums"]["ledger_kind"]
-          ref_id?: string | null
-          raw_material_id?: string | null
-          product_id?: string | null
-          delta_quantity: number
-          delta_value?: number
-          user_id?: string | null
-          note?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          bakery_id?: string
-          kind?: Database["public"]["Enums"]["ledger_kind"]
-          ref_id?: string | null
-          raw_material_id?: string | null
-          product_id?: string | null
-          delta_quantity?: number
-          delta_value?: number
-          user_id?: string | null
-          note?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "stock_ledger_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_ledger_raw_material_id_fkey"
-            columns: ["raw_material_id"]
-            isOneToOne: false
-            referencedRelation: "raw_materials"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stock_ledger_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      subscriptions: {
-        Row: {
-          id: string
-          user_id: string
-          bakery_id: string | null
-          status: string | null
-          plan: string | null
-          trial_start: string | null
-          trial_end: string | null
-          subscription_start: string | null
-          subscription_end: string | null
-          invitation_code_id: string | null
-          whatsapp_contact: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          bakery_id?: string | null
-          status?: string | null
-          plan?: string | null
-          trial_start?: string | null
-          trial_end?: string | null
-          subscription_start?: string | null
-          subscription_end?: string | null
-          invitation_code_id?: string | null
-          whatsapp_contact?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          bakery_id?: string | null
-          status?: string | null
-          plan?: string | null
-          trial_start?: string | null
-          trial_end?: string | null
-          subscription_start?: string | null
-          subscription_end?: string | null
-          invitation_code_id?: string | null
-          whatsapp_contact?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "subscriptions_bakery_id_fkey"
-            columns: ["bakery_id"]
-            isOneToOne: false
-            referencedRelation: "bakeries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "subscriptions_invitation_code_id_fkey"
-            columns: ["invitation_code_id"]
-            isOneToOne: false
-            referencedRelation: "invitation_codes"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
-    Enums: {
-      bakery_role: "owner" | "staff"
-      batch_status: "draft" | "completed"
-      ledger_kind: "purchase" | "batch_consume" | "batch_produce" | "sale" | "loss" | "adjustment"
-      material_unit: "kg" | "g" | "L" | "mL" | "unite"
-      product_unit: "unite" | "piece" | "kg" | "g"
-      sales_status: "open" | "closed"
-    }
     Functions: {
-      accept_bakery_invitation: {
-        Args: { _token: string }
-        Returns: string
-      }
-      close_sales_session: {
-        Args: { _session_id: string }
-        Returns: void
-      }
-      create_bakery_invitation: {
-        Args: { _bakery_id: string }
-        Returns: string
-      }
-      get_invitation_preview: {
-        Args: { _token: string }
-        Returns: { bakery_name: string | null; valid: boolean; reason: string | null }[]
-      }
-      has_bakery_access: {
-        Args: { _bakery_id: string }
-        Returns: boolean
-      }
-      is_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      list_bakery_members: {
-        Args: { _bakery_id: string }
-        Returns: {
-          user_id: string
-          email: string
-          role: Database["public"]["Enums"]["bakery_role"]
-          created_at: string
-        }[]
-      }
-      /**
-       * record_batch — enregistre une fournée complète atomiquement.
-       * Décrémente les matières premières, incrémente le stock des produits,
-       * écrit dans le stock_ledger et l'activity_log.
-       * Vérifie l'accès à la boulangerie ET le statut d'abonnement (actif/trial).
-       */
-      record_batch: {
-        Args: {
-          p_bakery_id: string
-          p_name: string
-          p_consumptions: Json
-          p_outputs: Json
-          p_notes?: string | null
-        }
-        Returns: Json
-      }
-      /**
-       * record_loss — enregistre une perte de PRODUIT FINI (pas de matière première).
-       * Décrémente le stock du produit et écrit dans le ledger.
-       * Vérifie l'accès à la boulangerie ET le statut d'abonnement.
-       */
-      record_loss: {
-        Args: {
-          p_bakery_id: string
-          p_product_id: string
-          p_quantity: number
-          p_reason?: string | null
-        }
-        Returns: string
-      }
-      /**
-       * record_product_sale — vente ponctuelle d'un produit fini (hors session).
-       * Décrémente le stock et inscrit la vente dans le ledger.
-       * Utilisé par useRecordProductSale et useQuickSale dans queries.ts.
-       * Signature active en base : (p_bakery_id, p_product_id, p_quantity, p_price) → uuid
-       */
-      record_product_sale: {
-        Args: {
-          p_bakery_id: string
-          p_product_id: string
-          p_quantity: number
-          p_price: number
-        }
-        Returns: string
-      }
-      record_purchase: {
-        Args: {
-          p_bakery_id: string
-          p_raw_material_id: string
-          p_quantity: number
-          p_unit_price: number
-          p_supplier?: string | null
-        }
-        Returns: string
-      }
-      remove_bakery_member: {
-        Args: { _bakery_id: string; _user_id: string }
-        Returns: void
-      }
-      /**
-       * subscription_active — vérifie qu'une boulangerie a un abonnement valide.
-       * Retourne true si status IN ('trial','active') ET les dates d'expiration
-       * ne sont pas dépassées. Appelée en garde dans toutes les RPCs critiques.
-       */
-      subscription_active: {
-        Args: { _bakery_id: string }
-        Returns: boolean
-      }
-      transfer_bakery_ownership: {
-        Args: { _bakery_id: string; _new_owner_id: string }
-        Returns: void
-      }
-      user_has_bakery_access: {
-        Args: { p_bakery_id: string }
-        Returns: boolean
-      }
-      /**
-       * owner_delete_bakery — suppression PHYSIQUE complète de la boulangerie
-       * et de tous ses membres auth.users (sauf admins). Réservé à l'owner.
-       * À utiliser avec précaution — irréversible.
-       */
-      owner_delete_bakery: {
-        Args: { _bakery_id: string }
-        Returns: void
-      }
-      /**
-       * owner_soft_delete_bakery — suppression LOGIQUE (soft-delete) de la boulangerie.
-       * Met deleted_at à now() sans effacer les données. Préférable à owner_delete_bakery
-       * pour permettre une restauration éventuelle par l'admin.
-       */
-      owner_soft_delete_bakery: {
-        Args: { _bakery_id: string }
-        Returns: void
-      }
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
     }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
