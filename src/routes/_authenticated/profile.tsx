@@ -11,8 +11,16 @@ import {
   useDeleteBakery,
 } from "@/lib/queries";
 import { Field, inputCls, Modal } from "@/components/Modal";
-import { User, Pencil, Upload, Save, X, CreditCard, Trash2, MessageCircle } from "lucide-react";
+import { User, Pencil, Upload, Save, X, CreditCard, Trash2, MessageCircle, Bell, BellOff, BellRing } from "lucide-react";
 import { toast } from "sonner";
+import {
+  pushSupported,
+  getPushPermissionState,
+  isSubscribedOnThisDevice,
+  subscribeToPush,
+  unsubscribeFromPush,
+  sendTestPush,
+} from "@/lib/push";
 
 export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePage });
 
@@ -266,6 +274,8 @@ function ProfilePage() {
         )}
       </div>
 
+      {member && bakery && <NotificationsBlock bakeryId={bakery.id} userId={member.user_id} />}
+
       {isOwner && <SubscriptionBlock sub={subscription} />}
 
       {isOwner && bakery && (
@@ -334,6 +344,113 @@ function ProfilePage() {
             </div>
           </div>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications push — gratuit (notifications du navigateur), propre à CET appareil.
+// Visible par tous les membres (gérant ET employés), puisque c'est un réglage personnel
+// d'appareil, pas un réglage de la boulangerie.
+// ─────────────────────────────────────────────────────────────────────────────
+function NotificationsBlock({ bakeryId, userId }: { bakeryId: string; userId: string }) {
+  const [supported, setSupported] = useState(true);
+  const [subscribed, setSubscribed] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setSupported(pushSupported());
+      setPermission(await getPushPermissionState());
+      setSubscribed(await isSubscribedOnThisDevice());
+    })();
+  }, []);
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      if (subscribed) {
+        await unsubscribeFromPush();
+        setSubscribed(false);
+        toast.success("Notifications désactivées sur cet appareil.");
+      } else {
+        await subscribeToPush(bakeryId, userId);
+        setSubscribed(true);
+        setPermission("granted");
+        toast.success("Notifications activées sur cet appareil.");
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Impossible de modifier les notifications.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function test() {
+    setBusy(true);
+    try {
+      await sendTestPush();
+      toast.success("Notification de test envoyée.");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur lors de l'envoi.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card-elegant p-6 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-accent">
+          {subscribed ? <BellRing className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Notifications</p>
+          <p className="mt-0.5 font-display text-lg">
+            {subscribed ? "Activées sur cet appareil" : "Désactivées sur cet appareil"}
+          </p>
+        </div>
+      </div>
+
+      {!supported ? (
+        <p className="text-sm text-muted-foreground">
+          Ce navigateur ne prend pas en charge les notifications. Sur iPhone, installez d'abord MonStock sur
+          l'écran d'accueil depuis Safari, puis réessayez depuis l'application installée.
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Recevez une alerte directement sur cet appareil (stock bas, à réapprovisionner…), gratuitement,
+            sans SMS ni WhatsApp. À activer sur chaque appareil que vous utilisez.
+          </p>
+          {permission === "denied" && (
+            <p className="text-xs text-destructive">
+              Les notifications sont bloquées pour ce site dans les réglages de votre navigateur. Autorisez-les
+              d'abord là-bas, puis réessayez ici.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={toggle}
+              disabled={busy || permission === "denied"}
+              className="btn-press inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs hover:bg-secondary disabled:opacity-50"
+            >
+              {subscribed ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+              {subscribed ? "Désactiver" : "Activer les notifications"}
+            </button>
+            {subscribed && (
+              <button
+                onClick={test}
+                disabled={busy}
+                className="btn-press inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs hover:bg-secondary disabled:opacity-50"
+              >
+                Envoyer une notification de test
+              </button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
