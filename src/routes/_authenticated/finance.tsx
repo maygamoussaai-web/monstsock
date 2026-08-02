@@ -21,7 +21,12 @@ type DetailKey = null | "stock" | "purchases" | "revenue" | "losses";
 function FinancePage() {
   const [range, setRange] = useState<typeof RANGES[number]["key"]>("30");
   const [detail, setDetail] = useState<DetailKey>(null);
-  const { data: ledger = [], isLoading: ledgerLoading } = useLedger(2000);
+  // Récupère les N derniers mouvements puis filtre par période côté client. Réduit de
+  // 2000 à 800 pour alléger nettement le chargement réseau ; au-delà de 800 mouvements
+  // sur la période "Tout"/"90 jours" pour une boulangerie très active, le calcul peut ne
+  // plus être exhaustif — un vrai filtrage par date côté base serait la prochaine étape
+  // si ça devient limitant.
+  const { data: ledger = [], isLoading: ledgerLoading } = useLedger(800);
   const { data: materials = [] } = useRawMaterials();
   const { data: products = [] } = useProducts();
   const { data: purchases = [] } = usePurchases(500);
