@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 type DB = Database["public"]["Tables"];
 export type Bakery = DB["bakeries"]["Row"];
-export type RawMaterial = DB["raw_materials"]["Row"];
+export type RawMaterial = DB["raw_materials"]["Row"] & { display_unit_id?: string | null };
 export type Purchase = DB["raw_material_purchases"]["Row"];
 export type Product = DB["products"]["Row"];
 export type Recipe = DB["product_recipes"]["Row"];
@@ -89,7 +89,7 @@ export function useUpdateRawMaterial() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: Partial<RawMaterial> & { id: string }) => {
-      const { error } = await supabase.from("raw_materials").update(patch).eq("id", id);
+      const { error } = await supabase.from("raw_materials").update(patch as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Matière mise à jour"); invalidate(qc, ["raw_materials"]); },
@@ -108,6 +108,76 @@ export function useDeleteRawMaterial() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Matière supprimée"); invalidate(qc, ["raw_materials"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+// ------- Unités personnalisées (matières premières) --------
+export type CustomUnit = {
+  id: string; bakery_id: string; raw_material_id: string;
+  name: string; factor: number; display_order: number;
+};
+
+export function useRawMaterialUnits(rawMaterialId: string | undefined) {
+  return useQuery({
+    queryKey: ["raw-material-units", rawMaterialId],
+    enabled: !!rawMaterialId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("raw_material_units" as any) as any)
+        .select("*").eq("raw_material_id", rawMaterialId).order("display_order");
+      if (error) throw error;
+      return (data ?? []) as CustomUnit[];
+    },
+  });
+}
+
+// Toutes les unités personnalisées de la boulangerie (pour l'affichage du stock dans
+// la liste et les sélecteurs d'unité ailleurs, sans refaire une requête par matière).
+export function useAllRawMaterialUnits(bakeryId: string | undefined) {
+  return useQuery({
+    queryKey: ["raw-material-units-all", bakeryId],
+    enabled: !!bakeryId,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("raw_material_units" as any) as any)
+        .select("*").eq("bakery_id", bakeryId).order("display_order");
+      if (error) throw error;
+      return (data ?? []) as CustomUnit[];
+    },
+  });
+}
+
+export function useCreateRawMaterialUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { bakery_id: string; raw_material_id: string; name: string; factor: number; display_order?: number }) => {
+      const { error } = await (supabase.from("raw_material_units" as any) as any).insert(input);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Unité ajoutée"); invalidate(qc, ["raw-material-units", "raw-material-units-all"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useUpdateRawMaterialUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string; name?: string; factor?: number; display_order?: number }) => {
+      const { error } = await (supabase.from("raw_material_units" as any) as any).update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Unité mise à jour"); invalidate(qc, ["raw-material-units", "raw-material-units-all"]); },
+    onError: (e: any) => toast.error(e.message ?? "Erreur"),
+  });
+}
+
+export function useDeleteRawMaterialUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase.from("raw_material_units" as any) as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Unité supprimée"); invalidate(qc, ["raw-material-units", "raw-material-units-all", "raw_materials"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
