@@ -1,24 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useBakery, useProducts, useQuickSale, useLedger } from "@/lib/queries";
+import { useOfflineQueue } from "@/lib/offline-queue";
+import { useOnlineStatus } from "@/lib/offline";
 import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, ShoppingBag, AlertTriangle, Search } from "lucide-react";
+import { Plus, ShoppingBag, AlertTriangle, Search, Clock } from "lucide-react";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
 export const Route = createFileRoute("/_authenticated/sales")({ component: SalesPage });
 
 function SalesPage() {
   const { data: bakery } = useBakery();
-  // La liste affichée est de toute façon limitée à 100 lignes plus bas : pas besoin
-  // d'en récupérer 500 à chaque visite, ça alourdit juste le chargement réseau.
   const { data: ledger = [] } = useLedger(200);
+  const pendingSales = useOfflineQueue();
   const [showNew, setShowNew] = useState(false);
   const [q, setQ] = useState("");
   const [date, setDate] = useState("");
 
-  // Regroupe chaque vente avec sa perte liée (invendus jetés, ref_id -> vente), pour ne
-  // jamais présenter une vente comme une "perte" : la perte apparaît en détail sous la
-  // vente, pas comme une ligne "Perte" séparée et sans contexte.
   type LedgerRow = typeof ledger[number];
   type SaleRow = LedgerRow & { linkedLoss?: LedgerRow };
 
@@ -71,6 +69,29 @@ function SalesPage() {
         </button>
       </div>
 
+      {pendingSales.length > 0 && (
+        <div className="card-elegant border-accent/40 overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border px-5 py-3 text-xs uppercase tracking-widest text-accent">
+            <Clock className="h-3.5 w-3.5" />
+            En attente de synchronisation ({pendingSales.length})
+          </div>
+          <ul className="divide-y divide-border">
+            {pendingSales.map((p) => (
+              <li key={p.local_id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{p.product_name}</p>
+                  <p className="text-xs text-muted-foreground">{formatDateTime(p.queued_at)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-muted-foreground">{formatQty(p.quantity_sold, "")}</p>
+                  <p className="text-sm font-medium">{formatMoney(p.quantity_sold * p.unit_price)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -112,8 +133,6 @@ function SalesPage() {
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)}</p>
-                {/* Une vente reste une vente : la perte liée (invendus jetés) apparaît ici
-                    en détail, jamais comme une ligne "Perte" à part. */}
                 {l.linkedLoss && (
                   <p className="mt-0.5 text-xs text-destructive">
                     dont perte (invendus jetés) : −{formatMoney(Math.abs(l.linkedLoss.delta_value))}
@@ -150,11 +169,10 @@ function SalesPage() {
 function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => void }) {
   const { data: products = [] } = useProducts();
   const sale = useQuickSale();
+  const online = useOnlineStatus();
   const [productId, setProductId] = useState("");
   const [unsold, setUnsold] = useState<number>(0);
   const [unitPrice, setUnitPrice] = useState<number>(0);
-  // Répartition des invendus : combien restent en stock (kept) vs combien partent à la
-  // poubelle (thrown). La somme des deux ne doit jamais dépasser "unsold".
   const [kept, setKept] = useState<number>(0);
   const [thrown, setThrown] = useState<number>(0);
 
@@ -193,8 +211,6 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
 
   function onUnsoldChange(v: number) {
     setUnsold(v);
-    // Par défaut, tant que rien n'est précisé, on considère les invendus comme conservés
-    // (comportement le moins destructeur) — l'utilisateur peut ensuite répartir précisément.
     setKept(v);
     setThrown(0);
   }
@@ -202,13 +218,12 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || !product) return;
-    // Le "reste" (invendus non explicitement affectés) est conservé en stock par défaut —
-    // on l'inclut dans kept_quantity pour que le détail affiché dans l'historique soit exact.
     const keptFinal = kept + remaining;
     sale.mutate(
       {
         bakery_id: bakeryId,
         product_id: product.id,
+        product_name: product.name,
         quantity_sold: vendus,
         unit_price: effectivePrice,
         kept_quantity: keptFinal,
@@ -220,6 +235,14 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {!online && (
+        <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-xs text-accent">
+          Hors ligne : cette vente sera enregistrée sur l'appareil et envoyée automatiquement au
+          retour du réseau. Le stock affiché ci-dessous ne tient pas compte d'éventuelles autres
+          ventes hors ligne pas encore synchronisées.
+        </div>
+      )}
+
       <Field label="Produit">
         <select
           required
