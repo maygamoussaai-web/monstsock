@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 export const inputCls =
   "w-full rounded-xl border border-input bg-card px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors";
@@ -30,37 +29,73 @@ export function Modal({
 }) {
   // Sortie animée : on joue l'animation de fermeture avant de démonter.
   const [closing, setClosing] = useState(false);
-  const requestClose = useCallback(() => {
+  const closedRef = useRef(false);
+  const pushedHistoryRef = useRef(false);
+
+  const finalizeClose = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
     setClosing(true);
     window.setTimeout(onClose, 150);
   }, [onClose]);
 
+  // Fermeture demandée depuis l'UI (croix, clic hors modal, Échap) : on passe par
+  // history.back() pour que ça reste cohérent avec le bouton retour du téléphone,
+  // qui déclenchera le même popstate ci-dessous.
+  const requestClose = useCallback(() => {
+    if (closedRef.current) return;
+    if (pushedHistoryRef.current) {
+      window.history.back();
+    } else {
+      finalizeClose();
+    }
+  }, [finalizeClose]);
+
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Un formulaire ouvert = une entrée d'historique. Le bouton retour du téléphone
+    // (ou du navigateur) ferme alors le formulaire au lieu de quitter la page/l'app,
+    // et n'enregistre rien (l'état du formulaire est local tant qu'on n'a pas validé).
+    window.history.pushState({ __modal: true }, "");
+    pushedHistoryRef.current = true;
+
+    const onPopState = () => finalizeClose();
+    window.addEventListener("popstate", onPopState);
+
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && requestClose();
     window.addEventListener("keydown", onKey);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     return () => {
-      document.body.style.overflow = prev;
+      window.removeEventListener("popstate", onPopState);
       window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      // Si le composant se démonte sans que l'utilisateur soit passé par le bouton
+      // retour (fermeture via la croix, ou changement de page), on retire nous-mêmes
+      // l'entrée d'historique ajoutée pour ne pas la laisser traîner.
+      if (pushedHistoryRef.current && !closedRef.current) {
+        window.history.back();
+      }
     };
-  }, [requestClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-3 sm:p-4 ${
+      className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm p-3 py-6 sm:p-4 ${
         closing ? "animate-modal-out" : "animate-overlay-in"
       }`}
       onClick={requestClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`flex w-full ${maxW} flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden ${
+        className={`flex w-full ${maxW} flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden my-auto ${
           closing ? "animate-modal-out" : "animate-modal-in"
         }`}
-        style={{ maxHeight: "calc(100dvh - 1.5rem)" }}
+        style={{ maxHeight: "calc(100vh - 3rem)" }}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">
@@ -80,4 +115,3 @@ export function Modal({
     </div>
   );
 }
-
