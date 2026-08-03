@@ -5,9 +5,9 @@ import { toast } from "sonner";
 
 type DB = Database["public"]["Tables"];
 export type Bakery = DB["bakeries"]["Row"];
-export type RawMaterial = DB["raw_materials"]["Row"] & { display_unit_id?: string | null };
+export type RawMaterial = DB["raw_materials"]["Row"] & { display_unit_id?: string | null; is_active?: boolean };
 export type Purchase = DB["raw_material_purchases"]["Row"];
-export type Product = DB["products"]["Row"];
+export type Product = DB["products"]["Row"] & { is_active?: boolean };
 export type Recipe = DB["product_recipes"]["Row"];
 export type BatchTemplate = DB["batch_templates"]["Row"];
 export type BatchTemplateItem = DB["batch_template_items"]["Row"];
@@ -57,7 +57,8 @@ export function useRawMaterials() {
   return useQuery({
     queryKey: ["raw_materials"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("raw_materials").select("*").order("name");
+      const { data, error } = await supabase
+        .from("raw_materials").select("*").eq("is_active", true).order("name");
       if (error) throw error;
       return data as RawMaterial[];
     },
@@ -102,12 +103,15 @@ export function useDeleteRawMaterial() {
   return useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
       if (stock > 0) {
-        throw new Error("Impossible de supprimer cette matière : le stock doit être nul pour pouvoir la supprimer.");
+        throw new Error("Impossible d'archiver cette matière : le stock doit être nul.");
       }
-      const { error } = await supabase.from("raw_materials").delete().eq("id", id);
+      // Archivage plutôt que suppression réelle : une matière ayant déjà servi dans une
+      // fournée ou une recette est protégée par la base (pour ne jamais casser
+      // l'historique), donc une vraie suppression échouerait de toute façon.
+      const { error } = await supabase.from("raw_materials").update({ is_active: false } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Matière supprimée"); invalidate(qc, ["raw_materials"]); },
+    onSuccess: () => { toast.success("Matière archivée"); invalidate(qc, ["raw_materials"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -131,8 +135,6 @@ export function useRawMaterialUnits(rawMaterialId: string | undefined) {
   });
 }
 
-// Toutes les unités personnalisées de la boulangerie (pour l'affichage du stock dans
-// la liste et les sélecteurs d'unité ailleurs, sans refaire une requête par matière).
 export function useAllRawMaterialUnits(bakeryId: string | undefined) {
   return useQuery({
     queryKey: ["raw-material-units-all", bakeryId],
@@ -264,7 +266,8 @@ export function useProducts() {
   return useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("name");
+      const { data, error } = await supabase
+        .from("products").select("*").eq("is_active", true).order("name");
       if (error) throw error;
       return data as Product[];
     },
@@ -335,12 +338,12 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
       if (stock > 0) {
-        throw new Error("Impossible de supprimer ce produit : le stock doit être nul pour pouvoir le supprimer.");
+        throw new Error("Impossible d'archiver ce produit : le stock doit être nul.");
       }
-      const { error } = await supabase.from("products").delete().eq("id", id);
+      const { error } = await supabase.from("products").update({ is_active: false } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Produit supprimé"); invalidate(qc, ["products"]); },
+    onSuccess: () => { toast.success("Produit archivé"); invalidate(qc, ["products"]); },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -374,8 +377,6 @@ export function useDeleteRecipeLine() {
 }
 
 // ------- Batch templates --------
-// Un modèle (batch_templates) a un seul produit/quantité prévue, stocké dans batch_template_items,
-// et une liste d'ingrédients dans batch_template_ingredients. On aplatit tout pour l'UI existante.
 export function useBatchTemplates() {
   return useQuery({
     queryKey: ["batch_templates"],
@@ -489,7 +490,7 @@ export function useCreateBatch() {
         p_name: input.name,
         p_consumptions: input.consumptions as any,
         p_outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
-        p_notes: input.notes ?? undefined,
+        p_notes: input.notes ?? null,
       });
       if (error) throw error;
     },
@@ -559,10 +560,6 @@ export function useCloseSalesSession() {
 }
 
 // ------- Quick single-product sale --------
-// Répartit les invendus (s'il y en a) entre "conservés en stock" et "jetés (perte)".
-// La somme des deux ne doit jamais dépasser le nombre d'invendus (vérifié côté UI dans sales.tsx).
-// Tout est fait en une seule transaction atomique côté base (record_quick_sale), et la ligne de
-// perte est liée à la ligne de vente (ref_id) pour qu'elles apparaissent ensemble dans l'historique.
 export function useQuickSale() {
   const qc = useQueryClient();
   return useMutation({
@@ -625,7 +622,6 @@ export function useCurrentMember() {
   });
 }
 
-// Le gérant modifie SON PROPRE numéro de téléphone (indicatif + numéro déjà concaténés côté UI).
 export function useUpdateMemberPhone() {
   const qc = useQueryClient();
   return useMutation({
@@ -643,8 +639,6 @@ export function useUpdateMemberPhone() {
   });
 }
 
-// Suppression self-service de la boulangerie par son gérant (owner_delete_bakery, distinct de
-// admin_delete_bakery qui est réservé aux admins MAYGA).
 export function useDeleteBakery() {
   const qc = useQueryClient();
   return useMutation({
