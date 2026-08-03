@@ -12,7 +12,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
-import { ensureNoStaleServiceWorker } from "@/lib/pwa-register";
+import { registerServiceWorker } from "@/lib/pwa-register";
 
 function NotFoundComponent() {
   return (
@@ -105,7 +105,7 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    ensureNoStaleServiceWorker();
+    registerServiceWorker();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
