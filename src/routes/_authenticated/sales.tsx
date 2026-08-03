@@ -19,9 +19,12 @@ function SalesPage() {
   // Regroupe chaque vente avec sa perte liée (invendus jetés, ref_id -> vente), pour ne
   // jamais présenter une vente comme une "perte" : la perte apparaît en détail sous la
   // vente, pas comme une ligne "Perte" séparée et sans contexte.
-  const recentSales = useMemo(() => {
-    const bySaleId = new Map<string, typeof ledger[number] & { linkedLoss?: typeof ledger[number] }>();
-    const standaloneLosses: typeof ledger = [];
+  type LedgerRow = typeof ledger[number];
+  type SaleRow = LedgerRow & { linkedLoss?: LedgerRow };
+
+  const recentSales = useMemo<SaleRow[]>(() => {
+    const bySaleId = new Map<string, SaleRow>();
+    const standaloneLosses: SaleRow[] = [];
 
     for (const l of ledger) {
       if (l.kind === "sale") bySaleId.set(l.id, { ...l });
@@ -30,7 +33,7 @@ function SalesPage() {
       if (l.kind === "loss") {
         const parent = l.ref_id ? bySaleId.get(l.ref_id) : undefined;
         if (parent) parent.linkedLoss = l;
-        else standaloneLosses.push(l);
+        else standaloneLosses.push(l as SaleRow);
       }
     }
 
