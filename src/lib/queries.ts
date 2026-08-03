@@ -489,7 +489,7 @@ export function useCreateBatch() {
         p_name: input.name,
         p_consumptions: input.consumptions as any,
         p_outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
-        p_notes: input.notes ?? null,
+        p_notes: input.notes ?? undefined,
       });
       if (error) throw error;
     },
