@@ -22,9 +22,14 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
     // ── Vérification 1 : utilisateur authentifié ──────────────────────────
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    // getSession() lit la session déjà stockée localement (aucun aller-retour
+    // réseau) alors que getUser() appelait /auth/v1/user à CHAQUE navigation :
+    // ce beforeLoad étant celui du layout, il se rejouait à chaque changement de
+    // page et bloquait la transition le temps de la requête → la page courante
+    // restait affichée et semblait "se recharger" avant de céder la place.
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.user) throw redirect({ to: "/auth" });
+    return { user: data.session.user };
   },
   component: AuthedLayout,
 });
@@ -35,20 +40,22 @@ export const Route = createFileRoute("/_authenticated")({
 // puisse l'importer et s'en servir comme beforeLoad.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function requireOwner() {
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData.user) throw redirect({ to: "/auth" });
+  const { data: authData } = await supabase.auth.getSession();
+  const user = authData.session?.user;
+  if (!user) throw redirect({ to: "/auth" });
 
   // Vérification du rôle directement en base — pas de dépendance à l'état React.
   const { data: member, error } = await supabase
     .from("bakery_members")
     .select("role")
-    .eq("user_id", authData.user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error || !member || member.role !== "owner") {
     throw redirect({ to: "/dashboard" });
   }
 }
+
 
 const nav = [
   { to: "/dashboard",       label: "Tableau de bord", icon: LayoutDashboard },
