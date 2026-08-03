@@ -40,8 +40,8 @@ export function Modal({
   }, [onClose]);
 
   // Fermeture demandée depuis l'UI (croix, clic hors modal, Échap) : on passe par
-  // history.back() pour que ça reste cohérent avec le bouton retour du téléphone,
-  // qui déclenchera le même popstate ci-dessous.
+  // history.back(), ce qui déclenche le même popstate que le bouton retour du
+  // téléphone — un seul chemin de fermeture, cohérent partout.
   const requestClose = useCallback(() => {
     if (closedRef.current) return;
     if (pushedHistoryRef.current) {
@@ -52,11 +52,13 @@ export function Modal({
   }, [finalizeClose]);
 
   useEffect(() => {
-    // Un formulaire ouvert = une entrée d'historique. Le bouton retour du téléphone
-    // (ou du navigateur) ferme alors le formulaire au lieu de quitter la page/l'app,
-    // et n'enregistre rien (l'état du formulaire est local tant qu'on n'a pas validé).
-    window.history.pushState({ __modal: true }, "");
-    pushedHistoryRef.current = true;
+    // Un formulaire ouvert = une entrée d'historique, pour que le bouton retour du
+    // téléphone ferme le formulaire (sans rien enregistrer) au lieu de quitter la page.
+    // La garde évite un double-empilement si cet effet est rejoué (ex. en développement).
+    if (!pushedHistoryRef.current) {
+      window.history.pushState({ __modal: true }, "");
+      pushedHistoryRef.current = true;
+    }
 
     const onPopState = () => finalizeClose();
     window.addEventListener("popstate", onPopState);
@@ -71,15 +73,8 @@ export function Modal({
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
-      // Si le composant se démonte sans que l'utilisateur soit passé par le bouton
-      // retour (fermeture via la croix, ou changement de page), on retire nous-mêmes
-      // l'entrée d'historique ajoutée pour ne pas la laisser traîner.
-      if (pushedHistoryRef.current && !closedRef.current) {
-        window.history.back();
-      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [finalizeClose, requestClose]);
 
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
 
