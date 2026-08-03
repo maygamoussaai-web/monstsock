@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useBakery,
   useBatchTemplates,
@@ -7,8 +7,11 @@ import {
   useDeleteBatchTemplate,
   useProducts,
   useRawMaterials,
+  useAllRawMaterialUnits,
+  type CustomUnit,
 } from "@/lib/queries";
 import { formatQty, UNIT_LABEL } from "@/lib/format";
+import { toClassicQuantity } from "@/lib/units";
 import { Plus, Layers, Trash2 } from "lucide-react";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
@@ -99,27 +102,41 @@ function TemplatesPage() {
 function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => void }) {
   const { data: products = [] } = useProducts();
   const { data: materials = [] } = useRawMaterials();
+  const { data: allUnits = [] } = useAllRawMaterialUnits(bakeryId);
   const create = useCreateBatchTemplate();
+
+  const unitsByMaterial = useMemo(() => {
+    const map: Record<string, CustomUnit[]> = {};
+    for (const u of allUnits) {
+      (map[u.raw_material_id] ??= []).push(u);
+    }
+    return map;
+  }, [allUnits]);
 
   const [name, setName] = useState("");
   const [productId, setProductId] = useState("");
   const [plannedQty, setPlannedQty] = useState<number>(0);
-  const [ings, setIngs] = useState<{ raw_material_id: string; quantity: number }[]>([
-    { raw_material_id: "", quantity: 0 },
-  ]);
+  const [ings, setIngs] = useState<
+    { raw_material_id: string; quantity: number; unit_id: string | null }[]
+  >([{ raw_material_id: "", quantity: 0, unit_id: null }]);
+
+  function classicQtyFor(it: { raw_material_id: string; quantity: number; unit_id: string | null }) {
+    const units = it.raw_material_id ? unitsByMaterial[it.raw_material_id] ?? [] : [];
+    return toClassicQuantity(it.quantity, it.unit_id, units);
+  }
 
   const filled = ings.filter((i) => i.raw_material_id && i.quantity > 0);
   const firstOk = ings[0]?.raw_material_id && ings[0]?.quantity > 0;
   const canSubmit = !!name && !!productId && plannedQty > 0 && firstOk && !create.isPending;
 
-  function update(idx: number, patch: Partial<{ raw_material_id: string; quantity: number }>) {
+  function update(idx: number, patch: Partial<{ raw_material_id: string; quantity: number; unit_id: string | null }>) {
     setIngs(ings.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
   function add() {
-    setIngs([...ings, { raw_material_id: "", quantity: 0 }]);
+    setIngs([...ings, { raw_material_id: "", quantity: 0, unit_id: null }]);
   }
   function remove(idx: number) {
-    if (ings.length === 1) setIngs([{ raw_material_id: "", quantity: 0 }]);
+    if (ings.length === 1) setIngs([{ raw_material_id: "", quantity: 0, unit_id: null }]);
     else setIngs(ings.filter((_, i) => i !== idx));
   }
 
@@ -132,7 +149,12 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
         name,
         product_id: productId,
         planned_quantity: plannedQty,
-        ingredients: filled,
+        // Le modèle est toujours enregistré en unité classique — la conversion se
+        // fait ici, une seule fois, à la sauvegarde.
+        ingredients: filled.map((it) => ({
+          raw_material_id: it.raw_material_id,
+          quantity: classicQtyFor(it),
+        })),
       },
       { onSuccess: onDone }
     );
@@ -193,12 +215,14 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
         <div className="space-y-2">
           {ings.map((it, idx) => {
             const m = materials.find((x) => x.id === it.raw_material_id);
+            const materialUnits = it.raw_material_id ? unitsByMaterial[it.raw_material_id] ?? [] : [];
+            const classicQty = classicQtyFor(it);
             return (
               <div key={idx} className="rounded-xl border border-border p-3 bg-background/40">
                 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
                   <select
                     value={it.raw_material_id}
-                    onChange={(e) => update(idx, { raw_material_id: e.target.value })}
+                    onChange={(e) => update(idx, { raw_material_id: e.target.value, unit_id: null })}
                     className={inputCls}
                     required={idx === 0}
                   >
@@ -225,16 +249,37 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </button>
                 </div>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.0001"
-                  value={it.quantity || ""}
-                  onChange={(e) => update(idx, { quantity: +e.target.value })}
-                  className={inputCls + " mt-2"}
-                  placeholder={m ? `Quantité en ${UNIT_LABEL[m.unit]}` : "Quantité"}
-                  required={idx === 0}
-                />
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.0001"
+                    value={it.quantity || ""}
+                    onChange={(e) => update(idx, { quantity: +e.target.value })}
+                    className={inputCls}
+                    placeholder={m ? `Quantité en ${UNIT_LABEL[m.unit]}` : "Quantité"}
+                    required={idx === 0}
+                  />
+                  {materialUnits.length > 0 && (
+                    <select
+                      value={it.unit_id ?? ""}
+                      onChange={(e) => update(idx, { unit_id: e.target.value || null })}
+                      className={inputCls + " max-w-[45%]"}
+                    >
+                      <option value="">{m ? UNIT_LABEL[m.unit] : "unité"}</option>
+                      {materialUnits.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                {it.unit_id && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Soit {formatQty(classicQty, m ? UNIT_LABEL[m.unit] : "")}
+                  </p>
+                )}
               </div>
             );
           })}
