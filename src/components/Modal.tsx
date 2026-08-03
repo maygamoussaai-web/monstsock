@@ -14,6 +14,29 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
+// Hauteur de la fenêtre mesurée en JS plutôt qu'en unités CSS (vh/dvh/svh) : ces
+// unités sont peu fiables sur mobile (la barre d'adresse fausse le calcul selon les
+// navigateurs), ce qui peut rendre un conteneur "pas assez grand pour déborder" alors
+// qu'il l'est visuellement. visualViewport, quand disponible, suit aussi le clavier.
+function useViewportHeight() {
+  const [height, setHeight] = useState(() =>
+    typeof window !== "undefined" ? window.innerHeight : 800
+  );
+  useEffect(() => {
+    const update = () => setHeight(window.visualViewport?.height ?? window.innerHeight);
+    update();
+    window.visualViewport?.addEventListener("resize", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", update);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+  return height;
+}
+
 export function Modal({
   title,
   subtitle,
@@ -30,6 +53,7 @@ export function Modal({
   const [closing, setClosing] = useState(false);
   const closedRef = useRef(false);
   const pushedHistoryRef = useRef(false);
+  const viewportHeight = useViewportHeight();
 
   const finalizeClose = useCallback(() => {
     if (closedRef.current) return;
@@ -70,10 +94,12 @@ export function Modal({
   }, [finalizeClose, requestClose]);
 
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
+  // 32px de marge (16px en haut, 16px en bas) autour du modal.
+  const modalMaxHeight = Math.max(240, viewportHeight - 32);
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm p-3 py-6 sm:p-4 ${
+      className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm p-3 py-4 sm:p-4 ${
         closing ? "animate-modal-out" : "animate-overlay-in"
       }`}
       onClick={requestClose}
@@ -83,7 +109,7 @@ export function Modal({
         className={`flex w-full ${maxW} min-h-0 flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden my-auto ${
           closing ? "animate-modal-out" : "animate-modal-in"
         }`}
-        style={{ maxHeight: "calc(100vh - 3rem)" }}
+        style={{ maxHeight: `${modalMaxHeight}px` }}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           <div className="min-w-0">
@@ -98,7 +124,12 @@ export function Modal({
             <X className="h-4 w-4 icon-pop" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">{children}</div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
