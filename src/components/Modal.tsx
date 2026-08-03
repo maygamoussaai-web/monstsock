@@ -15,9 +15,7 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 }
 
 // Hauteur de la fenêtre mesurée en JS plutôt qu'en unités CSS (vh/dvh/svh) : ces
-// unités sont peu fiables sur mobile (la barre d'adresse fausse le calcul selon les
-// navigateurs), ce qui peut rendre un conteneur "pas assez grand pour déborder" alors
-// qu'il l'est visuellement. visualViewport, quand disponible, suit aussi le clavier.
+// unités sont peu fiables sur mobile, ce qui peut fausser le calcul du max-height.
 function useViewportHeight() {
   const [height, setHeight] = useState(() =>
     typeof window !== "undefined" ? window.innerHeight : 800
@@ -94,19 +92,23 @@ export function Modal({
   }, [finalizeClose, requestClose]);
 
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
-  // 32px de marge (16px en haut, 16px en bas) autour du modal.
   const modalMaxHeight = Math.max(240, viewportHeight - 32);
 
   return (
+    // Fond : plus de scroll ici, juste le centrage. Un seul conteneur défilant
+    // dans toute la fenêtre (celui du contenu, plus bas) — deux zones "auto"
+    // imbriquées de taille quasi identique piègent le geste de glisser sur
+    // mobile (le navigateur le capture sur celle du fond, qui n'a rien à
+    // défiler, et ne le transmet jamais à celle du contenu).
     <div
-      className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm p-3 py-4 sm:p-4 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-3 sm:p-4 ${
         closing ? "animate-modal-out" : "animate-overlay-in"
       }`}
       onClick={requestClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`flex w-full ${maxW} min-h-0 flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden my-auto ${
+        className={`flex w-full ${maxW} min-h-0 flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden ${
           closing ? "animate-modal-out" : "animate-modal-in"
         }`}
         style={{ maxHeight: `${modalMaxHeight}px` }}
@@ -126,7 +128,7 @@ export function Modal({
         </div>
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           {children}
         </div>
