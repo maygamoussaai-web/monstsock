@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { useEffect } from "react";
+import { enqueueQuickSale, syncOfflineQueue } from "@/lib/offline-queue";
 
 type DB = Database["public"]["Tables"];
 export type Bakery = DB["bakeries"]["Row"];
@@ -560,26 +562,75 @@ export function useCloseSalesSession() {
 }
 
 // ------- Quick single-product sale --------
+async function sendQuickSaleToServer(input: {
+  bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
+  kept_quantity: number; thrown_quantity: number;
+}) {
+  const { error } = await supabase.rpc("record_quick_sale" as any, {
+    p_bakery_id: input.bakery_id,
+    p_product_id: input.product_id,
+    p_quantity_sold: input.quantity_sold,
+    p_unit_price: input.unit_price,
+    p_kept_quantity: input.kept_quantity,
+    p_thrown_quantity: input.thrown_quantity,
+  });
+  if (error) throw error;
+}
+
 export function useQuickSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
-      bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
+      bakery_id: string; product_id: string; product_name: string; quantity_sold: number; unit_price: number;
       kept_quantity: number; thrown_quantity: number;
     }) => {
-      const { error } = await supabase.rpc("record_quick_sale" as any, {
-        p_bakery_id: input.bakery_id,
-        p_product_id: input.product_id,
-        p_quantity_sold: input.quantity_sold,
-        p_unit_price: input.unit_price,
-        p_kept_quantity: input.kept_quantity,
-        p_thrown_quantity: input.thrown_quantity,
-      });
-      if (error) throw error;
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        enqueueQuickSale({
+          bakery_id: input.bakery_id,
+          product_id: input.product_id,
+          product_name: input.product_name,
+          quantity_sold: input.quantity_sold,
+          unit_price: input.unit_price,
+          kept_quantity: input.kept_quantity,
+          thrown_quantity: input.thrown_quantity,
+        });
+        return { queued: true } as const;
+      }
+      await sendQuickSaleToServer(input);
+      return { queued: false } as const;
     },
-    onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
+    onSuccess: (result) => {
+      if (result.queued) {
+        toast.info("Hors ligne : vente enregistrée sur l'appareil, elle sera envoyée automatiquement au retour du réseau.");
+      } else {
+        toast.success("Vente enregistrée");
+        invalidate(qc, ["products", "ledger", "sales"]);
+      }
+    },
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
+}
+
+// Synchronise automatiquement la file d'attente hors ligne (étape 2) : au
+// montage de l'app et à chaque retour de connexion. Appelé une seule fois,
+// dans le layout authentifié.
+export function useOfflineQueueSync() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const { synced } = await syncOfflineQueue(sendQuickSaleToServer);
+      if (cancelled || synced === 0) return;
+      invalidate(qc, ["products", "ledger", "sales"]);
+      toast.success(`${synced} vente${synced > 1 ? "s" : ""} hors ligne synchronisée${synced > 1 ? "s" : ""}`);
+    }
+    run();
+    window.addEventListener("online", run);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", run);
+    };
+  }, [qc]);
 }
 
 // ------- Ledger --------
