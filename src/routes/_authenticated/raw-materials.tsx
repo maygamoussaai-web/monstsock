@@ -702,7 +702,7 @@ function RestockForm({
     >
       {customUnits.length > 0 && (
         <Field label="Unité de saisie">
-          <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={inputCls}>
+          <select value={unitId} onChange={(e) => changeUnit(e.target.value)} className={inputCls}>
             <option value="">Unité classique ({unit})</option>
             {customUnits.map((u) => (
               <option key={u.id} value={u.id}>
