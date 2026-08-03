@@ -7,12 +7,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 import { BaguetteLoader } from "@/components/Loader";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Lien support WhatsApp — utilisé pour obtenir un code d'inscription (NoBakeryScreen)
-// et pour contacter l'admin MAYGA depuis un compte bloqué/expiré (SuspendedScreen).
-// Même numéro que dans auth.tsx et profile.tsx.
-// ─────────────────────────────────────────────────────────────────────────────
 const SUPPORT_WA_URL =
   "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
 const ADMIN_WA_URL =
@@ -21,12 +17,6 @@ const ADMIN_WA_URL =
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // ── Vérification 1 : utilisateur authentifié ──────────────────────────
-    // getSession() lit la session déjà stockée localement (aucun aller-retour
-    // réseau) alors que getUser() appelait /auth/v1/user à CHAQUE navigation :
-    // ce beforeLoad étant celui du layout, il se rejouait à chaque changement de
-    // page et bloquait la transition le temps de la requête → la page courante
-    // restait affichée et semblait "se recharger" avant de céder la place.
     const { data, error } = await supabase.auth.getSession();
     if (error || !data.session?.user) throw redirect({ to: "/auth" });
     return { user: data.session.user };
@@ -34,17 +24,11 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Route enfant /staff — garde owner vérifiée en base (correction C4).
-// Ce fichier exporte aussi createStaffRoute pour que src/routes/_authenticated/staff.tsx
-// puisse l'importer et s'en servir comme beforeLoad.
-// ─────────────────────────────────────────────────────────────────────────────
 export async function requireOwner() {
   const { data: authData } = await supabase.auth.getSession();
   const user = authData.session?.user;
   if (!user) throw redirect({ to: "/auth" });
 
-  // Vérification du rôle directement en base — pas de dépendance à l'état React.
   const { data: member, error } = await supabase
     .from("bakery_members")
     .select("role")
@@ -55,7 +39,6 @@ export async function requireOwner() {
     throw redirect({ to: "/dashboard" });
   }
 }
-
 
 const nav = [
   { to: "/dashboard",       label: "Tableau de bord", icon: LayoutDashboard },
@@ -68,11 +51,6 @@ const nav = [
   { to: "/history",         label: "Historique",       icon: History },
 ] as const;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AnimatedLoadingBackground — nappes de couleur chaude, floutées, qui dérivent
-// et pulsent très doucement derrière le loader et le texte "Chargement…".
-// Reste discret (opacité faible) pour ne pas nuire à la lisibilité du texte.
-// ─────────────────────────────────────────────────────────────────────────────
 function AnimatedLoadingBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -109,16 +87,6 @@ function AnimatedLoadingBackground() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Écran : aucune boulangerie rattachée
-//
-// Note : ce cas ne couvre plus la suppression de boulangerie ni le retrait d'un
-// employé — dans ces deux cas, le compte Auth Supabase de la personne est
-// désormais supprimé (owner_delete_bakery / admin_delete_bakery / remove_bakery_member),
-// donc elle échoue dès l'écran de connexion et n'atteint jamais ce layout.
-// Cet écran ne sert plus que pour un compte authentifié qui n'a jamais été
-// rattaché à une boulangerie (cas limite / sécurité supplémentaire).
-// ─────────────────────────────────────────────────────────────────────────────
 function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
   return (
     <div className="grid min-h-screen place-items-center bg-background px-6">
@@ -153,16 +121,6 @@ function NoBakeryScreen({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Écran : boulangerie bloquée ou abonnement expiré
-//
-// - "blocked" : accès suspendu par l'admin MAYGA. Les données restent conservées
-//   en base, seul l'accès est coupé. Écran inchangé sur le fond, on ajoute juste
-//   le lien de contact qui manquait.
-// - "expired" : couvre à la fois un abonnement que l'admin a marqué "expired"
-//   ET une expiration naturelle (date de fin dépassée) détectée côté client
-//   dans AuthedLayout, sans action de l'admin nécessaire.
-// ─────────────────────────────────────────────────────────────────────────────
 function SuspendedScreen({
   status,
   onSignOut,
@@ -207,9 +165,6 @@ function SuspendedScreen({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Layout principal
-// ─────────────────────────────────────────────────────────────────────────────
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
@@ -234,8 +189,6 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
-  // ── 1. Chargement ────────────────────────────────────────────────────────
-  // Attendre que le membership ET l'abonnement soient chargés avant de décider.
   const isLoadingAccess =
     memberLoading ||
     (currentMember !== null && currentMember !== undefined && subLoading);
@@ -252,15 +205,10 @@ function AuthedLayout() {
     );
   }
 
-  // ── 2. Aucune boulangerie ─────────────────────────────────────────────────
   if (currentMember === null) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
-  // ── 3. Boulangerie bloquée ou abonnement expiré ───────────────────────────
-  // "expired" couvre : status déjà marqué "expired" par l'admin, OU date de fin
-  // (subscription_end / trial_end) dépassée sans qu'aucune action de l'admin
-  // n'ait été nécessaire — l'expiration naturelle doit bloquer l'accès elle aussi.
   const now = Date.now();
   const pastEnd = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < now;
   const isNaturallyExpired =
@@ -278,10 +226,10 @@ function AuthedLayout() {
     return <SuspendedScreen status={accessStatus} onSignOut={signOut} />;
   }
 
-  // ── 4. Accès normal ───────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
+        <OfflineBanner />
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
@@ -352,7 +300,6 @@ function AuthedLayout() {
         </nav>
       </header>
 
-      {/* key={pathname} : rejoue l'animation d'entrée à chaque changement de page */}
       <main key={pathname} className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10 animate-page-in">
         <Outlet />
       </main>
