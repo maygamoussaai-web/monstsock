@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export const inputCls =
   "w-full rounded-xl border border-input bg-card px-4 py-2.5 text-sm outline-none focus:border-accent transition-colors";
@@ -30,6 +31,9 @@ export function Modal({
   const [closing, setClosing] = useState(false);
   const closedRef = useRef(false);
   const pushedHistoryRef = useRef(false);
+  // Rendu uniquement côté navigateur (document.body n'existe pas en SSR).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const finalizeClose = useCallback(() => {
     if (closedRef.current) return;
@@ -69,14 +73,14 @@ export function Modal({
     };
   }, [finalizeClose, requestClose]);
 
+  if (!mounted) return null;
+
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
 
-  return (
-    // Seul et unique conteneur défilant de tout le modal (le fond plein écran).
-    // La carte à l'intérieur n'a AUCUNE hauteur limitée : elle grandit librement
-    // selon son contenu, et si elle dépasse l'écran, c'est ce conteneur qui
-    // défile — le schéma de scroll le plus robuste sur mobile (identique à
-    // celui utilisé pour les feuilles modales iOS/Android natives).
+  const node = (
+    // Rendu via un portail directement sous <body> : entièrement affranchi de tout
+    // ancêtre de la page (y compris les animations d'entrée de page qui appliquent
+    // un transform et "piègent" sinon les éléments position:fixed).
     <div
       className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm px-3 py-8 sm:px-4 ${
         closing ? "animate-modal-out" : "animate-overlay-in"
@@ -107,4 +111,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }
