@@ -14,27 +14,6 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
-// Hauteur de la fenêtre mesurée en JS plutôt qu'en unités CSS (vh/dvh/svh) : ces
-// unités sont peu fiables sur mobile, ce qui peut fausser le calcul du max-height.
-function useViewportHeight() {
-  const [height, setHeight] = useState(() =>
-    typeof window !== "undefined" ? window.innerHeight : 800
-  );
-  useEffect(() => {
-    const update = () => setHeight(window.visualViewport?.height ?? window.innerHeight);
-    update();
-    window.visualViewport?.addEventListener("resize", update);
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", update);
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-  return height;
-}
-
 export function Modal({
   title,
   subtitle,
@@ -51,7 +30,6 @@ export function Modal({
   const [closing, setClosing] = useState(false);
   const closedRef = useRef(false);
   const pushedHistoryRef = useRef(false);
-  const viewportHeight = useViewportHeight();
 
   const finalizeClose = useCallback(() => {
     if (closedRef.current) return;
@@ -92,28 +70,27 @@ export function Modal({
   }, [finalizeClose, requestClose]);
 
   const maxW = size === "lg" ? "max-w-2xl" : "max-w-lg";
-  const modalMaxHeight = Math.max(240, viewportHeight - 32);
 
   return (
-    // Fond : plus de scroll ici, juste le centrage. Un seul conteneur défilant
-    // dans toute la fenêtre (celui du contenu, plus bas) — deux zones "auto"
-    // imbriquées de taille quasi identique piègent le geste de glisser sur
-    // mobile (le navigateur le capture sur celle du fond, qui n'a rien à
-    // défiler, et ne le transmet jamais à celle du contenu).
+    // Seul et unique conteneur défilant de tout le modal (le fond plein écran).
+    // La carte à l'intérieur n'a AUCUNE hauteur limitée : elle grandit librement
+    // selon son contenu, et si elle dépasse l'écran, c'est ce conteneur qui
+    // défile — le schéma de scroll le plus robuste sur mobile (identique à
+    // celui utilisé pour les feuilles modales iOS/Android natives).
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-3 sm:p-4 ${
+      className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-foreground/30 backdrop-blur-sm px-3 py-8 sm:px-4 ${
         closing ? "animate-modal-out" : "animate-overlay-in"
       }`}
+      style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
       onClick={requestClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`flex w-full ${maxW} min-h-0 flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden ${
+        className={`h-fit w-full ${maxW} self-start rounded-2xl border border-border bg-card shadow-[var(--shadow-lift)] overflow-hidden ${
           closing ? "animate-modal-out" : "animate-modal-in"
         }`}
-        style={{ maxHeight: `${modalMaxHeight}px` }}
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h3 className="font-display text-lg sm:text-xl truncate">{title}</h3>
             {subtitle && <p className="mt-0.5 text-xs text-muted-foreground truncate">{subtitle}</p>}
@@ -126,12 +103,7 @@ export function Modal({
             <X className="h-4 w-4 icon-pop" />
           </button>
         </div>
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
-          style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
-        >
-          {children}
-        </div>
+        <div className="px-5 py-5 sm:px-6">{children}</div>
       </div>
     </div>
   );
