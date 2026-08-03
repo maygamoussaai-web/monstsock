@@ -169,7 +169,7 @@ function SuspendedScreen({
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
-  const qc = useQueryClient();
+  const qc = useQueryClient();useOfflineQueueSync();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { data: bakery } = useBakery();
