@@ -737,13 +737,14 @@ function RestockForm({
         </Field>
       </div>
       <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
-        <div>Total : <strong>{formatMoney(quantity * unit_price)}</strong></div>
+        <div>Total : <strong>{formatMoney(classicQty * classicUnitPrice)}</strong></div>
         {selectedUnit && (
           <div className="text-xs text-muted-foreground">
-            Soit {formatQty(classicQty, unit)} au stock
+            Soit {formatQty(classicQty, unit)} au stock · {formatMoney(classicUnitPrice)} / {unit}
           </div>
         )}
       </div>
+
       <Field label="Fournisseur">
         <input value={supplier} onChange={(e) => setS(e.target.value)} className={inputCls} />
       </Field>
