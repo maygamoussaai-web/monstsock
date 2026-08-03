@@ -676,6 +676,16 @@ function RestockForm({
   // pour l'enregistrement (record_purchase attend un prix par unité classique).
   const classicUnitPrice = selectedUnit && selectedUnit.factor > 0 ? unit_price / selectedUnit.factor : unit_price;
 
+  // Quand l'utilisateur change l'unité de saisie, le prix par défaut est recalculé
+  // pour cette unité (ex : 400 FCFA/kg → 20 000 FCFA par sac de 50 kg).
+  function changeUnit(nextId: string) {
+    const next = customUnits.find((u) => u.id === nextId) ?? null;
+    setUnitId(nextId);
+    const factor = next && next.factor > 0 ? next.factor : 1;
+    setP(Math.round(defaultPrice * factor * 100) / 100);
+  }
+
+
   return (
     <form
       onSubmit={(e) => {
@@ -692,7 +702,7 @@ function RestockForm({
     >
       {customUnits.length > 0 && (
         <Field label="Unité de saisie">
-          <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={inputCls}>
+          <select value={unitId} onChange={(e) => changeUnit(e.target.value)} className={inputCls}>
             <option value="">Unité classique ({unit})</option>
             {customUnits.map((u) => (
               <option key={u.id} value={u.id}>
@@ -727,13 +737,14 @@ function RestockForm({
         </Field>
       </div>
       <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
-        <div>Total : <strong>{formatMoney(quantity * unit_price)}</strong></div>
+        <div>Total : <strong>{formatMoney(classicQty * classicUnitPrice)}</strong></div>
         {selectedUnit && (
           <div className="text-xs text-muted-foreground">
-            Soit {formatQty(classicQty, unit)} au stock
+            Soit {formatQty(classicQty, unit)} au stock · {formatMoney(classicUnitPrice)} / {unit}
           </div>
         )}
       </div>
+
       <Field label="Fournisseur">
         <input value={supplier} onChange={(e) => setS(e.target.value)} className={inputCls} />
       </Field>
