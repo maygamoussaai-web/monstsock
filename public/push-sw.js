@@ -1,7 +1,5 @@
 // public/push-sw.js
-// Service worker MonStock : notifications push (existant) + étape 1 du mode
-// hors ligne (nouveau, ci-dessous). Un seul service worker peut contrôler
-// l'app à la fois, donc les deux vivent dans ce même fichier.
+// Service worker MonStock : notifications push (existant) + mode hors ligne.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Notifications push (inchangé)
@@ -41,13 +39,20 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mode hors ligne — étape 1 : permettre uniquement d'OUVRIR l'app sans réseau.
-// Stratégie "réseau d'abord" : si le réseau répond, on l'utilise TOUJOURS et on
-// met le cache à jour en arrière-plan ; le cache n'intervient QUE si le réseau
-// échoue totalement. Volontairement conservateur : on ne veut jamais resservir
-// une version figée quand le réseau est disponible.
+// Mode hors ligne : permettre d'OUVRIR/NAVIGUER dans l'app sans réseau.
+// Stratégie "réseau d'abord, avec délai court" : on tente le réseau, mais on
+// ne fait jamais attendre plus de quelques secondes — sur une connexion coupée
+// OU juste lente/instable (pas seulement une vraie coupure), on bascule vite
+// sur le cache plutôt que de laisser le navigateur attendre son propre délai
+// d'expiration (souvent 20-30s), qui donnait l'impression que l'app était
+// figée.
 // ─────────────────────────────────────────────────────────────────────────────
 const SHELL_CACHE = "monstock-shell-v1";
+const NETWORK_TIMEOUT_MS = 3000;
+
+function timeout(ms) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error("network-timeout")), ms));
+}
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -65,23 +70,20 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // Seulement les GET same-origin. Tout le reste (Supabase, appels POST,
-  // fonctions Edge...) part directement au réseau, sans jamais passer par un
-  // cache — ces données doivent toujours être fraîches.
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(request)
-      .then((response) => {
+    (async () => {
+      try {
+        const response = await Promise.race([fetch(request), timeout(NETWORK_TIMEOUT_MS)]);
         if (response && response.ok) {
           const clone = response.clone();
           caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone));
         }
         return response;
-      })
-      .catch(async () => {
+      } catch {
         const cached = await caches.match(request, { ignoreSearch: true });
         if (cached) return cached;
         if (request.mode === "navigate") {
@@ -89,6 +91,7 @@ self.addEventListener("fetch", (event) => {
           if (shell) return shell;
         }
         throw new Error("offline-and-not-cached");
-      })
+      }
+    })()
   );
 });
