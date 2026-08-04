@@ -562,9 +562,19 @@ export function useCloseSalesSession() {
 }
 
 // ------- Quick single-product sale --------
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("network-timeout")), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
+}
+
 async function sendQuickSaleToServer(input: {
   bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
-  kept_quantity: number; thrown_quantity: number;
+  kept_quantity: number; thrown_quantity: number; client_ref: string;
 }) {
   const { error } = await supabase.rpc("record_quick_sale" as any, {
     p_bakery_id: input.bakery_id,
@@ -573,6 +583,7 @@ async function sendQuickSaleToServer(input: {
     p_unit_price: input.unit_price,
     p_kept_quantity: input.kept_quantity,
     p_thrown_quantity: input.thrown_quantity,
+    p_client_ref: input.client_ref,
   });
   if (error) throw error;
 }
@@ -584,20 +595,29 @@ export function useQuickSale() {
       bakery_id: string; product_id: string; product_name: string; quantity_sold: number; unit_price: number;
       kept_quantity: number; thrown_quantity: number;
     }) => {
-      if (typeof navigator !== "undefined" && !navigator.onLine) {
-        enqueueQuickSale({
-          bakery_id: input.bakery_id,
-          product_id: input.product_id,
-          product_name: input.product_name,
-          quantity_sold: input.quantity_sold,
-          unit_price: input.unit_price,
-          kept_quantity: input.kept_quantity,
-          thrown_quantity: input.thrown_quantity,
-        });
-        return { queued: true } as const;
+      const client_ref =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      // navigator.onLine n'est qu'un indice — peu fiable sur certains WebView
+      // Android, qui peuvent le rapporter à "true" même sans connexion réelle.
+      // On ne s'y fie jamais seul : toute tentative réseau est bornée dans le
+      // temps, et bascule sur la file locale si elle ne répond pas assez vite.
+      // client_ref étant réutilisé tel quel, aucun risque de doublon si la
+      // requête abandonnée côté app avait en fait réussi côté serveur.
+      const offlineHint = typeof navigator !== "undefined" && !navigator.onLine;
+      if (!offlineHint) {
+        try {
+          await withTimeout(sendQuickSaleToServer({ ...input, client_ref }), 6000);
+          return { queued: false } as const;
+        } catch {
+          // Timeout ou erreur réseau réelle : on ne fait pas attendre l'utilisateur
+          // plus longtemps, on bascule sur la file locale.
+        }
       }
-      await sendQuickSaleToServer(input);
-      return { queued: false } as const;
+      enqueueQuickSale({ ...input, client_ref });
+      return { queued: true } as const;
     },
     onSuccess: (result) => {
       if (result.queued) {
@@ -612,14 +632,13 @@ export function useQuickSale() {
 }
 
 // Synchronise automatiquement la file d'attente hors ligne (étape 2) : au
-// montage de l'app et à chaque retour de connexion. Appelé une seule fois,
-// dans le layout authentifié.
+// montage de l'app et à chaque retour de connexion.
 export function useOfflineQueueSync() {
   const qc = useQueryClient();
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      const { synced } = await syncOfflineQueue(sendQuickSaleToServer);
+      const { synced } = await syncOfflineQueue((item) => sendQuickSaleToServer(item));
       if (cancelled || synced === 0) return;
       invalidate(qc, ["products", "ledger", "sales"]);
       toast.success(`${synced} vente${synced > 1 ? "s" : ""} hors ligne synchronisée${synced > 1 ? "s" : ""}`);
