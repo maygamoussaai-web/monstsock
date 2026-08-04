@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 
 // File d'attente locale pour les ventes enregistrées hors ligne — étape 2 du
-// mode hors ligne. Volontairement limitée à UNE seule action (la vente rapide,
-// la plus fréquente et la plus simple), comme convenu.
-//
-// Stockée dans localStorage (survit à la fermeture de l'app, pas seulement à
-// un rafraîchissement de page). Rien n'est jamais perdu silencieusement : un
-// envoi qui échoue reste dans la file pour la prochaine tentative, il n'est
-// retiré qu'après un succès confirmé côté serveur.
+// mode hors ligne. Stockée dans localStorage (survit à la fermeture de l'app).
+// Rien n'est jamais perdu silencieusement : un envoi qui échoue reste dans la
+// file pour la prochaine tentative, il n'est retiré qu'après un succès confirmé.
 const STORAGE_KEY = "monstock:offline-quick-sales";
 
 export type PendingQuickSale = {
   local_id: string;
+  // Clé anti-doublon envoyée au serveur : permet de retenter en toute sécurité
+  // sans risquer d'appliquer deux fois la même vente si une tentative précédente
+  // a en réalité réussi côté serveur après avoir semblé "trop lente" côté app.
+  client_ref: string;
   bakery_id: string;
   product_id: string;
   product_name: string;
@@ -47,14 +47,25 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
+function makeId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function getOfflineQueue(): PendingQuickSale[] {
   return readQueue();
 }
 
-export function enqueueQuickSale(item: Omit<PendingQuickSale, "local_id" | "queued_at">) {
+// Si client_ref n'est pas fourni, une nouvelle clé anti-doublon est générée.
+// Le mutationFn de useQuickSale en fournit une lui-même pour pouvoir réutiliser
+// EXACTEMENT la même clé entre sa tentative immédiate et la mise en file.
+export function enqueueQuickSale(
+  item: Omit<PendingQuickSale, "local_id" | "queued_at" | "client_ref"> & { client_ref?: string }
+) {
   const entry: PendingQuickSale = {
     ...item,
-    local_id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    client_ref: item.client_ref ?? makeId(),
+    local_id: makeId(),
     queued_at: new Date().toISOString(),
   };
   const queue = readQueue();
@@ -71,8 +82,8 @@ function removeFromQueue(localId: string) {
 }
 
 // Tente d'envoyer chaque vente en attente au serveur via sendFn. Ne retire de la
-// file QUE celles qui réussissent — une erreur (réseau encore instable, etc.)
-// la laisse en attente pour la prochaine tentative.
+// file QUE celles qui réussissent — une erreur la laisse en attente pour la
+// prochaine tentative (sans risque de doublon grâce à client_ref).
 export async function syncOfflineQueue(
   sendFn: (item: PendingQuickSale) => Promise<void>
 ): Promise<{ synced: number; failed: number }> {
@@ -91,8 +102,6 @@ export async function syncOfflineQueue(
   return { synced, failed };
 }
 
-// Hook réactif : se remet à jour dès que la file change (ajout ou
-// synchronisation), sans avoir besoin de rafraîchir la page.
 export function useOfflineQueue() {
   const [queue, setQueue] = useState<PendingQuickSale[]>(() => readQueue());
   useEffect(() => {
