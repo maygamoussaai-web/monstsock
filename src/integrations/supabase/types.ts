@@ -585,6 +585,21 @@ export type Database = {
           },
         ]
       }
+      processed_client_refs: {
+        Row: {
+          client_ref: string
+          created_at: string
+        }
+        Insert: {
+          client_ref: string
+          created_at?: string
+        }
+        Update: {
+          client_ref?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       product_recipes: {
         Row: {
           bakery_id: string
@@ -639,6 +654,7 @@ export type Database = {
           bakery_id: string
           created_at: string
           id: string
+          is_active: boolean
           low_stock_threshold: number
           material_cost: number
           name: string
@@ -652,6 +668,7 @@ export type Database = {
           bakery_id: string
           created_at?: string
           id?: string
+          is_active?: boolean
           low_stock_threshold?: number
           material_cost?: number
           name: string
@@ -665,6 +682,7 @@ export type Database = {
           bakery_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean
           low_stock_threshold?: number
           material_cost?: number
           name?: string
@@ -831,6 +849,7 @@ export type Database = {
           created_at: string
           display_unit_id: string | null
           id: string
+          is_active: boolean
           low_stock_threshold: number
           name: string
           notes: string | null
@@ -845,6 +864,7 @@ export type Database = {
           created_at?: string
           display_unit_id?: string | null
           id?: string
+          is_active?: boolean
           low_stock_threshold?: number
           name: string
           notes?: string | null
@@ -859,6 +879,7 @@ export type Database = {
           created_at?: string
           display_unit_id?: string | null
           id?: string
+          is_active?: boolean
           low_stock_threshold?: number
           name?: string
           notes?: string | null
@@ -1162,6 +1183,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_set_subscription_status: {
+        Args: { _status: string; _subscription_id: string }
+        Returns: string
+      }
+      admin_unblock_subscription: {
+        Args: { _subscription_id: string }
+        Returns: string
+      }
       calculate_batch_unit_cost: {
         Args: { p_quantity_produced: number; p_total_material_cost: number }
         Returns: number
@@ -1273,17 +1302,30 @@ export type Database = {
         }
         Returns: string
       }
-      record_quick_sale: {
-        Args: {
-          p_bakery_id: string
-          p_kept_quantity?: number
-          p_product_id: string
-          p_quantity_sold: number
-          p_thrown_quantity?: number
-          p_unit_price: number
-        }
-        Returns: string
-      }
+      record_quick_sale:
+        | {
+            Args: {
+              p_bakery_id: string
+              p_kept_quantity?: number
+              p_product_id: string
+              p_quantity_sold: number
+              p_thrown_quantity?: number
+              p_unit_price: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_bakery_id: string
+              p_client_ref?: string
+              p_kept_quantity?: number
+              p_product_id: string
+              p_quantity_sold: number
+              p_thrown_quantity?: number
+              p_unit_price: number
+            }
+            Returns: string
+          }
       record_sale: {
         Args: {
           p_bakery_id: string
