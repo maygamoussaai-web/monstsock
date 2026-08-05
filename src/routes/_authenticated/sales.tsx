@@ -79,14 +79,22 @@ function SalesPage() {
             {pendingSales.map((p) => (
               <li key={p.local_id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{p.product_name}</p>
+                  <p className="font-medium truncate">{p.label}</p>
                   <p className="text-xs text-muted-foreground">{formatDateTime(p.queued_at)}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs text-muted-foreground">{formatQty(p.quantity_sold, "")}</p>
-                  <p className="text-sm font-medium">{formatMoney(p.quantity_sold * p.unit_price)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatQty(Number((p.payload as any).quantity_sold ?? 0), "")}
+                  </p>
+                  <p className="text-sm font-medium">
+                    {formatMoney(
+                      Number((p.payload as any).quantity_sold ?? 0) *
+                        Number((p.payload as any).unit_price ?? 0)
+                    )}
+                  </p>
                 </div>
               </li>
+
             ))}
           </ul>
         </div>

@@ -1207,7 +1207,11 @@ export type Database = {
         Args: { _bakery_name: string; _code: string }
         Returns: string
       }
-      close_sales_session: { Args: { _session_id: string }; Returns: undefined }
+      claim_client_ref: { Args: { _ref: string }; Returns: boolean }
+      close_sales_session: {
+        Args: { _client_ref?: string; _session_id: string }
+        Returns: undefined
+      }
       create_bakery_invitation: {
         Args: { _bakery_id: string }
         Returns: string
@@ -1255,6 +1259,7 @@ export type Database = {
       record_batch: {
         Args: {
           p_bakery_id: string
+          p_client_ref?: string
           p_consumptions: Json
           p_name: string
           p_notes?: string
@@ -1265,6 +1270,7 @@ export type Database = {
       record_loss: {
         Args: {
           p_bakery_id: string
+          p_client_ref?: string
           p_product_id: string
           p_quantity: number
           p_reason?: string
@@ -1275,6 +1281,7 @@ export type Database = {
         | {
             Args: {
               p_bakery_id: string
+              p_client_ref?: string
               p_price: number
               p_product_id: string
               p_quantity: number
@@ -1295,6 +1302,7 @@ export type Database = {
       record_purchase: {
         Args: {
           p_bakery_id: string
+          p_client_ref?: string
           p_quantity: number
           p_raw_material_id: string
           p_supplier?: string
@@ -1302,30 +1310,18 @@ export type Database = {
         }
         Returns: string
       }
-      record_quick_sale:
-        | {
-            Args: {
-              p_bakery_id: string
-              p_kept_quantity?: number
-              p_product_id: string
-              p_quantity_sold: number
-              p_thrown_quantity?: number
-              p_unit_price: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_bakery_id: string
-              p_client_ref?: string
-              p_kept_quantity?: number
-              p_product_id: string
-              p_quantity_sold: number
-              p_thrown_quantity?: number
-              p_unit_price: number
-            }
-            Returns: string
-          }
+      record_quick_sale: {
+        Args: {
+          p_bakery_id: string
+          p_client_ref?: string
+          p_kept_quantity?: number
+          p_product_id: string
+          p_quantity_sold: number
+          p_thrown_quantity?: number
+          p_unit_price: number
+        }
+        Returns: string
+      }
       record_sale: {
         Args: {
           p_bakery_id: string

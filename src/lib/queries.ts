@@ -3,7 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useEffect } from "react";
-import { enqueueQuickSale, syncOfflineQueue } from "@/lib/offline-queue";
+import {
+  enqueueAction,
+  isNetworkError,
+  newClientRef,
+  newEntityId,
+  syncQueue,
+  type QueuedAction,
+  type QueuedActionKind,
+} from "@/lib/offline-queue";
+import { ACTION_INVALIDATIONS, executeAction } from "@/lib/offline-actions";
+import { applyOptimistic } from "@/lib/offline-optimistic";
 
 type DB = Database["public"]["Tables"];
 export type Bakery = DB["bakeries"]["Row"];
@@ -40,11 +50,14 @@ export function useBakery() {
 export function useUpdateBakery() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; name?: string; logo_url?: string | null }) => {
-      const { error } = await supabase.from("bakeries").update(patch as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Boulangerie mise à jour"); invalidate(qc, ["bakery"]); },
+    mutationFn: async ({ id, ...patch }: { id: string; name?: string; logo_url?: string | null }) =>
+      runOrQueue(qc, {
+        kind: "bakery.update",
+        entity_id: id,
+        label: "Modification de la boulangerie",
+        payload: { id, patch },
+      }),
+    onSuccess: (r) => notifyResult(r, "Boulangerie mise à jour"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -53,6 +66,73 @@ export function useUpdateBakery() {
 function invalidate(qc: ReturnType<typeof useQueryClient>, keys: string[]) {
   keys.forEach((key) => qc.invalidateQueries({ queryKey: [key] }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Socle « hors ligne d'abord » commun à TOUTES les écritures de l'app :
+//  1. le cache local est mis à jour immédiatement (l'app reste utilisable) ;
+//  2. l'envoi au serveur est tenté avec un délai court ;
+//  3. en cas d'absence de réseau (ou de réseau trop lent), l'action part dans la
+//     file d'attente et sera rejouée telle quelle au retour de la connexion —
+//     sans risque de doublon grâce au client_ref.
+// Une erreur métier du serveur (stock insuffisant…) est renvoyée à l'appelant.
+// ─────────────────────────────────────────────────────────────────────────────
+const SEND_TIMEOUT_MS = 6000;
+
+export type WriteResult = { queued: boolean; client_ref: string };
+
+async function runOrQueue(
+  qc: ReturnType<typeof useQueryClient>,
+  input: {
+    kind: QueuedActionKind;
+    payload: Record<string, unknown>;
+    label: string;
+    entity_id?: string | null;
+  }
+): Promise<WriteResult> {
+  const client_ref = newClientRef();
+  const action: QueuedAction = {
+    local_id: client_ref,
+    client_ref,
+    kind: input.kind,
+    payload: input.payload,
+    label: input.label,
+    entity_id: input.entity_id ?? null,
+    queued_at: new Date().toISOString(),
+    attempts: 0,
+    status: "pending",
+    last_error: null,
+  };
+
+  // Réactivité immédiate, en ligne comme hors ligne.
+  applyOptimistic(qc, input.kind, input.payload);
+
+  const offline = typeof navigator !== "undefined" && !navigator.onLine;
+  if (!offline) {
+    try {
+      await withTimeout(executeAction(action), SEND_TIMEOUT_MS);
+      invalidate(qc, ACTION_INVALIDATIONS[input.kind] ?? []);
+      return { queued: false, client_ref };
+    } catch (e) {
+      if (!isNetworkError(e)) {
+        // Erreur métier : on annule l'optimisme en rechargeant les données.
+        invalidate(qc, ACTION_INVALIDATIONS[input.kind] ?? []);
+        throw e;
+      }
+    }
+  }
+
+  enqueueAction({ ...input, client_ref });
+  return { queued: true, client_ref };
+}
+
+function notifyResult(result: { queued: boolean } | undefined, successMessage: string) {
+  if (result?.queued) {
+    toast.success(`${successMessage} — hors ligne, synchronisation au retour du réseau.`);
+  } else {
+    toast.success(successMessage);
+  }
+}
+
 
 // ------- Raw materials --------
 export function useRawMaterials() {
@@ -79,11 +159,17 @@ export function useCreateRawMaterial() {
       low_stock_threshold: number;
       notes?: string | null;
     }) => {
-      const { error, data } = await supabase.from("raw_materials").insert(input).select().single();
-      if (error) throw error;
-      return data;
+      const id = newEntityId();
+      const row = { id, ...input, avg_cost: input.purchase_price, is_active: true };
+      const result = await runOrQueue(qc, {
+        kind: "raw_material.create",
+        entity_id: id,
+        label: `Matière « ${input.name} »`,
+        payload: { row },
+      });
+      return { ...result, id, row };
     },
-    onSuccess: () => { toast.success("Matière ajoutée"); invalidate(qc, ["raw_materials"]); },
+    onSuccess: (r) => notifyResult(r, "Matière ajoutée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -91,11 +177,14 @@ export function useCreateRawMaterial() {
 export function useUpdateRawMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: Partial<RawMaterial> & { id: string }) => {
-      const { error } = await supabase.from("raw_materials").update(patch as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Matière mise à jour"); invalidate(qc, ["raw_materials"]); },
+    mutationFn: async ({ id, ...patch }: Partial<RawMaterial> & { id: string }) =>
+      runOrQueue(qc, {
+        kind: "raw_material.update",
+        entity_id: id,
+        label: `Modification de la matière ${patch.name ?? ""}`.trim(),
+        payload: { id, patch },
+      }),
+    onSuccess: (r) => notifyResult(r, "Matière mise à jour"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -110,13 +199,18 @@ export function useDeleteRawMaterial() {
       // Archivage plutôt que suppression réelle : une matière ayant déjà servi dans une
       // fournée ou une recette est protégée par la base (pour ne jamais casser
       // l'historique), donc une vraie suppression échouerait de toute façon.
-      const { error } = await supabase.from("raw_materials").update({ is_active: false } as any).eq("id", id);
-      if (error) throw error;
+      return runOrQueue(qc, {
+        kind: "raw_material.archive",
+        entity_id: id,
+        label: "Archivage d'une matière première",
+        payload: { id },
+      });
     },
-    onSuccess: () => { toast.success("Matière archivée"); invalidate(qc, ["raw_materials"]); },
+    onSuccess: (r) => notifyResult(r, "Matière archivée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Unités personnalisées (matières premières) --------
 export type CustomUnit = {
@@ -154,10 +248,15 @@ export function useCreateRawMaterialUnit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { bakery_id: string; raw_material_id: string; name: string; factor: number; display_order?: number }) => {
-      const { error } = await (supabase.from("raw_material_units" as any) as any).insert(input);
-      if (error) throw error;
+      const id = newEntityId();
+      return runOrQueue(qc, {
+        kind: "unit.create",
+        entity_id: id,
+        label: `Unité « ${input.name} »`,
+        payload: { row: { id, display_order: 0, ...input } },
+      });
     },
-    onSuccess: () => { toast.success("Unité ajoutée"); invalidate(qc, ["raw-material-units", "raw-material-units-all"]); },
+    onSuccess: (r) => notifyResult(r, "Unité ajoutée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -165,11 +264,14 @@ export function useCreateRawMaterialUnit() {
 export function useUpdateRawMaterialUnit() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; name?: string; factor?: number; display_order?: number }) => {
-      const { error } = await (supabase.from("raw_material_units" as any) as any).update(patch).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Unité mise à jour"); invalidate(qc, ["raw-material-units", "raw-material-units-all"]); },
+    mutationFn: async ({ id, ...patch }: { id: string; name?: string; factor?: number; display_order?: number }) =>
+      runOrQueue(qc, {
+        kind: "unit.update",
+        entity_id: id,
+        label: "Modification d'une unité personnalisée",
+        payload: { id, patch },
+      }),
+    onSuccess: (r) => notifyResult(r, "Unité mise à jour"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -177,14 +279,18 @@ export function useUpdateRawMaterialUnit() {
 export function useDeleteRawMaterialUnit() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("raw_material_units" as any) as any).delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Unité supprimée"); invalidate(qc, ["raw-material-units", "raw-material-units-all", "raw_materials"]); },
+    mutationFn: async (id: string) =>
+      runOrQueue(qc, {
+        kind: "unit.delete",
+        entity_id: id,
+        label: "Suppression d'une unité personnalisée",
+        payload: { id },
+      }),
+    onSuccess: (r) => notifyResult(r, "Unité supprimée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Purchases --------
 export function usePurchases(limit = 100) {
@@ -209,37 +315,38 @@ export function useCreatePurchase() {
       quantity: number;
       unit_price: number;
       supplier?: string | null;
-    }) => {
-      const args: Record<string, unknown> = {
-        p_bakery_id: input.bakery_id,
-        p_raw_material_id: input.raw_material_id,
-        p_quantity: input.quantity,
-        p_unit_price: input.unit_price,
-      };
-      if (input.supplier) args.p_supplier = input.supplier;
-      const { error } = await supabase.rpc("record_purchase", args as any);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Réapprovisionnement enregistré"); invalidate(qc, ["raw_materials", "purchases", "ledger"]); },
+    }) =>
+      runOrQueue(qc, {
+        kind: "purchase.create",
+        entity_id: input.raw_material_id,
+        label: `Réapprovisionnement × ${input.quantity}`,
+        payload: {
+          bakery_id: input.bakery_id,
+          raw_material_id: input.raw_material_id,
+          quantity: input.quantity,
+          unit_price: input.unit_price,
+          supplier: input.supplier ?? null,
+        },
+      }),
+    onSuccess: (r) => notifyResult(r, "Réapprovisionnement enregistré"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // record_product_sale (version simple, sans session) : pour une vente ponctuelle d'un produit,
 // sans invendus à répartir. useQuickSale (plus bas) gère le cas avec invendus.
 export function useRecordProductSale() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number }) => {
-      const { error } = await supabase.rpc("record_product_sale", {
-        p_bakery_id: input.bakery_id,
-        p_product_id: input.product_id,
-        p_quantity: input.quantity,
-        p_price: input.unit_price,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Vente enregistrée"); invalidate(qc, ["products", "ledger", "sales"]); },
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; unit_price: number }) =>
+      runOrQueue(qc, {
+        kind: "sale.simple",
+        entity_id: input.product_id,
+        label: `Vente × ${input.quantity}`,
+        payload: input,
+      }),
+    onSuccess: (r) => notifyResult(r, "Vente enregistrée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -248,20 +355,18 @@ export function useRecordProductSale() {
 export function useRecordLoss() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; reason?: string | null }) => {
-      const args: Record<string, unknown> = {
-        p_bakery_id: input.bakery_id,
-        p_product_id: input.product_id,
-        p_quantity: input.quantity,
-      };
-      if (input.reason) args.p_reason = input.reason;
-      const { error } = await supabase.rpc("record_loss", args as any);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Perte enregistrée"); invalidate(qc, ["products", "ledger"]); },
+    mutationFn: async (input: { bakery_id: string; product_id: string; quantity: number; reason?: string | null }) =>
+      runOrQueue(qc, {
+        kind: "loss.record",
+        entity_id: input.product_id,
+        label: `Perte × ${input.quantity}`,
+        payload: input,
+      }),
+    onSuccess: (r) => notifyResult(r, "Perte enregistrée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Products & recipes --------
 export function useProducts() {
@@ -314,11 +419,17 @@ export function useCreateProduct() {
       low_stock_threshold: number;
       notes?: string | null;
     }) => {
-      const { data, error } = await supabase.from("products").insert(input).select().single();
-      if (error) throw error;
-      return data;
+      const id = newEntityId();
+      const row = { id, ...input, is_active: true };
+      const result = await runOrQueue(qc, {
+        kind: "product.create",
+        entity_id: id,
+        label: `Produit « ${input.name} »`,
+        payload: { row },
+      });
+      return { ...result, id, row };
     },
-    onSuccess: () => { toast.success("Produit créé"); invalidate(qc, ["products"]); },
+    onSuccess: (r) => notifyResult(r, "Produit créé"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -326,11 +437,14 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: Partial<Product> & { id: string }) => {
-      const { error } = await supabase.from("products").update(patch).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Produit mis à jour"); invalidate(qc, ["products"]); },
+    mutationFn: async ({ id, ...patch }: Partial<Product> & { id: string }) =>
+      runOrQueue(qc, {
+        kind: "product.update",
+        entity_id: id,
+        label: `Modification du produit ${patch.name ?? ""}`.trim(),
+        payload: { id, patch },
+      }),
+    onSuccess: (r) => notifyResult(r, "Produit mis à jour"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -342,10 +456,14 @@ export function useDeleteProduct() {
       if (stock > 0) {
         throw new Error("Impossible d'archiver ce produit : le stock doit être nul.");
       }
-      const { error } = await supabase.from("products").update({ is_active: false } as any).eq("id", id);
-      if (error) throw error;
+      return runOrQueue(qc, {
+        kind: "product.archive",
+        entity_id: id,
+        label: "Archivage d'un produit",
+        payload: { id },
+      });
     },
-    onSuccess: () => { toast.success("Produit archivé"); invalidate(qc, ["products"]); },
+    onSuccess: (r) => notifyResult(r, "Produit archivé"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -355,13 +473,22 @@ export function useUpsertRecipeLine() {
   return useMutation({
     mutationFn: async (input: {
       bakery_id: string; product_id: string; raw_material_id: string; quantity_per_unit?: number | null;
-    }) => {
-      const payload = { ...input, quantity_per_unit: input.quantity_per_unit ?? null };
-      const { error } = await supabase.from("product_recipes")
-        .upsert(payload as any, { onConflict: "product_id,raw_material_id" });
-      if (error) throw error;
-    },
-    onSuccess: () => { invalidate(qc, ["recipe", "products"]); },
+    }) =>
+      runOrQueue(qc, {
+        kind: "recipe.upsert",
+        entity_id: input.product_id,
+        label: "Ligne de recette",
+        payload: {
+          row: {
+            id: newEntityId(),
+            bakery_id: input.bakery_id,
+            product_id: input.product_id,
+            raw_material_id: input.raw_material_id,
+            quantity_per_unit: input.quantity_per_unit ?? null,
+          },
+        },
+      }),
+    onSuccess: () => {},
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -369,14 +496,18 @@ export function useUpsertRecipeLine() {
 export function useDeleteRecipeLine() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("product_recipes").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { invalidate(qc, ["recipe", "products"]); },
+    mutationFn: async (id: string) =>
+      runOrQueue(qc, {
+        kind: "recipe.delete",
+        entity_id: id,
+        label: "Suppression d'une ligne de recette",
+        payload: { id },
+      }),
+    onSuccess: () => {},
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Batch templates --------
 export function useBatchTemplates() {
@@ -423,27 +554,31 @@ export function useCreateBatchTemplate() {
       planned_quantity: number;
       ingredients: { raw_material_id: string; quantity: number }[];
     }) => {
-      const { data: tpl, error } = await supabase.from("batch_templates")
-        .insert({ bakery_id: input.bakery_id, name: input.name })
-        .select().single();
-      if (error) throw error;
-
-      const { error: e2 } = await supabase.from("batch_template_items").insert({
-        bakery_id: input.bakery_id,
-        template_id: tpl.id,
-        product_id: input.product_id,
-        planned_quantity: input.planned_quantity,
+      const templateId = newEntityId();
+      return runOrQueue(qc, {
+        kind: "template.create",
+        entity_id: templateId,
+        label: `Modèle « ${input.name} »`,
+        payload: {
+          template: { id: templateId, bakery_id: input.bakery_id, name: input.name },
+          item: {
+            id: newEntityId(),
+            bakery_id: input.bakery_id,
+            template_id: templateId,
+            product_id: input.product_id,
+            planned_quantity: input.planned_quantity,
+          },
+          ingredients: input.ingredients.map((i) => ({
+            id: newEntityId(),
+            bakery_id: input.bakery_id,
+            template_id: templateId,
+            raw_material_id: i.raw_material_id,
+            quantity: i.quantity,
+          })),
+        },
       });
-      if (e2) throw e2;
-
-      if (input.ingredients.length) {
-        const { error: e3 } = await supabase.from("batch_template_ingredients").insert(
-          input.ingredients.map((i) => ({ ...i, bakery_id: input.bakery_id, template_id: tpl.id }))
-        );
-        if (e3) throw e3;
-      }
     },
-    onSuccess: () => { toast.success("Modèle créé"); invalidate(qc, ["batch_templates"]); },
+    onSuccess: (r) => notifyResult(r, "Modèle créé"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -451,14 +586,18 @@ export function useCreateBatchTemplate() {
 export function useDeleteBatchTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("batch_templates").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { invalidate(qc, ["batch_templates"]); toast.success("Modèle supprimé"); },
+    mutationFn: async (id: string) =>
+      runOrQueue(qc, {
+        kind: "template.delete",
+        entity_id: id,
+        label: "Suppression d'un modèle de fournée",
+        payload: { id },
+      }),
+    onSuccess: (r) => notifyResult(r, "Modèle supprimé"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Batches --------
 export function useBatches(limit = 50) {
@@ -486,20 +625,26 @@ export function useCreateBatch() {
       notes?: string | null;
       consumptions: { raw_material_id: string; quantity_used: number }[];
       outputs: { product_id: string; quantity_produced: number }[];
-    }) => {
-      const { error } = await supabase.rpc("record_batch", {
-        p_bakery_id: input.bakery_id,
-        p_name: input.name,
-        p_consumptions: input.consumptions as any,
-        p_outputs: input.outputs.map((o) => ({ product_id: o.product_id, quantity_produced: o.quantity_produced })) as any,
-        p_notes: input.notes ?? null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Fournée enregistrée"); invalidate(qc, ["batches", "raw_materials", "products", "ledger"]); },
+    }) =>
+      runOrQueue(qc, {
+        kind: "batch.create",
+        label: `Fournée « ${input.name} »`,
+        payload: {
+          bakery_id: input.bakery_id,
+          name: input.name,
+          notes: input.notes ?? null,
+          consumptions: input.consumptions,
+          outputs: input.outputs.map((o) => ({
+            product_id: o.product_id,
+            quantity_produced: o.quantity_produced,
+          })),
+        },
+      }),
+    onSuccess: (r) => notifyResult(r, "Fournée enregistrée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Sales --------
 export function useSalesSessions(limit = 30) {
@@ -524,27 +669,32 @@ export function useCreateSalesSession() {
       bakery_id: string; name: string; session_date: string;
       items: { product_id: string; opening_stock: number; unsold: number; price_at_sale: number }[];
     }) => {
-      const { data: session, error } = await supabase
-        .from("sales_sessions")
-        .insert({ bakery_id: input.bakery_id, name: input.name, session_date: input.session_date })
-        .select().single();
-      if (error) throw error;
-      if (input.items.length) {
-        const { error: e2 } = await supabase.from("sales_session_items").insert(
-          input.items.map((it) => ({
+      const sessionId = newEntityId();
+      const result = await runOrQueue(qc, {
+        kind: "sales_session.create",
+        entity_id: sessionId,
+        label: `Session de vente « ${input.name} »`,
+        payload: {
+          session: {
+            id: sessionId,
             bakery_id: input.bakery_id,
-            session_id: session.id,
+            name: input.name,
+            session_date: input.session_date,
+          },
+          items: input.items.map((it) => ({
+            id: newEntityId(),
+            bakery_id: input.bakery_id,
+            session_id: sessionId,
             product_id: it.product_id,
             opening_stock: it.opening_stock,
             unsold: it.unsold,
             price_at_sale: it.price_at_sale,
-          }))
-        );
-        if (e2) throw e2;
-      }
-      return session.id;
+          })),
+        },
+      });
+      return { ...result, id: sessionId };
     },
-    onSuccess: () => { toast.success("Session ouverte"); invalidate(qc, ["sales"]); },
+    onSuccess: (r) => notifyResult(r, "Session ouverte"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
@@ -552,14 +702,18 @@ export function useCreateSalesSession() {
 export function useCloseSalesSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("close_sales_session", { _session_id: id });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Session clôturée"); invalidate(qc, ["sales", "products", "ledger"]); },
+    mutationFn: async (id: string) =>
+      runOrQueue(qc, {
+        kind: "sales_session.close",
+        entity_id: id,
+        label: "Clôture d'une session de vente",
+        payload: { id },
+      }),
+    onSuccess: (r) => notifyResult(r, "Session clôturée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
+
 
 // ------- Quick single-product sale --------
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -572,85 +726,92 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-async function sendQuickSaleToServer(input: {
-  bakery_id: string; product_id: string; quantity_sold: number; unit_price: number;
-  kept_quantity: number; thrown_quantity: number; client_ref: string;
-}) {
-  const { error } = await supabase.rpc("record_quick_sale" as any, {
-    p_bakery_id: input.bakery_id,
-    p_product_id: input.product_id,
-    p_quantity_sold: input.quantity_sold,
-    p_unit_price: input.unit_price,
-    p_kept_quantity: input.kept_quantity,
-    p_thrown_quantity: input.thrown_quantity,
-    p_client_ref: input.client_ref,
-  });
-  if (error) throw error;
-}
-
+// ------- Vente rapide (un produit, avec invendus) --------
 export function useQuickSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       bakery_id: string; product_id: string; product_name: string; quantity_sold: number; unit_price: number;
       kept_quantity: number; thrown_quantity: number;
-    }) => {
-      const client_ref =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-      // navigator.onLine n'est qu'un indice — peu fiable sur certains WebView
-      // Android, qui peuvent le rapporter à "true" même sans connexion réelle.
-      // On ne s'y fie jamais seul : toute tentative réseau est bornée dans le
-      // temps, et bascule sur la file locale si elle ne répond pas assez vite.
-      // client_ref étant réutilisé tel quel, aucun risque de doublon si la
-      // requête abandonnée côté app avait en fait réussi côté serveur.
-      const offlineHint = typeof navigator !== "undefined" && !navigator.onLine;
-      if (!offlineHint) {
-        try {
-          await withTimeout(sendQuickSaleToServer({ ...input, client_ref }), 6000);
-          return { queued: false } as const;
-        } catch {
-          // Timeout ou erreur réseau réelle : on ne fait pas attendre l'utilisateur
-          // plus longtemps, on bascule sur la file locale.
-        }
-      }
-      enqueueQuickSale({ ...input, client_ref });
-      return { queued: true } as const;
-    },
-    onSuccess: (result) => {
-      if (result.queued) {
-        toast.info("Hors ligne : vente enregistrée sur l'appareil, elle sera envoyée automatiquement au retour du réseau.");
-      } else {
-        toast.success("Vente enregistrée");
-        invalidate(qc, ["products", "ledger", "sales"]);
-      }
-    },
+    }) =>
+      runOrQueue(qc, {
+        kind: "sale.quick",
+        entity_id: input.product_id,
+        label: `Vente ${input.product_name} × ${input.quantity_sold}`,
+        payload: {
+          bakery_id: input.bakery_id,
+          product_id: input.product_id,
+          quantity_sold: input.quantity_sold,
+          unit_price: input.unit_price,
+          kept_quantity: input.kept_quantity,
+          thrown_quantity: input.thrown_quantity,
+        },
+      }),
+    onSuccess: (r) => notifyResult(r, "Vente enregistrée"),
     onError: (e: any) => toast.error(e.message ?? "Erreur"),
   });
 }
 
-// Synchronise automatiquement la file d'attente hors ligne (étape 2) : au
-// montage de l'app et à chaque retour de connexion.
+// Synchronise la file d'attente hors ligne : au démarrage de l'app, à chaque
+// retour de connexion, et au retour de l'app au premier plan.
 export function useOfflineQueueSync() {
   const qc = useQueryClient();
   useEffect(() => {
     let cancelled = false;
+
     async function run() {
-      const { synced } = await syncOfflineQueue((item) => sendQuickSaleToServer(item));
-      if (cancelled || synced === 0) return;
-      invalidate(qc, ["products", "ledger", "sales"]);
-      toast.success(`${synced} vente${synced > 1 ? "s" : ""} hors ligne synchronisée${synced > 1 ? "s" : ""}`);
+      const domains = new Set<string>();
+      const { synced, failed } = await syncQueue(async (action: QueuedAction) => {
+        await executeAction(action);
+        (ACTION_INVALIDATIONS[action.kind] ?? []).forEach((d) => domains.add(d));
+      });
+      if (cancelled) return;
+      if (synced > 0) {
+        invalidate(qc, [...domains]);
+        toast.success(
+          `${synced} action${synced > 1 ? "s" : ""} hors ligne synchronisée${synced > 1 ? "s" : ""}`
+        );
+      }
+      if (failed > 0) {
+        toast.error(
+          `${failed} action${failed > 1 ? "s" : ""} n'a pas pu être synchronisée — à vérifier dans « À synchroniser ».`
+        );
+      }
     }
+
     run();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") run();
+    };
     window.addEventListener("online", run);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.removeEventListener("online", run);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [qc]);
 }
+
+// Rejeu manuel (bouton « Réessayer » de la liste des actions en attente).
+export function useRetryQueue() {
+  const qc = useQueryClient();
+  return async () => {
+    const domains = new Set<string>();
+    const { synced, failed } = await syncQueue(async (action: QueuedAction) => {
+      await executeAction(action);
+      (ACTION_INVALIDATIONS[action.kind] ?? []).forEach((d) => domains.add(d));
+    });
+    if (synced > 0) {
+      invalidate(qc, [...domains]);
+      toast.success(`${synced} action${synced > 1 ? "s" : ""} synchronisée${synced > 1 ? "s" : ""}`);
+    } else if (failed === 0) {
+      toast.info("Rien à synchroniser pour le moment.");
+    }
+    return { synced, failed };
+  };
+}
+
 
 // ------- Ledger --------
 export function useLedger(limit = 200) {
