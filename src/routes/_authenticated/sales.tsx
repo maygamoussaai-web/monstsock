@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/sales")({ component: Sales
 function SalesPage() {
   const { data: bakery } = useBakery();
   const { data: ledger = [] } = useLedger(200);
-  const pendingSales = useOfflineQueue();
+  const pendingSales = useOfflineQueue().filter((a) => a.kind.startsWith("sale."));
   const [showNew, setShowNew] = useState(false);
   const [q, setQ] = useState("");
   const [date, setDate] = useState("");
