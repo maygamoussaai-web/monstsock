@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getLocalUser } from "@/lib/auth-local";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -840,12 +841,12 @@ export function useCurrentMember() {
   return useQuery({
     queryKey: ["current-member"],
     queryFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return null;
+      const u = getLocalUser();
+      if (!u) return null;
       const { data, error } = await supabase
         .from("bakery_members")
         .select("bakery_id, role, user_id, phone")
-        .eq("user_id", u.user.id)
+        .eq("user_id", u.id)
         .maybeSingle();
       if (error) throw error;
       return data as { bakery_id: string; role: MemberRole; user_id: string; phone: string | null } | null;
@@ -857,12 +858,12 @@ export function useUpdateMemberPhone() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (phone: string) => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Non connecté");
+      const u = getLocalUser();
+      if (!u) throw new Error("Non connecté");
       const { error } = await supabase
         .from("bakery_members")
         .update({ phone })
-        .eq("user_id", u.user.id);
+        .eq("user_id", u.id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Téléphone mis à jour"); invalidate(qc, ["current-member"]); },

@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getResilientUser } from "@/lib/auth-local";
 import {
   useBakery,
   useUpdateBakery,
@@ -41,8 +42,7 @@ function ProfilePage() {
   const { data: user, refetch: refetchUser } = useQuery({
     queryKey: ["auth-user"],
     queryFn: async () => {
-      const { data } = await supabase.auth.getUser();
-      return data.user;
+      return await getResilientUser();
     },
   });
 

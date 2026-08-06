@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { hasLocalSession } from "@/lib/auth-local";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -38,8 +39,7 @@ export const Route = createFileRoute("/")({
   }),
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
-    const { data } = await supabase.auth.getUser();
-    if (data.user) throw redirect({ to: "/dashboard" });
+    if (hasLocalSession()) throw redirect({ to: "/dashboard" });
   },
   component: Landing,
 });
