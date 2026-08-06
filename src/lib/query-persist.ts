@@ -1,24 +1,25 @@
 import { get, set, del, createStore } from "idb-keyval";
 import type { UseStore } from "idb-keyval";
-import {
-  persistQueryClient,
-  type PersistedClient,
-  type Persister,
-} from "@tanstack/query-persist-client-core";
-import type { QueryClient } from "@tanstack/react-query";
+import type { PersistedClient, Persister } from "@tanstack/query-persist-client-core";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Persistance du cache de lecture (TanStack Query) dans IndexedDB.
 //
-// Objectif : à l'ouverture de l'app SANS réseau, les listes (matières, produits,
-// fournées, ventes…) s'affichent immédiatement avec les dernières données
-// connues, au lieu d'un écran vide. IndexedDB est utilisé plutôt que
-// localStorage car il est asynchrone (pas de blocage de l'interface) et
-// nettement plus large en capacité.
+// Branché via <PersistQueryClientProvider> dans __root.tsx (pas un appel
+// manuel dans un useEffect) : ce composant expose un état interne
+// "isRestoring" que useQuery respecte nativement — AUCUNE requête ne part tant
+// que la restauration depuis IndexedDB n'est pas terminée. C'était la cause du
+// bug "seuls nom/email s'affichent hors ligne" : avec l'appel manuel, les
+// pages montées avant la fin de la restauration (asynchrone) déclenchaient
+// leur propre chargement réseau, qui échouait instantanément hors ligne et
+// marquait la donnée "en erreur" avant même que la sauvegarde locale n'ait pu
+// arriver — une course perdue à chaque fois.
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const QUERY_CACHE_BUSTER = "v1";
+export const QUERY_CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
+
 const IDB_KEY = "monstock:query-cache";
-const MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 jours
 
 let store: UseStore | null = null;
 function getStore(): UseStore {
@@ -26,7 +27,7 @@ function getStore(): UseStore {
   return store;
 }
 
-function createIDBPersister(): Persister {
+export function createIDBPersister(): Persister {
   return {
     persistClient: async (client: PersistedClient) => {
       await set(IDB_KEY, client, getStore());
@@ -38,28 +39,6 @@ function createIDBPersister(): Persister {
       await del(IDB_KEY, getStore());
     },
   };
-}
-
-let started = false;
-
-// Démarre la persistance (restauration + sauvegarde continue). Uniquement côté
-// navigateur, et une seule fois par session.
-export function startQueryPersistence(queryClient: QueryClient) {
-  if (typeof window === "undefined" || started) return;
-  started = true;
-  try {
-    persistQueryClient({
-      // Deux copies de query-core peuvent coexister dans node_modules : les
-      // types diffèrent alors qu'il s'agit du même objet à l'exécution.
-      queryClient: queryClient as never,
-      persister: createIDBPersister(),
-      maxAge: MAX_AGE,
-      buster: "v1",
-    });
-  } catch {
-    // IndexedDB indisponible (navigation privée ancienne, quota) : l'app
-    // fonctionne normalement, simplement sans cache entre deux sessions.
-  }
 }
 
 // Efface le cache persistant : appelé à la déconnexion pour ne pas laisser les
