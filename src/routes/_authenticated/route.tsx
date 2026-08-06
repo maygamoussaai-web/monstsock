@@ -2,13 +2,15 @@ import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } fr
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package2, Croissant, Flame, ShoppingBag,
-  LineChart, History, LogOut, Wheat, Layers, User, Users, Lock, MessageCircle,
+  LineChart, History, LogOut, Wheat, Layers, User, Users, Lock, MessageCircle, CloudUpload,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
 import { BaguetteLoader } from "@/components/Loader";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOfflineQueueSync } from "@/lib/queries";
+import { usePendingCount } from "@/lib/offline-queue";
+import { clearPersistedQueryCache } from "@/lib/query-persist";
 
 const SUPPORT_WA_URL =
   "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
@@ -186,6 +188,7 @@ function AuthedLayout() {
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
+    await clearPersistedQueryCache();
     await supabase.auth.signOut();
     router.navigate({ to: "/auth", replace: true });
   }
@@ -264,6 +267,25 @@ function AuthedLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {pendingTotal > 0 && (
+              <Link
+                to="/sync"
+                title="Actions à synchroniser"
+                className="btn-press relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary"
+              >
+                <CloudUpload className="h-3.5 w-3.5 icon-pop" />
+                <span className="hidden sm:inline">À synchroniser</span>
+                <span
+                  className={`grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-medium ${
+                    failed > 0
+                      ? "bg-destructive text-destructive-foreground"
+                      : "bg-accent text-accent-foreground"
+                  }`}
+                >
+                  {pendingTotal}
+                </span>
+              </Link>
+            )}
             <Link
               to="/profile"
               className="btn-press inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground hover:bg-secondary"
