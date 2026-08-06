@@ -11,6 +11,8 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOfflineQueueSync } from "@/lib/queries";
 import { usePendingCount } from "@/lib/offline-queue";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
+import { getResilientUser, isOffline } from "@/lib/auth-local";
+import { useOnlineStatus } from "@/lib/offline";
 
 const SUPPORT_WA_URL =
   "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
