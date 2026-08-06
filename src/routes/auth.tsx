@@ -1,9 +1,10 @@
+
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { hasLocalSession } from "@/lib/auth-local";
 import { toast } from "sonner";
-import { Wheat, Loader2, Eye, EyeOff } from "lucide-react";
+import { Wheat, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -28,9 +29,18 @@ const COUNTRY_CODES = [
   { code: "+33", label: "🇫🇷 +33 (France)" },
 ];
 
+// Une entrée déjà connue de Supabase ("email déjà utilisé") est reformulée
+// avec courtoisie plus bas ; celle-ci vient de notre propre trigger handle_new_user
+// quand l'email a déjà consommé son essai gratuit — on veut la reconnaître pour
+// afficher un message spécifique plutôt que le message générique d'échec.
+const ALREADY_TRIALED_HINT = "essai gratuit de 7 jours";
+
+type SignupPath = "trial" | "code";
+
 function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [signupPath, setSignupPath] = useState<SignupPath>("trial");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,19 +56,26 @@ function AuthPage() {
     try {
       if (mode === "signup") {
         const phone = phoneNumber.trim() ? `${countryCode} ${phoneNumber.trim()}` : null;
+        // En parcours "essai gratuit direct", on n'envoie aucun code : le
+        // trigger handle_new_user ouvre alors un essai de 7 jours sans code.
+        const code = signupPath === "code" ? invitationCode : "";
         const { error } = await supabase.auth.signUp({
           email, password,
           options: {
             emailRedirectTo: window.location.origin,
             data: {
               bakery_name: bakeryName,
-              invitation_code: invitationCode,
+              invitation_code: code,
               phone,
             },
           },
         });
         if (error) throw error;
-        toast.success("Votre compte a été créé avec plaisir. Vous pouvez à présent vous connecter.");
+        toast.success(
+          signupPath === "trial"
+            ? "Votre essai gratuit de 7 jours est activé. Vous pouvez à présent vous connecter."
+            : "Votre compte a été créé avec plaisir. Vous pouvez à présent vous connecter."
+        );
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -76,7 +93,12 @@ function AuthPage() {
       // MonStock refuse l'accès avec courtoisie : jamais le message technique brut de
       // Supabase (souvent en anglais), toujours une formule polie qui invite à réessayer.
       if (mode === "signup") {
-        toast.error("Je ne suis pas parvenu à créer ce compte pour le moment. Veuillez vérifier les informations saisies, puis réessayer.");
+        const raw = typeof err?.message === "string" ? err.message : "";
+        if (raw.includes(ALREADY_TRIALED_HINT)) {
+          toast.error("Cette adresse e-mail a déjà bénéficié de l'essai gratuit de 7 jours. Contactez-nous sur WhatsApp pour un abonnement.");
+        } else {
+          toast.error("Je ne suis pas parvenu à créer ce compte pour le moment. Veuillez vérifier les informations saisies, puis réessayer.");
+        }
       } else {
         toast.error("Ces identifiants ne me sont malheureusement pas familiers. Vérifions ensemble l'adresse e-mail et le mot de passe, puis réessayons.");
       }
@@ -117,12 +139,41 @@ function AuthPage() {
             {mode === "signin" ? "Bon retour" : "Bienvenue"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "signin" ? "Accédez à votre boulangerie." : "Ouvrez votre espace en une minute."}
+            {mode === "signin"
+              ? "Accédez à votre boulangerie."
+              : signupPath === "trial"
+                ? "7 jours pour essayer, sans engagement."
+                : "Ouvrez votre espace en une minute."}
           </p>
 
-          <BaguetteFlourish />
+          {mode === "signup" && <TrialPitch active={signupPath === "trial"} />}
 
-          <form onSubmit={handleEmail} className="mt-8 space-y-3">
+          {mode === "signup" && (
+            <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1 text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setSignupPath("trial")}
+                className={`rounded-lg px-3 py-2 transition-colors ${
+                  signupPath === "trial" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Essai gratuit 7 jours
+              </button>
+              <button
+                type="button"
+                onClick={() => setSignupPath("code")}
+                className={`rounded-lg px-3 py-2 transition-colors ${
+                  signupPath === "code" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                J'ai un code d'inscription
+              </button>
+            </div>
+          )}
+
+          {mode === "signin" && <BaguetteFlourish />}
+
+          <form onSubmit={handleEmail} className="mt-6 space-y-3">
             {mode === "signup" && (
               <>
                 <div>
@@ -154,26 +205,29 @@ function AuthPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Code d'inscription</label>
-                  <input
-                    type="text" required value={invitationCode}
-                    onChange={(e) => setInvitationCode(e.target.value.trim())}
-                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
-                    placeholder="XXXXXX"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Vous n'en avez pas ?{" "}
-                    <a
-                      href={WA_LINK}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-accent underline underline-offset-2"
-                    >
-                      Cliquez ici pour l'obtenir
-                    </a>
-                  </p>
-                </div>
+
+                {signupPath === "code" && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">Code d'inscription</label>
+                    <input
+                      type="text" required value={invitationCode}
+                      onChange={(e) => setInvitationCode(e.target.value.trim())}
+                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
+                      placeholder="XXXXXX"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Vous n'en avez pas ?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setSignupPath("trial")}
+                        className="text-accent underline underline-offset-2"
+                      >
+                        Démarrez plutôt l'essai gratuit de 7 jours
+                      </button>
+                    </p>
+                  </div>
+                )}
+
                 <a
                   href={WA_LINK}
                   target="_blank"
@@ -218,8 +272,13 @@ function AuthPage() {
               className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signin" ? "Se connecter" : "Créer un compte"}
+              {mode === "signin" ? "Se connecter" : signupPath === "trial" ? "Démarrer mon essai gratuit" : "Créer un compte"}
             </button>
+            {mode === "signup" && signupPath === "trial" && (
+              <p className="text-center text-[11px] text-muted-foreground">
+                Sans carte bancaire. Un seul essai gratuit par boulangerie.
+              </p>
+            )}
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
@@ -238,11 +297,40 @@ function AuthPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BaguetteFlourish — remplace l'ancien bouton "Continuer avec Google" (retiré,
-// plus utilisé). Des morceaux de pâte pâle convergent, un éclat de farine
-// marque le moment où ils se rejoignent, puis une baguette se forme (couleur
-// croûte orange foncé) avec ses grignes, un halo chaud qui pulse et un peu de
-// vapeur — puis elle s'efface et le cycle recommence, en boucle continue.
+// TrialPitch — bloc de présentation de l'essai gratuit de 7 jours, affiché
+// au-dessus du formulaire d'inscription. Reste discret quand le visiteur a
+// choisi le parcours "code d'inscription".
+// ─────────────────────────────────────────────────────────────────────────────
+function TrialPitch({ active }: { active: boolean }) {
+  if (!active) return null;
+  const points = [
+    "Suivez vos matières premières et vos recettes dès aujourd'hui",
+    "Enregistrez vos fournées et vos ventes en quelques secondes",
+    "Aucune carte bancaire, aucun engagement",
+  ];
+  return (
+    <div className="mt-4 rounded-2xl border border-accent/25 bg-accent/5 p-4">
+      <p className="text-sm font-medium text-foreground">
+        7 jours pour tester MonStock en conditions réelles, gratuitement.
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {points.map((p) => (
+          <li key={p} className="flex items-start gap-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+            <span>{p}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BaguetteFlourish — animation de connexion. Des morceaux de pâte pâle
+// convergent, un éclat de farine marque le moment où ils se rejoignent, puis
+// une baguette se forme (couleur croûte orange foncé) avec ses grignes, un
+// halo chaud qui pulse et un peu de vapeur — puis elle s'efface et le cycle
+// recommence, en boucle continue.
 // ─────────────────────────────────────────────────────────────────────────────
 function BaguetteFlourish() {
   return (
