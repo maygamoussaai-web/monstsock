@@ -49,7 +49,9 @@ export function startQueryPersistence(queryClient: QueryClient) {
   started = true;
   try {
     persistQueryClient({
-      queryClient,
+      // Deux copies de query-core peuvent coexister dans node_modules : les
+      // types diffèrent alors qu'il s'agit du même objet à l'exécution.
+      queryClient: queryClient as never,
       persister: createIDBPersister(),
       maxAge: MAX_AGE,
       buster: "v1",
