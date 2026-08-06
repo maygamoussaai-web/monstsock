@@ -1,14 +1,14 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { hasLocalSession } from "@/lib/auth-local";
 import { toast } from "sonner";
 import { Wheat, Loader2, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) throw redirect({ to: "/dashboard" });
+    if (hasLocalSession()) throw redirect({ to: "/dashboard" });
   },
   component: AuthPage,
 });

@@ -47,14 +47,22 @@ self.addEventListener("notificationclick", (event) => {
 // d'expiration (souvent 20-30s), qui donnait l'impression que l'app était
 // figée.
 // ─────────────────────────────────────────────────────────────────────────────
-const SHELL_CACHE = "monstock-shell-v1";
+const SHELL_CACHE = "monstock-shell-v2";
 const NETWORK_TIMEOUT_MS = 3000;
 
 function timeout(ms) {
   return new Promise((_, reject) => setTimeout(() => reject(new Error("network-timeout")), ms));
 }
 
-self.addEventListener("install", () => {
+const SHELL_URLS = ["/", "/dashboard"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL_URLS))
+      .catch(() => undefined)
+  );
   self.skipWaiting();
 });
 
@@ -87,8 +95,12 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request, { ignoreSearch: true });
         if (cached) return cached;
         if (request.mode === "navigate") {
-          const shell = await caches.match("/");
-          if (shell) return shell;
+          // N'importe quelle coquille d'app déjà en cache permet de démarrer :
+          // le routeur affiche ensuite la bonne page côté navigateur.
+          for (const url of ["/dashboard", "/"]) {
+            const shell = await caches.match(url, { ignoreSearch: true });
+            if (shell) return shell;
+          }
         }
         throw new Error("offline-and-not-cached");
       }

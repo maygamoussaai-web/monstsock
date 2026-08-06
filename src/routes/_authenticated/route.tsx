@@ -11,6 +11,8 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOfflineQueueSync } from "@/lib/queries";
 import { usePendingCount } from "@/lib/offline-queue";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
+import { getResilientUser, isOffline } from "@/lib/auth-local";
+import { useOnlineStatus } from "@/lib/offline";
 
 const SUPPORT_WA_URL =
   "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20MonStock";
@@ -19,18 +21,22 @@ const ADMIN_WA_URL =
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  // La session est vérifiée localement : sans réseau (ou avec un jeton d'accès
+  // périmé qui ne peut pas être rafraîchi), l'utilisateur reste connecté et
+  // entre normalement dans l'app. Le serveur revalide de toute façon chaque
+  // requête au retour du réseau.
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.user) throw redirect({ to: "/auth" });
-    return { user: data.session.user };
+    const user = await getResilientUser();
+    if (!user) throw redirect({ to: "/auth" });
+    return { user };
   },
   component: AuthedLayout,
 });
 
 export async function requireOwner() {
-  const { data: authData } = await supabase.auth.getSession();
-  const user = authData.session?.user;
+  const user = await getResilientUser();
   if (!user) throw redirect({ to: "/auth" });
+  if (isOffline()) return;
 
   const { data: member, error } = await supabase
     .from("bakery_members")
@@ -187,6 +193,7 @@ function AuthedLayout() {
 
   const { pending, failed } = usePendingCount();
   const pendingTotal = pending + failed;
+  const online = useOnlineStatus();
 
   async function signOut() {
     await qc.cancelQueries();
@@ -196,9 +203,13 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
+  // Hors ligne, les contrôles d'accès (membre, abonnement) ne peuvent pas être
+  // revérifiés : on n'affiche ni écran de chargement infini ni « aucune
+  // boulangerie », on laisse l'app s'ouvrir avec les données déjà en cache.
   const isLoadingAccess =
-    memberLoading ||
-    (currentMember !== null && currentMember !== undefined && subLoading);
+    online &&
+    (memberLoading ||
+      (currentMember !== null && currentMember !== undefined && subLoading));
 
   if (isLoadingAccess) {
     return (
@@ -212,7 +223,7 @@ function AuthedLayout() {
     );
   }
 
-  if (currentMember === null) {
+  if (online && currentMember === null) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
