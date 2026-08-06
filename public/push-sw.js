@@ -47,7 +47,7 @@ self.addEventListener("notificationclick", (event) => {
 // d'expiration (souvent 20-30s), qui donnait l'impression que l'app était
 // figée.
 // ─────────────────────────────────────────────────────────────────────────────
-const SHELL_CACHE = "monstock-shell-v1";
+const SHELL_CACHE = "monstock-shell-v2";
 const NETWORK_TIMEOUT_MS = 3000;
 
 function timeout(ms) {
