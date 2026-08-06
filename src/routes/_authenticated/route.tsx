@@ -185,6 +185,9 @@ function AuthedLayout() {
     ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
     : nav;
 
+  const { pending, failed } = usePendingCount();
+  const pendingTotal = pending + failed;
+
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
