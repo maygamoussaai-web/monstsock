@@ -16,7 +16,12 @@ export const getRouter = () => {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,
+        // Hors ligne : servir le cache immédiatement au lieu de mettre la
+        // requête en pause sans rien afficher.
+        networkMode: "offlineFirst",
+        retry: 1,
       },
+      mutations: { networkMode: "offlineFirst" },
     },
   });
 
