@@ -202,9 +202,13 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
+  // Hors ligne, les contrôles d'accès (membre, abonnement) ne peuvent pas être
+  // revérifiés : on n'affiche ni écran de chargement infini ni « aucune
+  // boulangerie », on laisse l'app s'ouvrir avec les données déjà en cache.
   const isLoadingAccess =
-    memberLoading ||
-    (currentMember !== null && currentMember !== undefined && subLoading);
+    online &&
+    (memberLoading ||
+      (currentMember !== null && currentMember !== undefined && subLoading));
 
   if (isLoadingAccess) {
     return (
@@ -218,7 +222,7 @@ function AuthedLayout() {
     );
   }
 
-  if (currentMember === null) {
+  if (online && currentMember === null) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
