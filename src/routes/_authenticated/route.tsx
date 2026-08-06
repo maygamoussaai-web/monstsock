@@ -19,18 +19,22 @@ const ADMIN_WA_URL =
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  // La session est vérifiée localement : sans réseau (ou avec un jeton d'accès
+  // périmé qui ne peut pas être rafraîchi), l'utilisateur reste connecté et
+  // entre normalement dans l'app. Le serveur revalide de toute façon chaque
+  // requête au retour du réseau.
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.user) throw redirect({ to: "/auth" });
-    return { user: data.session.user };
+    const user = await getResilientUser();
+    if (!user) throw redirect({ to: "/auth" });
+    return { user };
   },
   component: AuthedLayout,
 });
 
 export async function requireOwner() {
-  const { data: authData } = await supabase.auth.getSession();
-  const user = authData.session?.user;
+  const user = await getResilientUser();
   if (!user) throw redirect({ to: "/auth" });
+  if (isOffline()) return;
 
   const { data: member, error } = await supabase
     .from("bakery_members")
