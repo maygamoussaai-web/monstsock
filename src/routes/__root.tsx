@@ -1,5 +1,9 @@
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  persistQueryClientRestore,
+  persistQueryClientSubscribe,
+  persistQueryClientSave,
+} from "@tanstack/query-persist-client-core";
 import {
   Outlet,
   createRootRouteWithContext,
@@ -105,9 +109,66 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
-  // Instance stable pour toute la durée de vie de l'app (une seule connexion
-  // IndexedDB, pas recréée à chaque rendu).
   const [persister] = useState(() => createIDBPersister());
+  const [isRestoring, setIsRestoring] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    persistQueryClientRestore({
+      queryClient,
+      persister,
+      maxAge: QUERY_CACHE_MAX_AGE,
+      buster: QUERY_CACHE_BUSTER,
+    })
+      .catch(() => {
+        // Pas de cache à restaurer (première visite, stockage indisponible...) :
+        // l'app démarre simplement sans données locales, comme avant.
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsRestoring(false);
+
+        unsubscribe = persistQueryClientSubscribe({
+          queryClient,
+          persister,
+          maxAge: QUERY_CACHE_MAX_AGE,
+          buster: QUERY_CACHE_BUSTER,
+        });
+
+        // Sauvegarde forcée et immédiate dès que l'app passe en arrière-plan
+        // ou se ferme — sans attendre le prochain cycle normal de sauvegarde
+        // (légèrement différé). Sur mobile, le système peut tuer l'app tout de
+        // suite après ce moment, donc on écrit tout de suite plutôt que
+        // d'espérer avoir le temps. "visibilitychange" est l'évènement le plus
+        // fiable sur Android pour détecter ce moment ; "pagehide" en secours
+        // pour les autres cas (ex. navigation, iOS).
+        const flush = () => {
+          if (document.visibilityState === "hidden") {
+            persistQueryClientSave({
+              queryClient,
+              persister,
+              buster: QUERY_CACHE_BUSTER,
+            }).catch(() => {});
+          }
+        };
+        document.addEventListener("visibilitychange", flush);
+        window.addEventListener("pagehide", flush);
+
+        const prevUnsubscribe = unsubscribe;
+        unsubscribe = () => {
+          prevUnsubscribe?.();
+          document.removeEventListener("visibilitychange", flush);
+          window.removeEventListener("pagehide", flush);
+        };
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [queryClient, persister]);
 
   useEffect(() => {
     registerServiceWorker();
@@ -119,17 +180,18 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  if (isRestoring) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister,
-        maxAge: QUERY_CACHE_MAX_AGE,
-        buster: QUERY_CACHE_BUSTER,
-      }}
-    >
+    <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster richColors position="top-center" />
-    </PersistQueryClientProvider>
+    </QueryClientProvider>
   );
 }
