@@ -193,6 +193,7 @@ function AuthedLayout() {
 
   const { pending, failed } = usePendingCount();
   const pendingTotal = pending + failed;
+  const online = useOnlineStatus();
 
   async function signOut() {
     await qc.cancelQueries();
