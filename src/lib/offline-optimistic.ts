@@ -8,6 +8,19 @@ import type { QueuedActionKind } from "@/lib/offline-queue";
 //
 // Ce n'est QUE de l'affichage : la vérité reste la base, qui recalcule tous les
 // stocks côté serveur au moment de la synchronisation.
+//
+// IMPORTANT sur les listes PAR ENTITÉ (recette d'un produit, unités d'une
+// matière) : on cible la clé EXACTE (["recipe", productId]) avec setQueryData
+// plutôt qu'un préfixe large avec setQueriesData, pour deux raisons :
+//  1. setQueriesData ne touche que des requêtes déjà en cache — si cette
+//     recette n'avait jamais été consultée avant (ex. produit créé hors ligne
+//     puis recette ouverte pour la première fois hors ligne), la mise à jour
+//     ne faisait RIEN et restait invisible jusqu'au retour du réseau.
+//  2. Un préfixe large touche TOUTES les entités en cache en même temps — un
+//     ingrédient ajouté au produit A pouvait apparaître par erreur dans le
+//     cache du produit B tant que celui-ci n'était pas rechargé.
+// setQueryData corrige les deux : il crée l'entrée si elle n'existe pas, et ne
+// touche que la bonne entité.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Row = Record<string, any>;
@@ -24,6 +37,26 @@ function bumpStock(qc: QueryClient, key: string, id: string, delta: number) {
   updateList(qc, key, (rows) =>
     rows.map((r) => (r.id === id ? { ...r, stock: Number(r.stock ?? 0) + delta } : r))
   );
+}
+
+// Ajoute ou met à jour une ligne dans UNE liste précise (clé complète), en
+// créant l'entrée de cache si elle n'existait pas encore.
+function upsertInExactList(
+  qc: QueryClient,
+  queryKey: unknown[],
+  row: Row,
+  matchField: string
+) {
+  qc.setQueryData(queryKey, (old: any) => {
+    const rows: Row[] = Array.isArray(old) ? old : [];
+    const idx = rows.findIndex((r) => r[matchField] === row[matchField]);
+    if (idx >= 0) {
+      const next = [...rows];
+      next[idx] = { ...next[idx], ...row };
+      return next;
+    }
+    return [...rows, row];
+  });
 }
 
 export function applyOptimistic(qc: QueryClient, kind: QueuedActionKind, payload: Row) {
@@ -49,14 +82,17 @@ export function applyOptimistic(qc: QueryClient, kind: QueuedActionKind, payload
       break;
 
     case "unit.create":
-      updateList(qc, "raw-material-units", (rows) =>
-        rows.some((r) => r.id === payload.row.id) ? rows : [...rows, payload.row]
-      );
+      // Clé exacte : ["raw-material-units", raw_material_id] — voir note en tête
+      // de fichier. La liste globale (toutes matières confondues) est une seule
+      // liste partagée, le préfixe large reste sûr pour elle.
+      upsertInExactList(qc, ["raw-material-units", payload.row.raw_material_id], payload.row, "id");
       updateList(qc, "raw-material-units-all", (rows) =>
         rows.some((r) => r.id === payload.row.id) ? rows : [...rows, payload.row]
       );
       break;
     case "unit.update":
+      // Patch par id unique : sûr même avec un préfixe large (ne touche que la
+      // ligne portant exactement cet id, où qu'elle se trouve).
       patchById(qc, "raw-material-units", payload.id, payload.patch);
       patchById(qc, "raw-material-units-all", payload.id, payload.patch);
       break;
@@ -86,15 +122,11 @@ export function applyOptimistic(qc: QueryClient, kind: QueuedActionKind, payload
       break;
 
     case "recipe.upsert":
-      updateList(qc, "recipe", (rows) =>
-        rows.some((r) => r.raw_material_id === payload.row.raw_material_id)
-          ? rows.map((r) =>
-              r.raw_material_id === payload.row.raw_material_id ? { ...r, ...payload.row } : r
-            )
-          : [...rows, { raw_materials: null, ...payload.row }]
-      );
+      // Clé exacte : ["recipe", product_id] — voir note en tête de fichier.
+      upsertInExactList(qc, ["recipe", payload.row.product_id], payload.row, "raw_material_id");
       break;
     case "recipe.delete":
+      // Filtrage par id unique : sûr même avec un préfixe large.
       updateList(qc, "recipe", (rows) => rows.filter((r) => r.id !== payload.id));
       break;
 
