@@ -104,8 +104,14 @@ async function runOrQueue(
     last_error: null,
   };
 
-  // Réactivité immédiate, en ligne comme hors ligne.
-  applyOptimistic(qc, input.kind, input.payload);
+  // La mise à jour optimiste n'est QUE de l'affichage — elle ne doit jamais
+  // pouvoir empêcher l'enregistrement réel de l'action. Un bug dans son code
+  // (cas particulier non prévu) ne doit jamais faire perdre l'action.
+  try {
+    applyOptimistic(qc, input.kind, input.payload);
+  } catch (e) {
+    console.error("Mise à jour optimiste échouée (sans impact sur l'enregistrement) :", e);
+  }
 
   const offline = typeof navigator !== "undefined" && !navigator.onLine;
   if (!offline) {
@@ -115,7 +121,6 @@ async function runOrQueue(
       return { queued: false, client_ref };
     } catch (e) {
       if (!isNetworkError(e)) {
-        // Erreur métier : on annule l'optimisme en rechargeant les données.
         invalidate(qc, ACTION_INVALIDATIONS[input.kind] ?? []);
         throw e;
       }
