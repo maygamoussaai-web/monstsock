@@ -18,7 +18,12 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { registerServiceWorker } from "@/lib/pwa-register";
-import { createIDBPersister, QUERY_CACHE_BUSTER, QUERY_CACHE_MAX_AGE } from "@/lib/query-persist";
+import {
+  createIDBPersister,
+  QUERY_CACHE_BUSTER,
+  QUERY_CACHE_MAX_AGE,
+  shouldPersistQuery,
+} from "@/lib/query-persist";
 
 function NotFoundComponent() {
   return (
@@ -115,6 +120,18 @@ function RootComponent() {
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
+    let saveInterval: ReturnType<typeof setInterval> | undefined;
+
+    const dehydrateOptions = { shouldDehydrateQuery: shouldPersistQuery };
+
+    const forceSave = () => {
+      persistQueryClientSave({
+        queryClient,
+        persister,
+        buster: QUERY_CACHE_BUSTER,
+        dehydrateOptions,
+      }).catch(() => {});
+    };
 
     persistQueryClientRestore({
       queryClient,
@@ -135,32 +152,31 @@ function RootComponent() {
           persister,
           maxAge: QUERY_CACHE_MAX_AGE,
           buster: QUERY_CACHE_BUSTER,
+          dehydrateOptions,
         });
 
-        // Sauvegarde forcée et immédiate dès que l'app passe en arrière-plan
-        // ou se ferme — sans attendre le prochain cycle normal de sauvegarde
-        // (légèrement différé). Sur mobile, le système peut tuer l'app tout de
-        // suite après ce moment, donc on écrit tout de suite plutôt que
-        // d'espérer avoir le temps. "visibilitychange" est l'évènement le plus
-        // fiable sur Android pour détecter ce moment ; "pagehide" en secours
-        // pour les autres cas (ex. navigation, iOS).
-        const flush = () => {
-          if (document.visibilityState === "hidden") {
-            persistQueryClientSave({
-              queryClient,
-              persister,
-              buster: QUERY_CACHE_BUSTER,
-            }).catch(() => {});
-          }
+        // Sauvegarde forcée dès que l'app passe en arrière-plan ou se ferme —
+        // sans attendre le prochain cycle normal de sauvegarde.
+        const flushOnHide = () => {
+          if (document.visibilityState === "hidden") forceSave();
         };
-        document.addEventListener("visibilitychange", flush);
-        window.addEventListener("pagehide", flush);
+        document.addEventListener("visibilitychange", flushOnHide);
+        window.addEventListener("pagehide", flushOnHide);
+
+        // Filet de sécurité supplémentaire : une sauvegarde complète toutes les
+        // 20s pendant que l'app est utilisée. "visibilitychange" est fiable la
+        // plupart du temps, mais un téléphone Android peut aussi tuer l'app
+        // brutalement (batterie faible, gestion agressive de la RAM) sans
+        // déclencher cet évènement à temps — cette sauvegarde périodique
+        // garantit qu'on ne perd jamais plus de ~20s d'activité dans le pire cas.
+        saveInterval = setInterval(forceSave, 20_000);
 
         const prevUnsubscribe = unsubscribe;
         unsubscribe = () => {
           prevUnsubscribe?.();
-          document.removeEventListener("visibilitychange", flush);
-          window.removeEventListener("pagehide", flush);
+          document.removeEventListener("visibilitychange", flushOnHide);
+          window.removeEventListener("pagehide", flushOnHide);
+          if (saveInterval) clearInterval(saveInterval);
         };
       });
 
