@@ -1,19 +1,14 @@
 import { get, set, del, createStore } from "idb-keyval";
 import type { UseStore } from "idb-keyval";
 import type { PersistedClient, Persister } from "@tanstack/query-persist-client-core";
+import type { Query } from "@tanstack/react-query";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Persistance du cache de lecture (TanStack Query) dans IndexedDB.
 //
-// Branché via <PersistQueryClientProvider> dans __root.tsx (pas un appel
-// manuel dans un useEffect) : ce composant expose un état interne
-// "isRestoring" que useQuery respecte nativement — AUCUNE requête ne part tant
-// que la restauration depuis IndexedDB n'est pas terminée. C'était la cause du
-// bug "seuls nom/email s'affichent hors ligne" : avec l'appel manuel, les
-// pages montées avant la fin de la restauration (asynchrone) déclenchaient
-// leur propre chargement réseau, qui échouait instantanément hors ligne et
-// marquait la donnée "en erreur" avant même que la sauvegarde locale n'ait pu
-// arriver — une course perdue à chaque fois.
+// Branché via une restauration manuelle dans __root.tsx (persistQueryClientRestore
+// / Subscribe / Save) : aucune requête ne part tant que la restauration depuis
+// IndexedDB n'est pas terminée.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const QUERY_CACHE_BUSTER = "v1";
@@ -39,6 +34,18 @@ export function createIDBPersister(): Persister {
       await del(IDB_KEY, getStore());
     },
   };
+}
+
+// Exclut l'historique brut (stock_ledger) du cache persistant : c'est de loin
+// le plus gros volume de données (jusqu'à 800 lignes rechargées à chaque
+// visite de l'historique/finances), et le moins critique à avoir hors ligne
+// (les stocks/produits/recettes/fournées, eux, sont indispensables). Un cache
+// plus léger se sérialise et s'écrit plus vite sur le disque à chaque
+// sauvegarde — c'est ce qui ralentissait les actions et rendait les
+// sauvegardes moins fiables (une sauvegarde plus longue a plus de chances de
+// ne pas se terminer avant que le téléphone ne tue l'app en arrière-plan).
+export function shouldPersistQuery(query: Query): boolean {
+  return query.queryKey[0] !== "ledger";
 }
 
 // Efface le cache persistant : appelé à la déconnexion pour ne pas laisser les
