@@ -1,19 +1,31 @@
 // Enregistrement du service worker MonStock (public/push-sw.js).
 //
 // Ce même fichier gère à la fois les notifications push (opt-in, activées
-// depuis le profil) et la mise en cache de l'app pour l'étape 1 du mode hors
-// ligne (permettre d'OUVRIR l'app sans réseau). On l'enregistre donc dès le
-// démarrage pour tout le monde, pas seulement les personnes qui activent les
-// notifications.
+// depuis le profil) et la mise en cache de l'app pour le mode hors ligne. On
+// l'enregistre donc dès le démarrage pour tout le monde.
 //
-// Volontairement inactif en dehors d'un build de production : dans l'éditeur
-// Lovable (serveur de dev), un service worker peut mettre en cache une version
-// figée du bundle Vite et donner l'impression que le code ne se met plus à
-// jour — exactement le problème déjà rencontré une fois sur ce projet.
+// Volontairement inactif dans l'éditeur Lovable : un service worker y mettrait
+// en cache une version figée du bundle et donnerait l'impression que le code
+// ne se met plus à jour. On détecte l'éditeur en vérifiant si l'app tourne
+// dans un cadre (iframe) intégré à une autre page — c'est le cas dans
+// l'éditeur, jamais sur le site publié ou dans l'app installée. On n'utilise
+// plus le mode de build (import.meta.env.PROD) pour cette détection : il s'est
+// avéré peu fiable pour distinguer le site publié de l'éditeur, ce qui
+// empêchait le service worker de s'enregistrer même sur le vrai site.
+function isInsideEditorFrame(): boolean {
+  try {
+    return typeof window !== "undefined" && window.self !== window.top;
+  } catch {
+    // Une exception ici (accès cross-origin à window.top) signifie qu'on est
+    // dans un cadre, donc probablement l'éditeur — on reste prudent.
+    return true;
+  }
+}
+
 export function registerServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
-  if (!import.meta.env.PROD) {
+  if (isInsideEditorFrame()) {
     ensureNoStaleServiceWorker();
     return;
   }
