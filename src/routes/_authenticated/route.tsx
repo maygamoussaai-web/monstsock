@@ -13,6 +13,7 @@ import { useOfflineQueueSync } from "@/lib/queries";
 import { usePendingCount } from "@/lib/offline-queue";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
 import { getResilientUser, isOffline } from "@/lib/auth-local";
+import { usePrefetchOfflineEssentials } from "@/lib/offline-prefetch";
 import { useOnlineStatus } from "@/lib/offline";
 
 const SUPPORT_WA_URL =
