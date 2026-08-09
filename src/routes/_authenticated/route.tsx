@@ -177,7 +177,8 @@ function SuspendedScreen({
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
-  const qc = useQueryClient();useOfflineQueueSync();
+  const qc = useQueryClient();
+  useOfflineQueueSync();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { data: bakery } = useBakery();
@@ -195,6 +196,18 @@ function AuthedLayout() {
   const pendingTotal = pending + failed;
   const online = useOnlineStatus();
 
+  // Ne jamais dépendre uniquement de "online" pour savoir s'il faut attendre le
+  // réseau : cet indicateur peut se tromper au démarrage à froid sur certains
+  // téléphones Android, et l'app restait alors bloquée indéfiniment sur l'écran
+  // de chargement (une vérification réseau qui ne pouvait jamais aboutir hors
+  // ligne, mais que le code croyait devoir attendre). On borne donc l'attente
+  // dans le temps, quoi qu'il arrive.
+  const [accessCheckTimedOut, setAccessCheckTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setAccessCheckTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
@@ -203,11 +216,8 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
-  // Hors ligne, les contrôles d'accès (membre, abonnement) ne peuvent pas être
-  // revérifiés : on n'affiche ni écran de chargement infini ni « aucune
-  // boulangerie », on laisse l'app s'ouvrir avec les données déjà en cache.
   const isLoadingAccess =
-    online &&
+    !accessCheckTimedOut &&
     (memberLoading ||
       (currentMember !== null && currentMember !== undefined && subLoading));
 
