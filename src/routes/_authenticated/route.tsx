@@ -181,6 +181,7 @@ function AuthedLayout() {
   const router = useRouter();
   const qc = useQueryClient();
   useOfflineQueueSync();
+  usePrefetchOfflineEssentials();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const { data: bakery } = useBakery();
