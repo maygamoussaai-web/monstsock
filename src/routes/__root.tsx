@@ -169,7 +169,7 @@ function RootComponent() {
         // brutalement (batterie faible, gestion agressive de la RAM) sans
         // déclencher cet évènement à temps — cette sauvegarde périodique
         // garantit qu'on ne perd jamais plus de ~20s d'activité dans le pire cas.
-        saveInterval = setInterval(forceSave, 20_000);
+        saveInterval = setInterval(forceSave, 3_000);
 
         const prevUnsubscribe = unsubscribe;
         unsubscribe = () => {
