@@ -36,18 +36,15 @@ export function createIDBPersister(): Persister {
   };
 }
 
-// Exclut l'historique brut (stock_ledger) du cache persistant : c'est de loin
-// le plus gros volume de données (jusqu'à 800 lignes rechargées à chaque
-// visite de l'historique/finances), et le moins critique à avoir hors ligne
-// (les stocks/produits/recettes/fournées, eux, sont indispensables). Un cache
-// plus léger se sérialise et s'écrit plus vite sur le disque à chaque
-// sauvegarde — c'est ce qui ralentissait les actions et rendait les
-// sauvegardes moins fiables (une sauvegarde plus longue a plus de chances de
-// ne pas se terminer avant que le téléphone ne tue l'app en arrière-plan).
-export function shouldPersistQuery(query: Query): boolean {
-  return query.queryKey[0] !== "ledger";
+// Plus aucune exclusion : toutes les données (y compris l'historique des
+// mouvements de stock — ventes, achats, fournées, pertes — qui alimente le
+// journal des ventes, l'historique et les chiffres de chiffre d'affaires/
+// bénéfices) sont désormais conservées hors ligne. Les tailles de requêtes ont
+// déjà été limitées ailleurs dans le projet (300 à 800 lignes selon la page),
+// donc l'impact sur la vitesse de sauvegarde reste modéré.
+export function shouldPersistQuery(): boolean {
+  return true;
 }
-
 // Efface le cache persistant : appelé à la déconnexion pour ne pas laisser les
 // données d'une boulangerie visibles au compte suivant sur le même appareil.
 export async function clearPersistedQueryCache() {
