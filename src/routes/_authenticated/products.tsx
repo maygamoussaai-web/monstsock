@@ -241,7 +241,6 @@ function ProductDetail({
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm"
             >
               <Pencil className="h-4 w-4" />
-            </button>
             <button
               onClick={() => {
                 if (confirm(`Archiver « ${product.name} » ? Il disparaîtra de vos listes, mais reste conservé dans l'historique (fournées, ventes passées).`)) {
