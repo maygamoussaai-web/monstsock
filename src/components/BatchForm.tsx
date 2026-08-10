@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Trash2, Plus, AlertTriangle } from "lucide-react";
+import { Trash2, Plus, AlertTriangle, Info } from "lucide-react";
 import { Field, inputCls } from "@/components/Modal";
 import {
   useBatchTemplates,
@@ -116,6 +116,23 @@ export function BatchForm({
       const classicQty = classicQtyFor(it);
       if (classicQty > m.stock) {
         return `Stock insuffisant pour ${m.name} : disponible ${formatQty(m.stock, UNIT_LABEL[m.unit])}, demandé ${formatQty(classicQty, UNIT_LABEL[m.unit])}.`;
+      }
+      return null;
+    })
+    .filter(Boolean) as string[];
+
+  // Purement informatif, ne bloque jamais l'enregistrement : matières dont le
+  // stock RESTANT après cette fournée passera à ou sous le seuil bas, sans que
+  // ce soit un manque réel (la quantité demandée reste disponible).
+  const lowStockWarnings = filledIngredients
+    .map((it) => {
+      const m = materials.find((x) => x.id === it.raw_material_id);
+      if (!m) return null;
+      const classicQty = classicQtyFor(it);
+      if (classicQty > m.stock) return null; // déjà couvert par stockErrors
+      const remaining = m.stock - classicQty;
+      if (remaining <= m.low_stock_threshold) {
+        return `${m.name} passera sous le seuil bas après cette fournée (restera ${formatQty(remaining, UNIT_LABEL[m.unit])}).`;
       }
       return null;
     })
@@ -315,6 +332,16 @@ export function BatchForm({
           className={inputCls}
         />
       </Field>
+
+      {lowStockWarnings.length > 0 && (
+        <div className="rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs text-accent space-y-1">
+          {lowStockWarnings.map((m, i) => (
+            <p key={i} className="flex items-start gap-1.5">
+              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" /> {m}
+            </p>
+          ))}
+        </div>
+      )}
 
       {stockErrors.length > 0 && (
         <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive space-y-1">
