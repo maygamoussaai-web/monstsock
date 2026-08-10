@@ -271,12 +271,13 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
             >
               <Pencil className="h-4 w-4" /> Modifier
             </button>
-            <button
+<button
               onClick={() => {
-                if (confirm(`Supprimer « ${material.name} » ?`)) {
+                if (confirm(`Archiver « ${material.name} » ? Elle disparaîtra de vos listes, mais reste conservée dans l'historique (fournées, achats passés).`)) {
                   del.mutate({ id: material.id, stock: material.stock }, { onSuccess: onClose });
                 }
               }}
+              title="Archiver"
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-destructive/40 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-4 w-4" />
