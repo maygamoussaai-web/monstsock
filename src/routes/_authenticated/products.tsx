@@ -244,10 +244,11 @@ function ProductDetail({
             </button>
             <button
               onClick={() => {
-                if (confirm(`Supprimer « ${product.name} » ?`)) {
+                if (confirm(`Archiver « ${product.name} » ? Il disparaîtra de vos listes, mais reste conservé dans l'historique (fournées, ventes passées).`)) {
                   del.mutate({ id: product.id, stock: product.stock }, { onSuccess: onClose });
                 }
               }}
+              title="Archiver"
               className="inline-flex items-center justify-center rounded-xl border border-destructive/40 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-4 w-4" />
