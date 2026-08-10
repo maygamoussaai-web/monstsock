@@ -23,10 +23,6 @@ const ADMIN_WA_URL =
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  // La session est vérifiée localement : sans réseau (ou avec un jeton d'accès
-  // périmé qui ne peut pas être rafraîchi), l'utilisateur reste connecté et
-  // entre normalement dans l'app. Le serveur revalide de toute façon chaque
-  // requête au retour du réseau.
   beforeLoad: async () => {
     const user = await getResilientUser();
     if (!user) throw redirect({ to: "/auth" });
@@ -199,12 +195,6 @@ function AuthedLayout() {
   const pendingTotal = pending + failed;
   const online = useOnlineStatus();
 
-  // Ne jamais dépendre uniquement de "online" pour savoir s'il faut attendre le
-  // réseau : cet indicateur peut se tromper au démarrage à froid sur certains
-  // téléphones Android, et l'app restait alors bloquée indéfiniment sur l'écran
-  // de chargement (une vérification réseau qui ne pouvait jamais aboutir hors
-  // ligne, mais que le code croyait devoir attendre). On borne donc l'attente
-  // dans le temps, quoi qu'il arrive.
   const [accessCheckTimedOut, setAccessCheckTimedOut] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setAccessCheckTimedOut(true), 4000);
