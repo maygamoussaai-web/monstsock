@@ -3,21 +3,23 @@ import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
 export const getRouter = () => {
-  // staleTime par défaut à 0 = React Query considère TOUTE donnée comme périmée
-  // dès qu'elle est mise en cache, donc chaque retour sur une page déjà visitée
-  // (Dashboard, Produits, etc.) redéclenchait un aller-retour réseau complet avant
-  // de pouvoir afficher quoi que ce soit → c'était la cause principale du lag ressenti
-  // entre les pages. Avec un staleTime de 30s, react-query sert d'abord les données
-  // en cache (affichage instantané) et ne refait un fetch en arrière-plan que si elles
-  // ont plus de 30s ou si une mutation a explicitement invalidé la query concernée.
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
+        // staleTime : sert le cache instantanément et ne refait un fetch en
+        // arrière-plan que si la donnée a plus de 30s ou a été invalidée.
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
+        // gcTime : doit largement dépasser la durée entre deux ouvertures de
+        // l'app. Gouverne quand une donnée non consultée est évincée de la
+        // MÉMOIRE — pas seulement du cache persistant. À 5 minutes (valeur par
+        // défaut de react-query), toute page non visitée depuis plus de 5 min
+        // était silencieusement effacée en mémoire, et cette purge se
+        // retrouvait ensuite écrite dans le cache hors ligne à la sauvegarde
+        // suivante : c'était la cause de "il faut se reconnecter à chaque
+        // fois". Remonté à 24h pour que le hors ligne reste fiable sur une
+        // pleine journée sans avoir besoin de repasser en ligne.
+        gcTime: 48 * 60 * 60_000, // 24h
         refetchOnWindowFocus: false,
-        // Hors ligne : servir le cache immédiatement au lieu de mettre la
-        // requête en pause sans rien afficher.
         networkMode: "offlineFirst",
         retry: 1,
       },
@@ -30,12 +32,6 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 30_000,
-    // Deuxième cause du lag : par défaut TanStack Router ne précharge RIEN — le code
-    // (chunk JS) de la page de destination n'est demandé qu'au moment du clic, ce qui
-    // ajoute un aller-retour réseau visible avant même que la page ne commence à
-    // s'afficher, surtout sur une connexion mobile lente. "intent" déclenche ce
-    // téléchargement dès le survol (ou le premier contact tactile) d'un lien, donc le
-    // code est déjà en cache la plupart du temps quand l'utilisateur clique réellement.
     defaultPreload: "intent",
     defaultPreloadDelay: 50,
   });
