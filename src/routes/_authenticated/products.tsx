@@ -241,6 +241,7 @@ function ProductDetail({
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm"
             >
               <Pencil className="h-4 w-4" />
+            </button>
             <button
               onClick={() => {
                 if (confirm(`Archiver « ${product.name} » ? Il disparaîtra de vos listes, mais reste conservé dans l'historique (fournées, ventes passées).`)) {
@@ -457,12 +458,10 @@ function RecipeEditor({ product }: { product: Product }) {
   const upsert = useUpsertRecipeLine();
   const del = useDeleteRecipeLine();
 
-  // Lignes locales : { id?: existant, raw_material_id }
   type Line = { id?: string; raw_material_id: string };
   const [lines, setLines] = useState<Line[]>([{ raw_material_id: "" }]);
   const [dirty, setDirty] = useState(false);
 
-  // Hydrate depuis la recette existante quand elle arrive/change
   useMemo(() => {
     if (recipe.length > 0) {
       setLines(recipe.map((r) => ({ id: r.id, raw_material_id: r.raw_material_id })));
@@ -494,14 +493,12 @@ function RecipeEditor({ product }: { product: Product }) {
 
   async function save() {
     if (!firstOk || hasDup) return;
-    // Supprimer les lignes retirées
     const keptIds = new Set(filled.map((l) => l.id).filter(Boolean) as string[]);
     for (const r of recipe) {
       if (!keptIds.has(r.id)) {
         await new Promise<void>((resolve) => del.mutate(r.id, { onSettled: () => resolve() }));
       }
     }
-    // Upsert des lignes conservées / ajoutées (quantity_per_unit = null, à définir en fournée)
     for (const l of filled) {
       await new Promise<void>((resolve) =>
         upsert.mutate(
