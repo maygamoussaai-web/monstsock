@@ -1,4 +1,3 @@
-
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +15,6 @@ export const Route = createFileRoute("/auth")({
 
 const WA_LINK = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
 
-// Quelques indicatifs pays courants pour la zone d'usage ; l'utilisateur peut aussi taper le sien.
 const COUNTRY_CODES = [
   { code: "+223", label: "🇲🇱 +223 (Mali)" },
   { code: "+225", label: "🇨🇮 +225 (Côte d'Ivoire)" },
@@ -29,18 +27,22 @@ const COUNTRY_CODES = [
   { code: "+33", label: "🇫🇷 +33 (France)" },
 ];
 
-// Une entrée déjà connue de Supabase ("email déjà utilisé") est reformulée
-// avec courtoisie plus bas ; celle-ci vient de notre propre trigger handle_new_user
-// quand l'email a déjà consommé son essai gratuit — on veut la reconnaître pour
-// afficher un message spécifique plutôt que le message générique d'échec.
 const ALREADY_TRIALED_HINT = "essai gratuit de 7 jours";
 
 type SignupPath = "trial" | "code";
+
+// Prénom seul pour un salut plus naturel ("Bienvenue, Aïcha" plutôt que le nom complet).
+function firstNameOf(fullName: string | null | undefined): string | null {
+  if (!fullName) return null;
+  const trimmed = fullName.trim();
+  return trimmed ? trimmed.split(/\s+/)[0] : null;
+}
 
 function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [signupPath, setSignupPath] = useState<SignupPath>("trial");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,8 +58,6 @@ function AuthPage() {
     try {
       if (mode === "signup") {
         const phone = phoneNumber.trim() ? `${countryCode} ${phoneNumber.trim()}` : null;
-        // En parcours "essai gratuit direct", on n'envoie aucun code : le
-        // trigger handle_new_user ouvre alors un essai de 7 jours sans code.
         const code = signupPath === "code" ? invitationCode : "";
         const { error } = await supabase.auth.signUp({
           email, password,
@@ -67,6 +67,7 @@ function AuthPage() {
               bakery_name: bakeryName,
               invitation_code: code,
               phone,
+              full_name: fullName.trim() || null,
             },
           },
         });
@@ -78,9 +79,28 @@ function AuthPage() {
         );
         setMode("signin");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Bienvenue, ravi de vous revoir.");
+
+        // Message de bienvenue personnalisé : on va chercher le nom associé à ce
+        // compte pour cette boulangerie. Simple lecture, jamais bloquante — en cas
+        // d'échec ou d'absence de nom, on retombe sur une formule générique.
+        let greeting = "Bienvenue, ravi de vous revoir.";
+        try {
+          const { data: member } = await supabase
+            .from("bakery_members")
+            .select("full_name, role")
+            .eq("user_id", data.user!.id)
+            .maybeSingle();
+          const first = firstNameOf(member?.full_name);
+          if (first) {
+            greeting = `Bienvenue, ${member?.role === "owner" ? "M./Mme" : ""} ${first} ! Ravi de vous revoir.`.replace(/\s+/g, " ").trim();
+          }
+        } catch {
+          // Pas grave : le salut générique suffit.
+        }
+        toast.success(greeting);
+
         const pending = typeof window !== "undefined" ? sessionStorage.getItem("pending_join_token") : null;
         if (pending) {
           sessionStorage.removeItem("pending_join_token");
@@ -90,8 +110,6 @@ function AuthPage() {
         }
       }
     } catch (err: any) {
-      // MonStock refuse l'accès avec courtoisie : jamais le message technique brut de
-      // Supabase (souvent en anglais), toujours une formule polie qui invite à réessayer.
       if (mode === "signup") {
         const raw = typeof err?.message === "string" ? err.message : "";
         if (raw.includes(ALREADY_TRIALED_HINT)) {
@@ -176,6 +194,14 @@ function AuthPage() {
           <form onSubmit={handleEmail} className="mt-6 space-y-3">
             {mode === "signup" && (
               <>
+                <div>
+                  <label className="text-xs text-muted-foreground">Votre nom complet</label>
+                  <input
+                    type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                    placeholder="Aïcha Traoré"
+                  />
+                </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Nom de la boulangerie</label>
                   <input
@@ -296,11 +322,6 @@ function AuthPage() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TrialPitch — bloc de présentation de l'essai gratuit de 7 jours, affiché
-// au-dessus du formulaire d'inscription. Reste discret quand le visiteur a
-// choisi le parcours "code d'inscription".
-// ─────────────────────────────────────────────────────────────────────────────
 function TrialPitch({ active }: { active: boolean }) {
   if (!active) return null;
   const points = [
@@ -325,13 +346,6 @@ function TrialPitch({ active }: { active: boolean }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BaguetteFlourish — animation de connexion. Des morceaux de pâte pâle
-// convergent, un éclat de farine marque le moment où ils se rejoignent, puis
-// une baguette se forme (couleur croûte orange foncé) avec ses grignes, un
-// halo chaud qui pulse et un peu de vapeur — puis elle s'efface et le cycle
-// recommence, en boucle continue.
-// ─────────────────────────────────────────────────────────────────────────────
 function BaguetteFlourish() {
   return (
     <div className="relative mt-8 flex flex-col items-center select-none" aria-hidden="true">
