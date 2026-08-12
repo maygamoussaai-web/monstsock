@@ -850,11 +850,11 @@ export function useCurrentMember() {
       if (!u) return null;
       const { data, error } = await supabase
         .from("bakery_members")
-        .select("bakery_id, role, user_id, phone")
+        .select("bakery_id, role, user_id, phone, full_name")
         .eq("user_id", u.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { bakery_id: string; role: MemberRole; user_id: string; phone: string | null } | null;
+      return data as { bakery_id: string; role: MemberRole; user_id: string; phone: string | null; full_name: string | null } | null;
     },
   });
 }
