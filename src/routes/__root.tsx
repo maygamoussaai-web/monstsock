@@ -190,6 +190,12 @@ function RootComponent() {
     registerServiceWorker();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      // Hors ligne, relancer un rafraîchissement de toutes les données n'a
+      // aucun sens (aucune requête ne peut aboutir) et ne fait que déclencher
+      // une tentative simultanée sur toute l'app, qui peut donner l'impression
+      // que tout a disparu jusqu'au retour du réseau. On ne fait rien dans ce
+      // cas — les données déjà en cache restent affichées telles quelles.
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
