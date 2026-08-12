@@ -116,6 +116,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
   const [persister] = useState(() => createIDBPersister());
+useDebugResetWatcher(queryClient);
   const [isRestoring, setIsRestoring] = useState(true);
 
   useEffect(() => {
