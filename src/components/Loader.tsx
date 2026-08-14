@@ -120,3 +120,41 @@ export function EmptyState({
     </div>
   );
 }
+/** Étiquette de statut colorée (stock bas, archivé, en attente...). */
+export function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "warning" | "accent" | "neutral" | "success";
+}) {
+  const cls = { warning: "badge-warning", accent: "badge-accent", neutral: "badge-neutral", success: "badge-success" }[tone];
+  return <span className={`badge-pill ${cls}`}>{children}</span>;
+}
+
+/** Squelette de tableau — remplace un spinner générique pendant le premier
+ * chargement d'une liste (matières, produits, ventes...). columns définit la
+ * largeur relative de chaque colonne pour ressembler au tableau réel. */
+export function SkeletonTable({
+  rows = 5,
+  columns = ["2fr", "1fr", "1fr"],
+}: {
+  rows?: number;
+  columns?: string[];
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border" aria-busy="true" aria-label="Chargement">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="grid items-center gap-4 border-b border-border/60 px-4 py-3.5 last:border-0"
+          style={{ gridTemplateColumns: columns.join(" "), animationDelay: `${i * 70}ms` }}
+        >
+          {columns.map((_, c) => (
+            <Skeleton key={c} className={`h-3.5 ${c === 0 ? "w-3/5" : "w-2/5 justify-self-end"}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
