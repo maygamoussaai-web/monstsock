@@ -242,7 +242,7 @@ function AuthedLayout() {
     );
   }
 
-  if (online && currentMember === null) {
+  if (online && currentMember === null && confirmedNoBakery) {
     return <NoBakeryScreen onSignOut={signOut} />;
   }
 
