@@ -268,6 +268,14 @@ function AuthedLayout() {
       <AppBackground />
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <OfflineBanner />
+        <div className="mx-auto flex max-w-7xl items-center justify-center pt-2">
+          <p
+            className="text-2xl sm:text-3xl text-accent"
+            style={{ fontFamily: "var(--font-brand)" }}
+          >
+            MonStock
+          </p>
+        </div>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
