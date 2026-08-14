@@ -367,3 +367,15 @@
   background: color-mix(in oklab, var(--color-accent) 12%, var(--color-card));
   color: var(--color-accent);
 }
+/* Arrière-plan léger de l'app (pages internes) — version statique de celui de
+   la page d'accueil : mêmes tons chauds, mais SANS écouteur de scroll ni
+   recalcul JS à chaque frame, pour rester fluide même sur les pages les plus
+   chargées en données. Rendu une seule fois, en position fixe, il ne se
+   ranime jamais en naviguant d'une page à l'autre. */
+.app-grain-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+}
