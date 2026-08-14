@@ -186,6 +186,22 @@ function AuthedLayout() {
     currentMember?.bakery_id ?? undefined
   );
 
+  // Juste après une connexion, la toute première vérification peut arriver
+  // avant que la session soit pleinement établie côté serveur et revenir
+  // "aucune boulangerie" par erreur, avant de se corriger d'elle-même une
+  // fraction de seconde plus tard. On attend un court instant avant de croire
+  // à un vrai "aucune boulangerie", pour ne plus jamais afficher cet écran par
+  // erreur.
+  const [confirmedNoBakery, setConfirmedNoBakery] = useState(false);
+  useEffect(() => {
+    if (currentMember !== null) {
+      setConfirmedNoBakery(false);
+      return;
+    }
+    const t = setTimeout(() => setConfirmedNoBakery(true), 1500);
+    return () => clearTimeout(t);
+  }, [currentMember]);
+
   const isOwner = currentMember?.role === "owner";
   const navItems = isOwner
     ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
