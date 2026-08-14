@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useBakery, useRawMaterials, useProducts, useBatches, usePurchases, useLedger } from "@/lib/queries";
 import { formatMoney, formatQty, formatDateTime, UNIT_LABEL } from "@/lib/format";
-import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Package2, Croissant, Flame, ShoppingBag, TrendingUp, Wallet, ShieldCheck, ArrowUpRight } from "lucide-react";
 import { useMemo } from "react";
 import { AnimatedNumber, stagger } from "@/components/motion";
-import { EmptyState, SkeletonRows } from "@/components/Loader";
+import { EmptyState, SkeletonRows, Badge } from "@/components/Loader";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
@@ -18,8 +18,6 @@ function Dashboard() {
 
   const kpis = useMemo(() => {
     const stockValueMat = materials.reduce((s, m) => s + m.stock * (m.avg_cost || 0), 0);
-    // Valeur du stock des PRODUITS = leur propre prix (sale_price), pas le coût des
-    // matières consommées pour les fabriquer.
     const stockValueProd = products.reduce((s, p) => s + p.stock * (p.sale_price || 0), 0);
     const now = Date.now();
     const since7 = now - 7 * 86400_000;
@@ -43,34 +41,57 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start gap-4">
-        <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-secondary overflow-hidden shrink-0">
-          {(bakery as any)?.logo_url ? (
-            <img src={(bakery as any).logo_url} alt="Logo" className="h-full w-full object-cover" />
-          ) : (
-            <span className="font-display text-xl text-muted-foreground">
-              {(bakery?.name ?? "M").slice(0, 1).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Tableau de bord</p>
-          <h1 className="mt-1 font-display text-2xl sm:text-3xl md:text-4xl leading-tight break-words">{bakery?.name ?? "Ma boulangerie"}</h1>
+      {/* En-tête premium : dégradé chaud + formes décoratives en fond */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.28), transparent 70%)" }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.32 0.05 45 / 0.14), transparent 70%)" }}
+        />
+        <div className="relative flex items-start gap-4">
+          <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-card shadow-[var(--shadow-soft)] overflow-hidden shrink-0 ring-1 ring-border/60">
+            {(bakery as any)?.logo_url ? (
+              <img src={(bakery as any).logo_url} alt="Logo" className="h-full w-full object-cover" />
+            ) : (
+              <span className="font-display text-xl text-accent">
+                {(bakery?.name ?? "M").slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Tableau de bord</p>
+            <h1 className="mt-1 font-display text-2xl sm:text-3xl md:text-4xl leading-tight break-words">{bakery?.name ?? "Ma boulangerie"}</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {lowStock.length > 0
+                ? `${lowStock.length} alerte${lowStock.length > 1 ? "s" : ""} de stock à surveiller aujourd'hui`
+                : "Tout est sous contrôle aujourd'hui"}
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Kpi index={0} icon={Wallet} label="Valeur du stock" value={kpis.stockValueMat + kpis.stockValueProd} sub={`${formatMoney(kpis.stockValueMat)} matières · ${formatMoney(kpis.stockValueProd)} produits`} />
         <Kpi index={1} icon={Package2} label="Achats (7 j)" value={kpis.purchases7} />
-        <Kpi index={2} icon={ShoppingBag} label="CA (30 j)" value={kpis.revenue30} />
-        <Kpi index={3} icon={TrendingUp} label="Bénéfice brut (30 j)" value={kpis.grossProfit30} sub={`Coût matières ${formatMoney(kpis.matCost30)} · Pertes ${formatMoney(kpis.loss30)}`} />
+        <Kpi index={2} icon={ShoppingBag} label="CA (30 j)" value={kpis.revenue30} accent />
+        <Kpi index={3} icon={TrendingUp} label="Bénéfice brut (30 j)" value={kpis.grossProfit30} sub={`Coût matières ${formatMoney(kpis.matCost30)} · Pertes ${formatMoney(kpis.loss30)}`} accent />
       </div>
 
       <section className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 card-elegant card-elegant-hover p-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl">Alertes de stock faible</h2>
-            <span className="text-xs text-muted-foreground">{lowStock.length} élément(s)</span>
+            <div className="flex items-center gap-3">
+              <div className="icon-medallion">
+                <AlertTriangle className="h-4.5 w-4.5" />
+              </div>
+              <h2 className="font-display text-xl">Alertes de stock faible</h2>
+            </div>
+            {lowStock.length > 0 && <Badge tone="warning">{lowStock.length} élément(s)</Badge>}
           </div>
           <div className="mt-4 divide-y divide-border">
             {matLoading && <div className="py-3"><SkeletonRows rows={3} /></div>}
@@ -86,14 +107,19 @@ function Dashboard() {
                     <p className="text-xs text-muted-foreground">{x.kind} · seuil {formatQty(x.threshold, x.unit)}</p>
                   </div>
                 </div>
-                <p className="text-sm text-destructive whitespace-nowrap">{formatQty(x.stock, x.unit)}</p>
+                <p className="text-sm font-medium text-destructive whitespace-nowrap stat-figure">{formatQty(x.stock, x.unit)}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="card-elegant p-6">
-          <h2 className="font-display text-xl">Raccourcis</h2>
+        <div className="card-premium p-6">
+          <div className="flex items-center gap-3">
+            <div className="icon-medallion">
+              <ArrowUpRight className="h-4.5 w-4.5" />
+            </div>
+            <h2 className="font-display text-xl">Raccourcis</h2>
+          </div>
           <div className="mt-4 grid gap-2">
             <ShortcutLink to="/raw-materials" icon={Package2} label="Ajouter une matière" />
             <ShortcutLink to="/products" icon={Croissant} label="Créer un produit" />
@@ -104,8 +130,11 @@ function Dashboard() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="card-elegant p-6">
-          <h2 className="font-display text-xl">Dernières fournées</h2>
+        <div className="card-elegant card-elegant-hover p-6">
+          <div className="flex items-center gap-3">
+            <div className="icon-medallion"><Flame className="h-4.5 w-4.5" /></div>
+            <h2 className="font-display text-xl">Dernières fournées</h2>
+          </div>
           <div className="mt-4 space-y-3">
             {batches.length === 0 && (
               <EmptyState icon={Flame} title="Aucune fournée" description="Vos productions apparaîtront ici dès la première fournée enregistrée." />
@@ -116,13 +145,16 @@ function Dashboard() {
                   <p className="font-medium">{b.name}</p>
                   <p className="text-xs text-muted-foreground">{formatDateTime(b.created_at)} · {b.batch_outputs.length} produit(s)</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{formatMoney(b.total_material_cost)}</p>
+                <p className="text-xs text-muted-foreground stat-figure">{formatMoney(b.total_material_cost)}</p>
               </div>
             ))}
           </div>
         </div>
-        <div className="card-elegant p-6">
-          <h2 className="font-display text-xl">Dernières ventes</h2>
+        <div className="card-elegant card-elegant-hover p-6">
+          <div className="flex items-center gap-3">
+            <div className="icon-medallion"><ShoppingBag className="h-4.5 w-4.5" /></div>
+            <h2 className="font-display text-xl">Dernières ventes</h2>
+          </div>
           <div className="mt-4 space-y-3">
             {(() => {
               const sales = ledger.filter((l) => l.kind === "sale").slice(0, 6);
@@ -137,7 +169,7 @@ function Dashboard() {
                       {formatDateTime(s.created_at)} · {formatQty(Math.abs(s.delta_quantity), UNIT_LABEL[s.products?.unit ?? "unite"])}
                     </p>
                   </div>
-                  <p className="text-xs text-accent whitespace-nowrap">{formatMoney(s.delta_value)}</p>
+                  <p className="text-xs font-medium text-accent whitespace-nowrap stat-figure">{formatMoney(s.delta_value)}</p>
                 </div>
               ));
             })()}
@@ -148,14 +180,16 @@ function Dashboard() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub, index = 0 }: { icon: any; label: string; value: number; sub?: string; index?: number }) {
+function Kpi({ icon: Icon, label, value, sub, index = 0, accent = false }: { icon: any; label: string; value: number; sub?: string; index?: number; accent?: boolean }) {
   return (
-    <div className="card-elegant card-elegant-hover animate-fade-up p-4 sm:p-5" style={stagger(index)}>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-4 w-4" />
-        <p className="text-[10px] uppercase tracking-[0.2em]">{label}</p>
+    <div className={`${accent ? "card-premium" : "card-elegant"} card-elegant-hover animate-fade-up p-4 sm:p-5`} style={stagger(index)}>
+      <div className="flex items-center gap-2">
+        <div className="grid h-7 w-7 place-items-center rounded-lg bg-accent/12 text-accent shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
       </div>
-      <p className="mt-2 font-display text-xl sm:text-2xl">
+      <p className="mt-2.5 stat-figure text-2xl sm:text-3xl">
         <AnimatedNumber value={value} format={(v) => formatMoney(v)} />
       </p>
       {sub && <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{sub}</p>}
@@ -166,7 +200,10 @@ function Kpi({ icon: Icon, label, value, sub, index = 0 }: { icon: any; label: s
 function ShortcutLink({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
   return (
     <Link to={to} className="btn-press group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm hover:bg-secondary">
-      <Icon className="h-4 w-4 text-accent transition-transform duration-250 group-hover:-translate-y-0.5 group-hover:rotate-[-6deg]" /> {label}
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/12 text-accent transition-transform duration-250 group-hover:-translate-y-0.5 group-hover:rotate-[-6deg]">
+        <Icon className="h-4 w-4" />
+      </div>
+      {label}
     </Link>
   );
 }
