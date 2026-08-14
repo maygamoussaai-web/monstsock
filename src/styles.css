@@ -287,3 +287,83 @@
   }
   .reveal { opacity: 1 !important; transform: none !important; }
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREMIUM — badges de statut, grands chiffres clés, carte à reflet
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Badges de statut (stock bas, archivé, en attente de synchro...) */
+@utility badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  &::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+}
+@utility badge-warning {
+  background: color-mix(in oklab, var(--color-destructive) 12%, transparent);
+  color: var(--color-destructive);
+}
+@utility badge-accent {
+  background: color-mix(in oklab, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+@utility badge-neutral {
+  background: var(--color-secondary);
+  color: var(--color-muted-foreground);
+}
+@utility badge-success {
+  background: color-mix(in oklab, oklch(0.6 0.13 145) 15%, transparent);
+  color: oklch(0.45 0.12 145);
+}
+
+/* Grands chiffres clés (tableau de bord, finances) — chiffres tabulaires pour
+   ne pas "sauter" en largeur quand ils changent, légèrement resserrés pour
+   un rendu plus dense et soigné. */
+@utility stat-figure {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+/* Carte "premium" : léger dégradé de fond + liseré lumineux discret en haut,
+   pour distinguer une carte mise en avant (KPI principal, carte de bienvenue)
+   d'une carte de contenu ordinaire (qui reste sur card-elegant). */
+@utility card-premium {
+  position: relative;
+  background: linear-gradient(160deg, var(--color-card), color-mix(in oklab, var(--color-accent) 5%, var(--color-card)));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-accent) 45%, transparent), transparent);
+  }
+}
+
+/* Icône dans un médaillon de couleur douce, plutôt qu'une icône nue */
+@utility icon-medallion {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--color-accent) 12%, var(--color-card));
+  color: var(--color-accent);
+}
