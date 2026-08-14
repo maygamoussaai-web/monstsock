@@ -63,10 +63,10 @@
   --caramel: oklch(0.62 0.11 55);
   --cocoa: oklch(0.32 0.05 45);
 
-  --background: oklch(0.975 0.015 85);
+  --background: oklch(0.94 0.032 82);
   --foreground: oklch(0.24 0.04 45);
 
-  --card: oklch(0.99 0.008 85);
+  --card: oklch(0.975 0.024 82);
   --card-foreground: oklch(0.24 0.04 45);
   --popover: oklch(0.99 0.008 85);
   --popover-foreground: oklch(0.24 0.04 45);
