@@ -17,8 +17,8 @@ import {
 } from "@/lib/queries";
 import { formatMoney, formatQty, MATERIAL_UNITS, UNIT_LABEL } from "@/lib/format";
 import { toClassicQuantity, formatStockDisplay } from "@/lib/units";
-import { Plus, Search, Package2, Trash2, PackagePlus, Pencil, Ruler, X } from "lucide-react";
-import { EmptyState } from "@/components/Loader";
+import { Plus, Search, Package2, Trash2, PackagePlus, Pencil, Ruler, X, Wheat } from "lucide-react";
+import { EmptyState, Badge } from "@/components/Loader";
 import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
@@ -63,27 +63,41 @@ function RawMaterialsPage() {
     [materials, q]
   );
 
+  const totalValue = materials.reduce((s, m) => s + m.stock * m.avg_cost, 0);
+  const lowCount = materials.filter((m) => m.stock <= m.low_stock_threshold).length;
+
   const restockMat = materials.find((m) => m.id === restockFor);
   const detailMat = materials.find((m) => m.id === detailFor);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-            Matières premières
-          </p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Farine, sucre, levure…</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Prix d'achat, coût moyen, stock et seuils.
-          </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <Wheat className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Matières premières</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Farine, sucre, levure…</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Valeur totale du stock <strong className="stat-figure text-foreground">{formatMoney(totalValue)}</strong></span>
+                {lowCount > 0 && <Badge tone="warning">{lowCount} en alerte</Badge>}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-[var(--shadow-soft)]"
+          >
+            <Plus className="h-4 w-4" /> Nouvelle matière
+          </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> Nouvelle matière
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -93,7 +107,7 @@ function RawMaterialsPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Rechercher…"
-            className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent"
+            className="w-full rounded-full border border-input bg-card pl-9 pr-4 py-2 text-sm outline-none focus:border-accent transition-colors"
           />
         </div>
       </div>
@@ -128,13 +142,16 @@ function RawMaterialsPage() {
                     key={m.id}
                     onClick={() => setDetailFor(m.id)}
                     style={stagger(idx, 35)}
-                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/40 transition-colors ${low ? "bg-destructive/5" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{m.name}</p>
-                      <p className="text-xs text-muted-foreground">{UNIT_LABEL[m.unit]}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">{UNIT_LABEL[m.unit]}</p>
+                        {low && <Badge tone="warning">Stock bas</Badge>}
+                      </div>
                     </td>
-                    <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>
+                    <td className={`px-4 py-3 text-right stat-figure ${low ? "text-destructive" : ""}`}>
                       {formatStockDisplay(m.stock, UNIT_LABEL[m.unit], displayUnitFor(m))}
                     </td>
                     <td className="px-4 py-3 text-right hidden sm:table-cell text-muted-foreground">
@@ -144,7 +161,7 @@ function RawMaterialsPage() {
                       {formatMoney(m.purchase_price)}
                     </td>
                     <td className="px-4 py-3 text-right">{formatMoney(m.avg_cost)}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right stat-figure font-medium">
                       {formatMoney(m.stock * m.avg_cost)}
                     </td>
                     <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -153,7 +170,7 @@ function RawMaterialsPage() {
                         className="rounded-lg p-2 transition-colors hover:bg-secondary active:scale-95"
                         title="Réapprovisionner"
                       >
-                        <PackagePlus className="h-4 w-4 text-accent" />
+                        <PackagePlus className="h-4 w-4 text-accent icon-pop" />
                       </button>
                     </td>
                   </tr>
@@ -271,7 +288,7 @@ function MaterialDetail({ material, onClose }: { material: RawMaterial; onClose:
             >
               <Pencil className="h-4 w-4" /> Modifier
             </button>
-<button
+            <button
               onClick={() => {
                 if (confirm(`Archiver « ${material.name} » ? Elle disparaîtra de vos listes, mais reste conservée dans l'historique (fournées, achats passés).`)) {
                   del.mutate({ id: material.id, stock: material.stock }, { onSuccess: onClose });
@@ -673,12 +690,8 @@ function RestockForm({
   const qtyLabel = selectedUnit ? selectedUnit.name : unit;
   const priceLabel = selectedUnit ? `Prix par ${selectedUnit.name}` : "Prix unitaire (FCFA)";
   const classicQty = toClassicQuantity(quantity, unitId || null, customUnits);
-  // Le prix saisi est toujours "par unité choisie" ; on le ramène en prix par unité classique
-  // pour l'enregistrement (record_purchase attend un prix par unité classique).
   const classicUnitPrice = selectedUnit && selectedUnit.factor > 0 ? unit_price / selectedUnit.factor : unit_price;
 
-  // Quand l'utilisateur change l'unité de saisie, le prix par défaut est recalculé
-  // pour cette unité (ex : 400 FCFA/kg → 20 000 FCFA par sac de 50 kg).
   function changeUnit(nextId: string) {
     const next = customUnits.find((u) => u.id === nextId) ?? null;
     setUnitId(nextId);
@@ -738,7 +751,7 @@ function RestockForm({
         </Field>
       </div>
       <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
-        <div>Total : <strong>{formatMoney(classicQty * classicUnitPrice)}</strong></div>
+        <div>Total : <strong className="stat-figure">{formatMoney(classicQty * classicUnitPrice)}</strong></div>
         {selectedUnit && (
           <div className="text-xs text-muted-foreground">
             Soit {formatQty(classicQty, unit)} au stock · {formatMoney(classicUnitPrice)} / {unit}
