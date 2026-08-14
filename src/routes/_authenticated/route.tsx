@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { AppBackground } from "@/components/AppBackground";
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -7,10 +6,10 @@ import {
   LineChart, History, LogOut, Wheat, Layers, User, Users, Lock, MessageCircle, CloudUpload,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBakery, useCurrentMember, useSubscription } from "@/lib/queries";
+import { useBakery, useCurrentMember, useSubscription, useOfflineQueueSync } from "@/lib/queries";
 import { BaguetteLoader } from "@/components/Loader";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { useOfflineQueueSync } from "@/lib/queries";
+import { AppBackground } from "@/components/AppBackground";
 import { usePendingCount } from "@/lib/offline-queue";
 import { clearPersistedQueryCache } from "@/lib/query-persist";
 import { getResilientUser, isOffline } from "@/lib/auth-local";
@@ -187,6 +186,21 @@ function AuthedLayout() {
     currentMember?.bakery_id ?? undefined
   );
 
+  const isOwner = currentMember?.role === "owner";
+  const navItems = isOwner
+    ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
+    : nav;
+
+  const { pending, failed } = usePendingCount();
+  const pendingTotal = pending + failed;
+  const online = useOnlineStatus();
+
+  const [accessCheckTimedOut, setAccessCheckTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setAccessCheckTimedOut(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Juste après une connexion, la toute première vérification peut arriver
   // avant que la session soit pleinement établie côté serveur et revenir
   // "aucune boulangerie" par erreur, avant de se corriger d'elle-même une
@@ -202,21 +216,6 @@ function AuthedLayout() {
     const t = setTimeout(() => setConfirmedNoBakery(true), 1500);
     return () => clearTimeout(t);
   }, [currentMember]);
-
-  const isOwner = currentMember?.role === "owner";
-  const navItems = isOwner
-    ? [...nav, { to: "/staff" as const, label: "Mon personnel", icon: Users }]
-    : nav;
-
-  const { pending, failed } = usePendingCount();
-  const pendingTotal = pending + failed;
-  const online = useOnlineStatus();
-
-  const [accessCheckTimedOut, setAccessCheckTimedOut] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setAccessCheckTimedOut(true), 4000);
-    return () => clearTimeout(t);
-  }, []);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -266,6 +265,7 @@ function AuthedLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppBackground />
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <OfflineBanner />
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-3 sm:py-4">
