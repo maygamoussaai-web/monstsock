@@ -14,6 +14,7 @@ import { formatQty, UNIT_LABEL } from "@/lib/format";
 import { toClassicQuantity } from "@/lib/units";
 import { Plus, Layers, Trash2 } from "lucide-react";
 import { Modal, Field, inputCls } from "@/components/Modal";
+import { stagger } from "@/components/motion";
 
 export const Route = createFileRoute("/_authenticated/batch-templates")({
   component: TemplatesPage,
@@ -27,22 +28,32 @@ function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-            Modèles de fournée
-          </p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Vos fournées récurrentes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Préparez des schémas de production réutilisables.
-          </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Modèles de fournée</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Vos fournées récurrentes</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {templates.length} modèle{templates.length > 1 ? "s" : ""} prêt{templates.length > 1 ? "s" : ""} à réutiliser
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-[var(--shadow-soft)]"
+          >
+            <Plus className="h-4 w-4" /> Nouveau modèle
+          </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> Nouveau modèle
-        </button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -52,17 +63,22 @@ function TemplatesPage() {
             Aucun modèle. Créez-en un pour accélérer la saisie de vos fournées.
           </div>
         )}
-        {templates.map((t) => (
-          <div key={t.id} className="card-elegant p-5">
+        {templates.map((t, idx) => (
+          <div key={t.id} className="card-elegant card-elegant-hover animate-fade-up p-5" style={stagger(idx, 40)}>
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="font-display text-lg truncate">{t.name}</h3>
-                {t.products && (
-                  <p className="text-xs text-muted-foreground">
-                    {t.products.name} ·{" "}
-                    {formatQty(Number(t.planned_quantity ?? 0), UNIT_LABEL[t.products.unit as any])}
-                  </p>
-                )}
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="icon-medallion h-9 w-9 shrink-0">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-lg truncate">{t.name}</h3>
+                  {t.products && (
+                    <p className="text-xs text-muted-foreground stat-figure">
+                      {t.products.name} ·{" "}
+                      {formatQty(Number(t.planned_quantity ?? 0), UNIT_LABEL[t.products.unit as any])}
+                    </p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -80,7 +96,7 @@ function TemplatesPage() {
               {t.batch_template_ingredients.map((i) => (
                 <li key={i.id} className="flex justify-between gap-2">
                   <span className="truncate">{i.raw_materials?.name}</span>
-                  <span className="text-muted-foreground whitespace-nowrap">
+                  <span className="text-muted-foreground whitespace-nowrap stat-figure">
                     {formatQty(Number(i.quantity), UNIT_LABEL[i.raw_materials?.unit ?? "unite"])}
                   </span>
                 </li>
@@ -149,8 +165,6 @@ function TemplateForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => vo
         name,
         product_id: productId,
         planned_quantity: plannedQty,
-        // Le modèle est toujours enregistré en unité classique — la conversion se
-        // fait ici, une seule fois, à la sauvegarde.
         ingredients: filled.map((it) => ({
           raw_material_id: it.raw_material_id,
           quantity: classicQtyFor(it),
