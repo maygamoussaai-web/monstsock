@@ -14,7 +14,7 @@ import {
 } from "@/lib/queries";
 import { formatMoney, formatQty, PRODUCT_UNITS, UNIT_LABEL } from "@/lib/format";
 import { Plus, Search, Croissant, Trash2, ChefHat, Pencil } from "lucide-react";
-import { EmptyState } from "@/components/Loader";
+import { EmptyState, Badge } from "@/components/Loader";
 import { stagger } from "@/components/motion";
 import { Modal, Field, inputCls } from "@/components/Modal";
 import { BatchForm } from "@/components/BatchForm";
@@ -39,26 +39,40 @@ function ProductsPage() {
     [products, q]
   );
 
+  const totalValue = products.reduce((s, p) => s + p.stock * p.sale_price, 0);
+  const lowCount = products.filter((p) => p.stock <= p.low_stock_threshold).length;
+
   const detailProduct = products.find((p) => p.id === detailFor);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-            Produits fabriqués
-          </p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Baguettes, croissants, pains…</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Recette, prix de vente et stock.
-          </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <Croissant className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Produits fabriqués</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Baguettes, croissants, pains…</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Valeur totale du stock <strong className="stat-figure text-foreground">{formatMoney(totalValue)}</strong></span>
+                {lowCount > 0 && <Badge tone="warning">{lowCount} en alerte</Badge>}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-[var(--shadow-soft)]"
+          >
+            <Plus className="h-4 w-4" /> Nouveau produit
+          </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> Nouveau produit
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -100,16 +114,19 @@ function ProductsPage() {
                     key={p.id}
                     onClick={() => setDetailFor(p.id)}
                     style={stagger(idx, 35)}
-                    className={`animate-fade-up cursor-pointer hover:bg-secondary/30 transition-colors ${low ? "bg-destructive/5" : ""}`}
+                    className={`animate-fade-up cursor-pointer hover:bg-secondary/40 transition-colors ${low ? "bg-destructive/5" : ""}`}
                   >
                     <td className="px-4 py-3">
                       <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{UNIT_LABEL[p.unit]}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        <p className="text-xs text-muted-foreground">{UNIT_LABEL[p.unit]}</p>
+                        {low && <Badge tone="warning">Stock bas</Badge>}
+                      </div>
                     </td>
-                    <td className={`px-4 py-3 text-right ${low ? "text-destructive" : ""}`}>
+                    <td className={`px-4 py-3 text-right stat-figure ${low ? "text-destructive" : ""}`}>
                       {formatQty(p.stock, UNIT_LABEL[p.unit])}
                     </td>
-                    <td className="px-4 py-3 text-right hidden sm:table-cell">
+                    <td className="px-4 py-3 text-right hidden sm:table-cell stat-figure">
                       {formatMoney(p.sale_price)}
                     </td>
                     <td
@@ -215,9 +232,9 @@ function ProductDetail({
       {tab === "info" && (
         <div className="space-y-3 text-sm">
           <Row label="Unité" value={unitLabel} />
-          <Row label="Stock actuel" value={<strong>{formatQty(product.stock, unitLabel)}</strong>} />
+          <Row label="Stock actuel" value={<strong className="stat-figure">{formatQty(product.stock, unitLabel)}</strong>} />
           <Row label="Seuil bas" value={formatQty(product.low_stock_threshold, unitLabel)} />
-          <Row label="Prix de vente" value={formatMoney(product.sale_price)} />
+          <Row label="Prix de vente" value={<span className="stat-figure">{formatMoney(product.sale_price)}</span>} />
           {product.notes && (
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Notes</p>
