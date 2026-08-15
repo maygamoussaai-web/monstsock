@@ -5,6 +5,7 @@ import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format
 import { Plus, Flame, Search } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { BatchForm } from "@/components/BatchForm";
+import { stagger } from "@/components/motion";
 
 export const Route = createFileRoute("/_authenticated/batches")({ component: BatchesPage });
 
@@ -32,22 +33,38 @@ function BatchesPage() {
     });
   }, [batches, q, productId, date]);
 
+  const totalCost7d = batches
+    .filter((b) => Date.now() - new Date(b.created_at).getTime() < 7 * 86400_000)
+    .reduce((s, b) => s + b.total_material_cost, 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Fournées</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Production du fournil</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Saisissez matières consommées et quantités produites.
-          </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <Flame className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Fournées</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Production du fournil</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Coût matière (7 j) <strong className="stat-figure text-foreground">{formatMoney(totalCost7d)}</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-[var(--shadow-soft)]"
+          >
+            <Plus className="h-4 w-4" /> Nouvelle fournée
+          </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> Nouvelle fournée
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -85,18 +102,23 @@ function BatchesPage() {
             Aucune fournée pour ces filtres.
           </div>
         )}
-        {filtered.map((b) => (
-          <div key={b.id} className="card-elegant p-5">
+        {filtered.map((b, idx) => (
+          <div key={b.id} className="card-elegant card-elegant-hover animate-fade-up p-5" style={stagger(idx, 40)}>
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="font-display text-lg truncate">{b.name}</h3>
-                <p className="text-xs text-muted-foreground">{formatDateTime(b.created_at)}</p>
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="icon-medallion h-9 w-9 shrink-0">
+                  <Flame className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-lg truncate">{b.name}</h3>
+                  <p className="text-xs text-muted-foreground">{formatDateTime(b.created_at)}</p>
+                </div>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground">
                   Coût matière
                 </p>
-                <p className="font-display text-lg">{formatMoney(b.total_material_cost)}</p>
+                <p className="stat-figure text-lg">{formatMoney(b.total_material_cost)}</p>
               </div>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -108,7 +130,7 @@ function BatchesPage() {
                   {b.batch_consumptions.map((c) => (
                     <li key={c.id} className="flex justify-between gap-2">
                       <span className="truncate">{c.raw_materials?.name}</span>
-                      <span className="text-muted-foreground whitespace-nowrap">
+                      <span className="text-muted-foreground whitespace-nowrap stat-figure">
                         {formatQty(c.quantity_used, UNIT_LABEL[c.raw_materials?.unit ?? "unite"])} ·{" "}
                         {formatMoney(c.line_cost)}
                       </span>
@@ -124,7 +146,7 @@ function BatchesPage() {
                   {b.batch_outputs.map((o) => (
                     <li key={o.id} className="flex justify-between gap-2">
                       <span className="truncate">{o.products?.name}</span>
-                      <span className="text-muted-foreground whitespace-nowrap">
+                      <span className="text-muted-foreground whitespace-nowrap stat-figure">
                         {formatQty(o.quantity_produced, UNIT_LABEL[o.products?.unit ?? "unite"])}
                       </span>
                     </li>
