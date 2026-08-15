@@ -21,11 +21,6 @@ type DetailKey = null | "stock" | "purchases" | "revenue" | "losses";
 function FinancePage() {
   const [range, setRange] = useState<typeof RANGES[number]["key"]>("30");
   const [detail, setDetail] = useState<DetailKey>(null);
-  // Récupère les N derniers mouvements puis filtre par période côté client. Réduit de
-  // 2000 à 800 pour alléger nettement le chargement réseau ; au-delà de 800 mouvements
-  // sur la période "Tout"/"90 jours" pour une boulangerie très active, le calcul peut ne
-  // plus être exhaustif — un vrai filtrage par date côté base serait la prochaine étape
-  // si ça devient limitant.
   const { data: ledger = [], isLoading: ledgerLoading } = useLedger(800);
   const { data: materials = [] } = useRawMaterials();
   const { data: products = [] } = useProducts();
@@ -38,9 +33,6 @@ function FinancePage() {
     const filt = ledger.filter((l) => new Date(l.created_at).getTime() > since);
     const purch = purchases.filter((p) => new Date(p.created_at).getTime() > since);
     const stockMat = materials.reduce((s, m) => s + m.stock * (m.avg_cost || 0), 0);
-    // Valeur du stock des PRODUITS = leur propre prix (sale_price), pas le coût des
-    // matières consommées pour les fabriquer. Les matières premières, elles, restent
-    // valorisées à leur coût d'achat (avg_cost) — seule la valorisation des produits change.
     const stockProd = products.reduce((s, p) => s + p.stock * (p.sale_price || 0), 0);
     const sales = filt.filter((l) => l.kind === "sale");
     const revenue = sales.reduce((s, l) => s + l.delta_value, 0);
@@ -64,29 +56,43 @@ function FinancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Finances</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Rapport financier</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Cliquez sur une carte pour voir le détail.</p>
-        </div>
-        <div className="flex rounded-full border border-border bg-card p-1">
-          {RANGES.map((r) => (
-            <button key={r.key} onClick={() => setRange(r.key)} className={`px-3 py-1.5 text-xs rounded-full transition-all duration-200 active:scale-95 ${range === r.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
-          ))}
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <LineChart className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Finances</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Rapport financier</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Cliquez sur une carte pour voir le détail.</p>
+            </div>
+          </div>
+          <div className="flex rounded-full border border-border bg-card p-1 shadow-[var(--shadow-soft)]">
+            {RANGES.map((r) => (
+              <button key={r.key} onClick={() => setRange(r.key)} className={`px-3 py-1.5 text-xs rounded-full transition-all duration-200 active:scale-95 ${range === r.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Kpi onClick={() => setDetail("stock")} icon={Wallet} label="Valeur du stock" index={0} value={stats.stockMat + stats.stockProd} sub={`Matières ${formatMoney(stats.stockMat)} · Produits ${formatMoney(stats.stockProd)}`} />
         <Kpi onClick={() => setDetail("purchases")} icon={Package2} label="Achats" index={1} value={stats.purchasesTotal} />
-        <Kpi onClick={() => setDetail("revenue")} icon={ShoppingBag} label="Chiffre d'affaires" index={2} value={stats.revenue} />
-        <Kpi onClick={() => setDetail("losses")} icon={stats.gross >= 0 ? TrendingUp : TrendingDown} label="Bénéfice brut" index={3} value={stats.gross} sub={`Coût matières ${formatMoney(stats.matCost)} · Pertes ${formatMoney(stats.losses)}`} />
+        <Kpi onClick={() => setDetail("revenue")} icon={ShoppingBag} label="Chiffre d'affaires" index={2} value={stats.revenue} accent />
+        <Kpi onClick={() => setDetail("losses")} icon={stats.gross >= 0 ? TrendingUp : TrendingDown} label="Bénéfice brut" index={3} value={stats.gross} sub={`Coût matières ${formatMoney(stats.matCost)} · Pertes ${formatMoney(stats.losses)}`} accent />
       </div>
 
       <div className="card-elegant card-elegant-hover p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <LineChart className="h-4 w-4 text-accent" />
+        <div className="flex items-center gap-3 mb-4">
+          <div className="icon-medallion h-9 w-9">
+            <LineChart className="h-4 w-4" />
+          </div>
           <h2 className="font-display text-xl">Top produits</h2>
         </div>
         {ledgerLoading && <SkeletonRows rows={4} />}
@@ -98,7 +104,7 @@ function FinancePage() {
             const max = stats.topProducts[0].value || 1;
             return (
               <div key={i} className="animate-fade-up" style={stagger(i)}>
-                <div className="flex justify-between text-sm mb-1"><span>{p.name}</span><span className="text-muted-foreground">{formatMoney(p.value)}</span></div>
+                <div className="flex justify-between text-sm mb-1"><span>{p.name}</span><span className="text-muted-foreground stat-figure">{formatMoney(p.value)}</span></div>
                 <div className="h-2 rounded-full bg-secondary overflow-hidden">
                   <div
                     className="h-full bg-[var(--gradient-crust)] transition-[width] duration-700 ease-out"
@@ -139,19 +145,21 @@ function FinancePage() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub, onClick, index = 0 }: { icon: any; label: string; value: number; sub?: string; onClick?: () => void; index?: number }) {
+function Kpi({ icon: Icon, label, value, sub, onClick, index = 0, accent = false }: { icon: any; label: string; value: number; sub?: string; onClick?: () => void; index?: number; accent?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={stagger(index)}
-      className="card-elegant card-elegant-hover btn-press animate-fade-up p-4 sm:p-5 text-left hover:border-accent/60 focus:outline-none focus:border-accent"
+      className={`${accent ? "card-premium" : "card-elegant"} card-elegant-hover btn-press animate-fade-up p-4 sm:p-5 text-left hover:border-accent/60 focus:outline-none focus:border-accent`}
     >
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-4 w-4" />
-        <p className="text-[10px] uppercase tracking-[0.2em]">{label}</p>
+      <div className="flex items-center gap-2">
+        <div className="grid h-7 w-7 place-items-center rounded-lg bg-accent/12 text-accent shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
       </div>
-      <p className="mt-2 font-display text-xl sm:text-2xl">
+      <p className="mt-2.5 stat-figure text-2xl sm:text-3xl">
         <AnimatedNumber value={value} format={(v) => formatMoney(v)} />
       </p>
       {sub && <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{sub}</p>}
@@ -169,7 +177,7 @@ function StockDetail({ materials, products }: { materials: any[]; products: any[
           {materials.map((m) => (
             <li key={m.id} className="flex justify-between py-2 gap-2">
               <span className="truncate">{m.name}</span>
-              <span className="text-muted-foreground whitespace-nowrap">
+              <span className="text-muted-foreground whitespace-nowrap stat-figure">
                 {formatQty(m.stock, UNIT_LABEL[m.unit])} · <strong className="text-foreground">{formatMoney(m.stock * (m.avg_cost || 0))}</strong>
               </span>
             </li>
@@ -183,8 +191,7 @@ function StockDetail({ materials, products }: { materials: any[]; products: any[
           {products.map((p) => (
             <li key={p.id} className="flex justify-between py-2 gap-2">
               <span className="truncate">{p.name}</span>
-              <span className="text-muted-foreground whitespace-nowrap">
-                {/* Valorisé au prix de vente du produit (sa propre valeur), pas à son coût matière. */}
+              <span className="text-muted-foreground whitespace-nowrap stat-figure">
                 {formatQty(p.stock, UNIT_LABEL[p.unit])} · <strong className="text-foreground">{formatMoney(p.stock * (p.sale_price || 0))}</strong>
               </span>
             </li>
@@ -206,7 +213,7 @@ function PurchasesDetail({ purchases }: { purchases: any[] }) {
             <p className="truncate font-medium">{p.raw_materials?.name ?? "—"}</p>
             <p className="text-xs text-muted-foreground">{formatDateTime(p.created_at)} · {p.supplier ?? "—"}</p>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 stat-figure">
             <p>{formatQty(p.quantity, p.raw_materials?.unit ? UNIT_LABEL[p.raw_materials.unit] : "")}</p>
             <p className="text-xs text-accent">+{formatMoney(p.total_price)}</p>
           </div>
@@ -227,7 +234,7 @@ function SalesDetail({ sales }: { sales: any[] }) {
             <p className="truncate font-medium">{l.products?.name ?? "—"}</p>
             <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)}</p>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 stat-figure">
             <p>{formatQty(Math.abs(l.delta_quantity), l.products?.unit ? UNIT_LABEL[l.products.unit] : "")}</p>
             <p className="text-xs text-accent">+{formatMoney(l.delta_value)}</p>
           </div>
@@ -251,7 +258,7 @@ function LossesDetail({ losses }: { losses: any[] }) {
               <p className="truncate font-medium">{name}</p>
               <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)} · {l.note ?? "—"}</p>
             </div>
-            <div className="text-right shrink-0">
+            <div className="text-right shrink-0 stat-figure">
               <p>{formatQty(Math.abs(l.delta_quantity), unit ? UNIT_LABEL[unit] : "")}</p>
               <p className="text-xs text-destructive">{formatMoney(-Math.abs(l.delta_value))}</p>
             </div>
