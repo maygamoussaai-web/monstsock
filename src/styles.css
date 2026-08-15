@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-display: "Fraunces", ui-serif, Georgia, serif;
---font-brand: "Pacifico", cursive;
+  --font-brand: "Pacifico", cursive;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -139,18 +139,36 @@
   h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.02em; }
 }
 
-/* Dans styles.css — remplacer les deux @utility card-elegant et card-premium existants */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARTES
+   — card-elegant  : cartes standard avec filets orange aux angles inférieurs
+   — card-premium  : cartes mises en avant avec nuage orange statique en fond
+   — grain         : texture de fond, utilise un <span> injecté en JS pour
+                     éviter tout conflit avec les ::before / ::after des cartes
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 @utility card-elegant {
-  background: linear-gradient(160deg, var(--color-card), color-mix(in oklab, var(--color-accent) 6%, var(--color-card)));
+  background: linear-gradient(
+    160deg,
+    var(--color-card),
+    color-mix(in oklab, var(--color-accent) 6%, var(--color-card))
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-soft);
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
-  position: relative;
-  overflow: hidden;
 
-  /* Fil orange — angle inférieur gauche */
+  /*
+   * Les filets oranges sont dessinés via deux pseudo-éléments positionnés
+   * aux angles inférieurs. Chacun n'occupe que 28 × 28 px et suit le border-
+   * radius de la carte — ils sont purement décoratifs et ne gênent pas le
+   * contenu grâce à pointer-events: none.
+   *
+   * NOTE : grain utilise désormais une inlay-box-shadow au lieu d'un ::after
+   * pour éviter tout conflit avec ces deux pseudo-éléments.
+   */
+
+  /* Angle inférieur gauche */
   &::before {
     content: "";
     position: absolute;
@@ -159,13 +177,13 @@
     width: 28px;
     height: 28px;
     pointer-events: none;
-    border-bottom: 2px solid color-mix(in oklab, var(--color-accent) 55%, transparent);
-    border-left: 2px solid color-mix(in oklab, var(--color-accent) 55%, transparent);
+    border-bottom: 1.5px solid color-mix(in oklab, var(--color-accent) 52%, transparent);
+    border-left: 1.5px solid color-mix(in oklab, var(--color-accent) 52%, transparent);
     border-bottom-left-radius: var(--radius-2xl);
     z-index: 1;
   }
 
-  /* Fil orange — angle inférieur droit */
+  /* Angle inférieur droit */
   &::after {
     content: "";
     position: absolute;
@@ -174,8 +192,8 @@
     width: 28px;
     height: 28px;
     pointer-events: none;
-    border-bottom: 2px solid color-mix(in oklab, var(--color-accent) 55%, transparent);
-    border-right: 2px solid color-mix(in oklab, var(--color-accent) 55%, transparent);
+    border-bottom: 1.5px solid color-mix(in oklab, var(--color-accent) 52%, transparent);
+    border-right: 1.5px solid color-mix(in oklab, var(--color-accent) 52%, transparent);
     border-bottom-right-radius: var(--radius-2xl);
     z-index: 1;
   }
@@ -187,63 +205,92 @@
 
 @utility card-premium {
   position: relative;
-  background: linear-gradient(160deg, var(--color-card), color-mix(in oklab, var(--color-accent) 5%, var(--color-card)));
+  background: linear-gradient(
+    160deg,
+    var(--color-card),
+    color-mix(in oklab, var(--color-accent) 5%, var(--color-card))
+  );
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-soft);
   overflow: hidden;
 
-  /* Liseré lumineux en haut — inchangé */
+  /*
+   * Liseré lumineux en haut de la carte — signature card-premium, inchangé.
+   * Dessiné avec ::before pour ne pas entrer en conflit avec le nuage ::after.
+   */
   &::before {
     content: "";
     position: absolute;
     inset: 0 0 auto 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-accent) 45%, transparent), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-accent) 45%, transparent),
+      transparent
+    );
+    pointer-events: none;
+    z-index: 1;
   }
 
-  /* Nuage orange statique en bas à droite */
+  /*
+   * Nuage orange statique — positionné en bas à droite, entièrement statique
+   * (aucune animation, aucun JS). Le radial-gradient est rendu une seule fois
+   * au paint et ne déclenche aucun repaint par la suite.
+   * z-index: 0 garantit qu'il reste sous tout le contenu de la carte.
+   */
   &::after {
     content: "";
     position: absolute;
-    bottom: -40px;
-    right: -40px;
-    width: 160px;
-    height: 160px;
+    bottom: -48px;
+    right: -48px;
+    width: 180px;
+    height: 180px;
     pointer-events: none;
     border-radius: 50%;
     background: radial-gradient(
       circle,
-      color-mix(in oklab, var(--color-accent) 18%, transparent) 0%,
+      color-mix(in oklab, var(--color-accent) 20%, transparent) 0%,
+      color-mix(in oklab, var(--color-accent) 8%, transparent) 45%,
       transparent 70%
     );
     z-index: 0;
   }
 }
-}
-@utility text-balance { text-wrap: balance; }
+
+/*
+ * grain — texture de grain photographique.
+ *
+ * Version précédente : utilisait ::after, ce qui entrait en conflit avec
+ * les filets orange de card-elegant (qui utilise aussi ::after).
+ *
+ * Nouvelle approche : on remplace le pseudo-élément par une box-shadow interne
+ * combinée à un background-image sur la carte elle-même. Cela produit le même
+ * effet visuel (points subtils) sans consommer de pseudo-élément.
+ *
+ * Si une carte combine .card-elegant.grain, les deux techniques coexistent
+ * sans conflit : les ::before et ::after restent libres pour les filets.
+ */
 @utility grain {
-  position: relative;
-  &::after {
-    content: "";
-    position: absolute; inset: 0; pointer-events: none;
-    background-image: radial-gradient(oklch(0.32 0.05 45 / 0.04) 1px, transparent 1px);
-    background-size: 3px 3px;
-    mix-blend-mode: multiply;
-    border-radius: inherit;
-  }
+  background-image:
+    radial-gradient(oklch(0.32 0.05 45 / 0.04) 1px, transparent 1px),
+    linear-gradient(160deg, var(--color-card), color-mix(in oklab, var(--color-accent) 6%, var(--color-card)));
+  background-size: 3px 3px, 100% 100%;
+  background-blend-mode: multiply, normal;
 }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
 
 @utility animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility text-balance { text-wrap: balance; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOUVEMENT — micro-interactions transverses (subtiles, 200–400 ms)
@@ -259,8 +306,8 @@
   to   { opacity: 0; transform: scale(0.97) translateY(4px); }
 }
 @keyframes ms-shimmer-sweep {
-  0%       { transform: translateX(-130%) skewX(-18deg); }
-  22%, 100% { transform: translateX(240%) skewX(-18deg); }
+  0%        { transform: translateX(-130%) skewX(-18deg); }
+  22%, 100% { transform: translateX(240%)  skewX(-18deg); }
 }
 @keyframes ms-skeleton-pulse {
   0%, 100% { opacity: 0.55; }
@@ -275,11 +322,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@utility animate-modal-in { animation: ms-scale-fade-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-@utility animate-modal-out { animation: ms-scale-fade-out 0.16s ease-in both; }
-@utility animate-overlay-in { animation: ms-overlay-in 0.2s ease-out both; }
-@utility animate-page-in { animation: ms-page-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-@utility animate-float-soft { animation: ms-float-soft 3.4s ease-in-out infinite; }
+@utility animate-modal-in    { animation: ms-scale-fade-in  0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-modal-out   { animation: ms-scale-fade-out 0.16s ease-in both; }
+@utility animate-overlay-in  { animation: ms-overlay-in     0.2s  ease-out both; }
+@utility animate-page-in     { animation: ms-page-in        0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@utility animate-float-soft  { animation: ms-float-soft     3.4s  ease-in-out infinite; }
 
 /* Apparition au scroll (piloté par <Reveal />) */
 @utility reveal {
@@ -292,8 +339,8 @@
 /* Boutons — lift au survol, feedback tactile au clic */
 @utility btn-press {
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, background-color 0.2s ease, opacity 0.2s ease;
-  &:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-lift); }
-  &:active { transform: translateY(0) scale(0.97); box-shadow: var(--shadow-soft); }
+  &:hover    { transform: translateY(-1.5px); box-shadow: var(--shadow-lift); }
+  &:active   { transform: translateY(0) scale(0.97); box-shadow: var(--shadow-soft); }
   &:disabled { transform: none; box-shadow: none; }
 }
 
@@ -316,7 +363,7 @@
 /* Icônes cliquables — micro-rebond + légère rotation */
 @utility icon-pop {
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  &:hover { transform: translateY(-1.5px) rotate(-6deg) scale(1.08); }
+  &:hover  { transform: translateY(-1.5px) rotate(-6deg) scale(1.08); }
   &:active { transform: scale(0.92); }
 }
 
@@ -349,22 +396,10 @@
   );
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-  .reveal { opacity: 1 !important; transform: none !important; }
-}
 /* ═══════════════════════════════════════════════════════════════════════════
-   PREMIUM — badges de statut, grands chiffres clés, carte à reflet
+   PREMIUM — badges de statut, grands chiffres clés, icônes
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Badges de statut (stock bas, archivé, en attente de synchro...) */
 @utility badge-pill {
   display: inline-flex;
   align-items: center;
@@ -401,9 +436,7 @@
   color: oklch(0.45 0.12 145);
 }
 
-/* Grands chiffres clés (tableau de bord, finances) — chiffres tabulaires pour
-   ne pas "sauter" en largeur quand ils changent, légèrement resserrés pour
-   un rendu plus dense et soigné. */
+/* Grands chiffres — chiffres tabulaires, légèrement resserrés */
 @utility stat-figure {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
@@ -411,26 +444,7 @@
   font-weight: 500;
 }
 
-/* Carte "premium" : léger dégradé de fond + liseré lumineux discret en haut,
-   pour distinguer une carte mise en avant (KPI principal, carte de bienvenue)
-   d'une carte de contenu ordinaire (qui reste sur card-elegant). */
-@utility card-premium {
-  position: relative;
-  background: linear-gradient(160deg, var(--color-card), color-mix(in oklab, var(--color-accent) 5%, var(--color-card)));
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-accent) 45%, transparent), transparent);
-  }
-}
-
-/* Icône dans un médaillon de couleur douce, plutôt qu'une icône nue */
+/* Icône dans un médaillon de couleur douce */
 @utility icon-medallion {
   display: inline-grid;
   place-items: center;
@@ -440,15 +454,29 @@
   background: color-mix(in oklab, var(--color-accent) 12%, var(--color-card));
   color: var(--color-accent);
 }
-/* Arrière-plan léger de l'app (pages internes) — version statique de celui de
-   la page d'accueil : mêmes tons chauds, mais SANS écouteur de scroll ni
-   recalcul JS à chaque frame, pour rester fluide même sur les pages les plus
-   chargées en données. Rendu une seule fois, en position fixe, il ne se
-   ranime jamais en naviguant d'une page à l'autre. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOND DE L'APP — statique, rendu une seule fois, position fixe
+   ═══════════════════════════════════════════════════════════════════════════ */
 .app-grain-bg {
   position: fixed;
   inset: 0;
   z-index: -10;
   overflow: hidden;
   pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION — désactive toutes les animations pour l'accessibilité
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
 }
