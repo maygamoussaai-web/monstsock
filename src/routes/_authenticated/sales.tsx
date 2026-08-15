@@ -4,7 +4,8 @@ import { useBakery, useProducts, useQuickSale, useLedger } from "@/lib/queries";
 import { useOfflineQueue } from "@/lib/offline-queue";
 import { useOnlineStatus } from "@/lib/offline";
 import { formatDateTime, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
-import { Plus, ShoppingBag, AlertTriangle, Search, Clock } from "lucide-react";
+import { Plus, ShoppingBag, AlertTriangle, Search, Clock, Wallet } from "lucide-react";
+import { Badge } from "@/components/Loader";
 import { Modal, Field, inputCls } from "@/components/Modal";
 
 export const Route = createFileRoute("/_authenticated/sales")({ component: SalesPage });
@@ -51,26 +52,45 @@ function SalesPage() {
       .slice(0, 100);
   }, [ledger, q, date]);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayCA = ledger
+    .filter((l) => l.kind === "sale" && l.created_at.slice(0, 10) === todayStr)
+    .reduce((s, l) => s + l.delta_value, 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Ventes</p>
-          <h1 className="mt-1 font-display text-3xl sm:text-4xl">Enregistrer une vente</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choisissez un produit, indiquez les invendus, la vente est calculée automatiquement.
-          </p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="icon-medallion h-12 w-12 shrink-0">
+              <ShoppingBag className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Ventes</p>
+              <h1 className="mt-1 font-display text-3xl sm:text-4xl">Enregistrer une vente</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <Wallet className="h-3.5 w-3.5" />
+                <span>Chiffre d'affaires du jour <strong className="stat-figure text-foreground">{formatMoney(todayCA)}</strong></span>
+                {pendingSales.length > 0 && <Badge tone="accent">{pendingSales.length} en attente</Badge>}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground shadow-[var(--shadow-soft)]"
+          >
+            <Plus className="h-4 w-4" /> Nouvelle vente
+          </button>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-press btn-shimmer inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-        >
-          <Plus className="h-4 w-4" /> Nouvelle vente
-        </button>
       </div>
 
       {pendingSales.length > 0 && (
-        <div className="card-elegant border-accent/40 overflow-hidden">
+        <div className="card-elegant overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-5 py-3 text-xs uppercase tracking-widest text-accent">
             <Clock className="h-3.5 w-3.5" />
             En attente de synchronisation ({pendingSales.length})
@@ -86,7 +106,7 @@ function SalesPage() {
                   <p className="text-xs text-muted-foreground">
                     {formatQty(Number((p.payload as any).quantity_sold ?? 0), "")}
                   </p>
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-medium stat-figure">
                     {formatMoney(
                       Number((p.payload as any).quantity_sold ?? 0) *
                         Number((p.payload as any).unit_price ?? 0)
@@ -130,15 +150,13 @@ function SalesPage() {
         )}
         <ul className="divide-y divide-border">
           {recentSales.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+            <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-secondary/30 transition-colors">
               <div className="min-w-0">
-                <p className="font-medium truncate">
+                <p className="font-medium truncate flex items-center gap-2">
                   {l.products?.name ?? l.raw_materials?.name ?? "—"}
-                  <span
-                    className={`ml-2 text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${l.kind === "sale" ? "bg-accent/15 text-accent" : "bg-destructive/15 text-destructive"}`}
-                  >
+                  <Badge tone={l.kind === "sale" ? "accent" : "warning"}>
                     {l.kind === "sale" ? "Vente" : "Perte"}
-                  </span>
+                  </Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">{formatDateTime(l.created_at)}</p>
                 {l.linkedLoss && (
@@ -148,14 +166,14 @@ function SalesPage() {
                 )}
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground stat-figure">
                   {formatQty(
                     Math.abs(l.delta_quantity),
                     UNIT_LABEL[l.products?.unit ?? l.raw_materials?.unit ?? "unite"]
                   )}
                 </p>
                 <p
-                  className={`text-sm font-medium ${l.kind === "sale" ? "" : "text-destructive"}`}
+                  className={`text-sm font-medium stat-figure ${l.kind === "sale" ? "" : "text-destructive"}`}
                 >
                   {formatMoney(Math.abs(l.delta_value))}
                 </p>
@@ -272,15 +290,15 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
           <div className="rounded-xl bg-secondary/60 px-4 py-3 text-sm space-y-1">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Stock actuel</span>
-              <strong>{formatQty(stock, UNIT_LABEL[product.unit])}</strong>
+              <strong className="stat-figure">{formatQty(stock, UNIT_LABEL[product.unit])}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Prix unitaire</span>
-              <strong>{formatMoney(effectivePrice)}</strong>
+              <strong className="stat-figure">{formatMoney(effectivePrice)}</strong>
             </div>
             <div className="flex justify-between border-t border-border/60 pt-1 mt-1">
               <span className="text-muted-foreground">Valeur totale du stock</span>
-              <strong>{formatMoney(stockValue)}</strong>
+              <strong className="stat-figure">{formatMoney(stockValue)}</strong>
             </div>
           </div>
 
@@ -317,11 +335,11 @@ function QuickSaleForm({ bakeryId, onDone }: { bakeryId: string; onDone: () => v
           <div className="rounded-xl border border-border p-3 text-sm space-y-1">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Vendues</span>
-              <strong>{formatQty(vendus, UNIT_LABEL[product.unit])}</strong>
+              <strong className="stat-figure">{formatQty(vendus, UNIT_LABEL[product.unit])}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Chiffre d'affaires</span>
-              <strong className="text-accent">{formatMoney(ca)}</strong>
+              <strong className="stat-figure text-accent">{formatMoney(ca)}</strong>
             </div>
           </div>
 
