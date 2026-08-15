@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useLedger } from "@/lib/queries";
 import { formatDate, formatMoney, formatQty, UNIT_LABEL } from "@/lib/format";
 import { History, Flame, ShoppingBag, Package2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { stagger } from "@/components/motion";
 
 export const Route = createFileRoute("/_authenticated/history")({ component: HistoryPage });
 
@@ -31,9 +32,6 @@ const PERIODS = [
 ] as const;
 
 function HistoryPage() {
-  // 1000 lignes récupérées à chaque visite pesait inutilement sur le réseau (surtout en
-  // connexion mobile) et sur le rendu (autant de cartes). 300 couvre largement l'usage
-  // quotidien d'une boulangerie sans ralentir la page.
   const { data: ledger = [] } = useLedger(300);
   const [kind, setKind] = useState<string>("all");
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("all");
@@ -49,11 +47,10 @@ function HistoryPage() {
     })();
 
     const byBatch = new Map<string, Group>();
-    const byRef = new Map<string, Group>(); // ventes qui ont une perte liée (invendus jetés)
+    const byRef = new Map<string, Group>();
     const list: Group[] = [];
     const filtered = (ledger as LedgerRow[]).filter((l) => new Date(l.created_at).getTime() >= since);
 
-    // Passe 1 : les ventes d'abord, pour que les pertes liées (ref_id) aient un groupe à rejoindre.
     for (const l of filtered) {
       if (l.kind === "sale") {
         const g: Group = { key: l.id, kind: "sale", createdAt: l.created_at, entries: [l] };
@@ -62,7 +59,6 @@ function HistoryPage() {
       }
     }
 
-    // Passe 2 : fournées (regroupées par ref_id) et le reste.
     for (const l of filtered) {
       const k = l.kind;
       if (k === "batch_consume" || k === "batch_produce") {
@@ -76,8 +72,6 @@ function HistoryPage() {
         g.entries.push(l);
         if (l.created_at < g.createdAt) g.createdAt = l.created_at;
       } else if (k === "loss") {
-        // Une perte issue des invendus d'une vente rapide (ref_id -> la vente) rejoint la
-        // carte de cette vente au lieu d'apparaître comme une perte à part entière.
         const parent = l.ref_id ? byRef.get(l.ref_id) : undefined;
         if (parent) {
           parent.entries.push(l);
@@ -106,15 +100,27 @@ function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Historique</p>
-        <h1 className="mt-1 font-display text-3xl sm:text-4xl">Journal des mouvements</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Chaque entrée est immuable et horodatée — traçabilité totale.</p>
+      <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-[var(--gradient-warm)] px-5 py-7 sm:px-8 sm:py-9">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, oklch(0.62 0.11 55 / 0.26), transparent 70%)" }}
+        />
+        <div className="relative flex items-start gap-4">
+          <div className="icon-medallion h-12 w-12 shrink-0">
+            <History className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-accent">Historique</p>
+            <h1 className="mt-1 font-display text-3xl sm:text-4xl">Journal des mouvements</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Chaque entrée est immuable et horodatée — traçabilité totale.</p>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex rounded-full border border-border bg-card p-1 overflow-x-auto">
+          <div className="flex rounded-full border border-border bg-card p-1 overflow-x-auto shadow-[var(--shadow-soft)]">
             {(["all", "batch", "sale", "purchase", "loss"] as const).map((k) => (
               <button
                 key={k}
@@ -153,30 +159,30 @@ function HistoryPage() {
       )}
 
       <div className="grid gap-3">
-        {groups.map((g) => (
-          <GroupCard key={g.key} group={g} />
+        {groups.map((g, i) => (
+          <GroupCard key={g.key} group={g} index={i} />
         ))}
       </div>
     </div>
   );
 }
 
-function GroupCard({ group }: { group: Group }) {
+function GroupCard({ group, index }: { group: Group; index: number }) {
   const meta = KIND_META[group.kind];
   const Icon = meta.icon;
   const dt = new Date(group.createdAt);
   const time = dt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="card-elegant p-4">
+    <div className="card-elegant card-elegant-hover animate-fade-up p-4" style={stagger(index, 30)}>
       <div className="flex items-start gap-3">
-        <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary ${meta.tone}`}>
+        <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/12 ${meta.tone}`}>
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-bold text-sm">{meta.label}</p>
-            <p className="text-xs text-muted-foreground shrink-0">
+            <p className="text-xs text-muted-foreground shrink-0 stat-figure">
               {formatDate(dt)} · {time}
             </p>
           </div>
@@ -212,12 +218,12 @@ function BatchLines({ entries }: { entries: LedgerRow[] }) {
         <p key={e.id}>• {line("+", Math.abs(e.delta_quantity), e.products?.unit, e.products?.name ?? "—")}</p>
       ))}
       {consumed.length > 0 && (
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground stat-figure">
           Valeur matières premières : <span className="text-destructive">{formatMoney(matValue)}</span>
         </p>
       )}
       {produced.length > 0 && (
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground stat-figure">
           Valeur produits finis : <span className="text-accent">+{formatMoney(prodValue)}</span>
         </p>
       )}
@@ -225,8 +231,6 @@ function BatchLines({ entries }: { entries: LedgerRow[] }) {
   );
 }
 
-// Vente, avec éventuellement une perte liée (invendus jetés) affichée comme détail
-// supplémentaire — plus jamais comme une carte "Perte" séparée et déconnectée du contexte.
 function SaleLines({ entries }: { entries: LedgerRow[] }) {
   const sale = entries.find((e) => e.kind === "sale") ?? entries[0];
   const linkedLoss = entries.find((e) => e.kind === "loss");
@@ -236,15 +240,14 @@ function SaleLines({ entries }: { entries: LedgerRow[] }) {
   return (
     <>
       <p>• {line("-", Math.abs(sale.delta_quantity), unit, name)}</p>
-      <p className="text-muted-foreground">
+      <p className="text-muted-foreground stat-figure">
         Chiffre d'affaires : <span className="text-accent">+{formatMoney(sale.delta_value)}</span>
       </p>
-      {/* Détail invendus (conservés / jetés), écrit dans la note par record_quick_sale */}
       {sale.note && sale.note !== "Vente" && (
         <p className="text-muted-foreground">{sale.note.replace(/^Vente\s*·\s*/, "")}</p>
       )}
       {linkedLoss && (
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground stat-figure">
           dont perte (invendus jetés) : <span className="text-destructive">{formatMoney(-Math.abs(linkedLoss.delta_value))}</span>
         </p>
       )}
@@ -257,15 +260,13 @@ function PurchaseLines({ entries }: { entries: LedgerRow[] }) {
   return (
     <>
       <p>• {line("+", Math.abs(e.delta_quantity), e.raw_materials?.unit, e.raw_materials?.name ?? "—")}</p>
-      <p className="text-muted-foreground">
+      <p className="text-muted-foreground stat-figure">
         Achats : <span className="text-accent">+{formatMoney(e.delta_value)}</span>
       </p>
     </>
   );
 }
 
-// Pertes indépendantes uniquement — plus les pertes issues des invendus d'une vente,
-// désormais regroupées dans la carte "Vente" correspondante (voir SaleLines).
 function LossLines({ entries }: { entries: LedgerRow[] }) {
   const e = entries[0];
   const name = e.products?.name ?? e.raw_materials?.name ?? "—";
@@ -273,7 +274,7 @@ function LossLines({ entries }: { entries: LedgerRow[] }) {
   return (
     <>
       <p>• {line("-", Math.abs(e.delta_quantity), unit, name)}</p>
-      <p className="text-muted-foreground">
+      <p className="text-muted-foreground stat-figure">
         Pertes : <span className="text-destructive">{formatMoney(-Math.abs(e.delta_value))}</span>
       </p>
     </>
