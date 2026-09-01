@@ -154,9 +154,8 @@ useDebugResetWatcher(queryClient);
           queryClient,
           persister,
           buster: QUERY_CACHE_BUSTER,
-
-          buster: QUERY_CACHE_BUSTER,
           dehydrateOptions,
+
         });
 
         // Sauvegarde forcée dès que l'app passe en arrière-plan ou se ferme —
