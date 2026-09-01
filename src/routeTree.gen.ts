@@ -21,6 +21,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedProductsRouteImport } from './routes/_authenticated/products'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
+import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/debug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
 import { Route as AuthenticatedBatchTemplatesRouteImport } from './routes/_authenticated/batch-templates'
@@ -85,6 +86,11 @@ const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
   path: '/finance',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDebugRoute = AuthenticatedDebugRouteImport.update({
+  id: '/debug',
+  path: '/debug',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/batch-templates': typeof AuthenticatedBatchTemplatesRoute
   '/batches': typeof AuthenticatedBatchesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/debug': typeof AuthenticatedDebugRoute
   '/finance': typeof AuthenticatedFinanceRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/products': typeof AuthenticatedProductsRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/batch-templates': typeof AuthenticatedBatchTemplatesRoute
   '/batches': typeof AuthenticatedBatchesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/debug': typeof AuthenticatedDebugRoute
   '/finance': typeof AuthenticatedFinanceRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/products': typeof AuthenticatedProductsRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated/batch-templates': typeof AuthenticatedBatchTemplatesRoute
   '/_authenticated/batches': typeof AuthenticatedBatchesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/debug': typeof AuthenticatedDebugRoute
   '/_authenticated/finance': typeof AuthenticatedFinanceRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/products': typeof AuthenticatedProductsRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/batch-templates'
     | '/batches'
     | '/dashboard'
+    | '/debug'
     | '/finance'
     | '/history'
     | '/products'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/batch-templates'
     | '/batches'
     | '/dashboard'
+    | '/debug'
     | '/finance'
     | '/history'
     | '/products'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/_authenticated/batch-templates'
     | '/_authenticated/batches'
     | '/_authenticated/dashboard'
+    | '/_authenticated/debug'
     | '/_authenticated/finance'
     | '/_authenticated/history'
     | '/_authenticated/products'
@@ -297,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/debug': {
+      id: '/_authenticated/debug'
+      path: '/debug'
+      fullPath: '/debug'
+      preLoaderRoute: typeof AuthenticatedDebugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -325,6 +344,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBatchTemplatesRoute: typeof AuthenticatedBatchTemplatesRoute
   AuthenticatedBatchesRoute: typeof AuthenticatedBatchesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDebugRoute: typeof AuthenticatedDebugRoute
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedProductsRoute: typeof AuthenticatedProductsRoute
@@ -339,6 +359,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBatchTemplatesRoute: AuthenticatedBatchTemplatesRoute,
   AuthenticatedBatchesRoute: AuthenticatedBatchesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDebugRoute: AuthenticatedDebugRoute,
   AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedProductsRoute: AuthenticatedProductsRoute,
@@ -361,3 +382,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

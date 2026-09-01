@@ -175,6 +175,7 @@ export type Database = {
         Row: {
           bakery_id: string
           created_at: string
+          full_name: string | null
           phone: string | null
           role: Database["public"]["Enums"]["bakery_role"]
           user_id: string
@@ -182,6 +183,7 @@ export type Database = {
         Insert: {
           bakery_id: string
           created_at?: string
+          full_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["bakery_role"]
           user_id: string
@@ -189,6 +191,7 @@ export type Database = {
         Update: {
           bakery_id?: string
           created_at?: string
+          full_name?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["bakery_role"]
           user_id?: string
@@ -1167,6 +1170,24 @@ export type Database = {
           },
         ]
       }
+      trial_usage: {
+        Row: {
+          email: string
+          used_at: string
+          user_id: string | null
+        }
+        Insert: {
+          email: string
+          used_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          email?: string
+          used_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1174,11 +1195,41 @@ export type Database = {
     Functions: {
       accept_bakery_invitation: { Args: { _token: string }; Returns: string }
       admin_delete_bakery: { Args: { _bakery_id: string }; Returns: undefined }
+      admin_get_user: {
+        Args: { _user_id: string }
+        Returns: {
+          bakery_address: string
+          bakery_id: string
+          bakery_name: string
+          created_at: string
+          display_name: string
+          email: string
+          is_admin: boolean
+          last_sign_in_at: string
+          member_since: string
+          phone: string
+          role: Database["public"]["Enums"]["bakery_role"]
+          user_id: string
+        }[]
+      }
       admin_list_bakery_members: {
         Args: { _bakery_id: string }
         Returns: {
           created_at: string
           email: string
+          role: Database["public"]["Enums"]["bakery_role"]
+          user_id: string
+        }[]
+      }
+      admin_list_users: {
+        Args: never
+        Returns: {
+          bakery_id: string
+          bakery_name: string
+          created_at: string
+          display_name: string
+          email: string
+          is_admin: boolean
           role: Database["public"]["Enums"]["bakery_role"]
           user_id: string
         }[]
@@ -1208,6 +1259,7 @@ export type Database = {
         Returns: string
       }
       claim_client_ref: { Args: { _ref: string }; Returns: boolean }
+      cleanup_old_client_refs: { Args: never; Returns: undefined }
       close_sales_session: {
         Args: { _client_ref?: string; _session_id: string }
         Returns: undefined
@@ -1277,28 +1329,16 @@ export type Database = {
         }
         Returns: string
       }
-      record_product_sale:
-        | {
-            Args: {
-              p_bakery_id: string
-              p_client_ref?: string
-              p_price: number
-              p_product_id: string
-              p_quantity: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_bakery_id: string
-              p_keep_unsold: boolean
-              p_product_id: string
-              p_session_id: string
-              p_sold_quantity: number
-              p_unsold_quantity: number
-            }
-            Returns: Json
-          }
+      record_product_sale: {
+        Args: {
+          p_bakery_id: string
+          p_client_ref?: string
+          p_price: number
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: string
+      }
       record_purchase: {
         Args: {
           p_bakery_id: string
@@ -1322,19 +1362,12 @@ export type Database = {
         }
         Returns: string
       }
-      record_sale: {
-        Args: {
-          p_bakery_id: string
-          p_keep_unsold: boolean
-          p_product_id: string
-          p_session_id: string
-          p_sold_quantity: number
-          p_unsold_quantity: number
-        }
-        Returns: Json
-      }
       remove_bakery_member: {
         Args: { _bakery_id: string; _user_id: string }
+        Returns: undefined
+      }
+      send_daily_reminder: {
+        Args: { p_body: string; p_title: string; p_url: string }
         Returns: undefined
       }
       send_test_push: { Args: never; Returns: undefined }
