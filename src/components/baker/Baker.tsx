@@ -337,7 +337,7 @@ export function Baker({
     // Ventre : léger ballottement retardé sur le mouvement du torse.
     const bellyWob = Math.sin(s.walkPhase * 2) * 0.016 + breathe * 0.016;
     belly.current.scale.set(0.385 + bellyWob, 0.36 + bellyWob * 0.6, 0.35);
-    belly.current.position.y = 0.26 - bellyWob * 0.25;
+    belly.current.position.y = 0.22 - bellyWob * 0.25;
 
 
     // Toque : petit retard élastique sur la tête.
@@ -413,10 +413,15 @@ export function Baker({
         </group>
       </group>
 
+      {/* Bassin — relie les jambes au torse */}
+      <mesh material={mats.pants} position={[0, 0.86, 0]} scale={[0.245, 0.17, 0.2]} castShadow>
+        <sphereGeometry args={[1, 22, 16]} />
+      </mesh>
+
       {/* Torse */}
       <group ref={torso} position={[0, 0.84, 0]}>
         {/* Ventre rebondi */}
-        <mesh ref={belly} material={mats.coat} position={[0, 0.26, 0.02]} castShadow>
+        <mesh ref={belly} material={mats.coat} position={[0, 0.22, 0.02]} castShadow>
           <sphereGeometry args={[1, 26, 20]} />
         </mesh>
         {/* Poitrine / épaules */}
@@ -446,7 +451,7 @@ export function Baker({
         </mesh>
 
         {/* Tête */}
-        <group ref={head} position={[0, 0.94, 0]}>
+        <group ref={head} position={[0, 1.03, 0]}>
 
           <mesh material={mats.skin} scale={[0.2, 0.215, 0.195]} castShadow>
             <sphereGeometry args={[1, 26, 22]} />
