@@ -503,7 +503,7 @@ export function Baker({
         </group>
 
         {/* Bras droit (tient la baguette) */}
-        <group ref={shR} position={[0.33, 0.62, 0.02]}>
+        <group ref={shR} position={[0.36, 0.63, 0.02]}>
           <mesh material={mats.coat} position={[0, -0.16, 0]} castShadow>
             <capsuleGeometry args={[0.078, 0.22, 4, 12]} />
           </mesh>
@@ -531,7 +531,7 @@ export function Baker({
         </group>
 
         {/* Bras gauche */}
-        <group ref={shL} position={[-0.33, 0.62, 0.02]}>
+        <group ref={shL} position={[-0.36, 0.63, 0.02]}>
           <mesh material={mats.coat} position={[0, -0.16, 0]} castShadow>
             <capsuleGeometry args={[0.078, 0.22, 4, 12]} />
           </mesh>
