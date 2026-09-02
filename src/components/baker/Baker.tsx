@@ -377,8 +377,9 @@ export function Baker({
     }
     const bl = s.blinkT < 0.13 ? 1 - Math.abs(s.blinkT / 0.065 - 1) : 0;
     const lid = 1 - bl * 0.92;
-    eyeL.current.scale.y = lid;
-    eyeR.current.scale.y = lid;
+    eyeL.current.scale.set(0.024, 0.03 * lid, 0.014);
+    eyeR.current.scale.set(0.024, 0.03 * lid, 0.014);
+
   });
 
   return (
