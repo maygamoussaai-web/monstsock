@@ -57,28 +57,29 @@ export function BakerScene({ flying, onFlown }: Props) {
         {/* Rebond chaud venant du sol */}
         <pointLight position={[0.4, 0.25, 1.8]} intensity={0.35} color="#e8c49a" distance={6} />
 
-        {/* Éclairage d'environnement local (aucun CDN) — reflets doux */}
-        <Environment resolution={128}>
-          <Lightformer intensity={1.6} color="#fff6ea" position={[0, 4.5, 1]} scale={[8, 8, 1]} />
-          <Lightformer
-            intensity={0.7}
-            color="#e9d7c0"
-            position={[-4, 1.2, 1]}
-            rotation-y={Math.PI / 2}
-            scale={[10, 3, 1]}
-          />
-          <Lightformer
-            intensity={0.5}
-            color="#cdd8e6"
-            position={[4, 1.6, -1]}
-            rotation-y={-Math.PI / 2}
-            scale={[10, 3, 1]}
-          />
-        </Environment>
-
         <Suspense fallback={null}>
+          {/* Éclairage d'environnement local (aucun CDN) — reflets doux */}
+          <Environment resolution={128} frames={1}>
+            <Lightformer intensity={1.6} color="#fff6ea" position={[0, 4.5, 1]} scale={[8, 8, 1]} />
+            <Lightformer
+              intensity={0.7}
+              color="#e9d7c0"
+              position={[-4, 1.2, 1]}
+              rotation-y={Math.PI / 2}
+              scale={[10, 3, 1]}
+            />
+            <Lightformer
+              intensity={0.5}
+              color="#cdd8e6"
+              position={[4, 1.6, -1]}
+              rotation-y={-Math.PI / 2}
+              scale={[10, 3, 1]}
+            />
+          </Environment>
+
           <Baker standX={0.15} scale={1.06} flying={flying} />
         </Suspense>
+
 
         {/* Ombre de contact douce sous les pieds */}
         <ContactShadows
