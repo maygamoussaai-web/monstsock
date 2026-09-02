@@ -335,9 +335,10 @@ export function Baker({
     head.current.rotation.z = ap("headZ", p.headZ);
 
     // Ventre : léger ballottement retardé sur le mouvement du torse.
-    const bellyWob = Math.sin(s.walkPhase * 2) * 0.02 + breathe * 0.02;
-    belly.current.scale.set(0.46 + bellyWob, 0.42 + bellyWob * 0.6, 0.42);
-    belly.current.position.y = 0.3 - bellyWob * 0.3;
+    const bellyWob = Math.sin(s.walkPhase * 2) * 0.016 + breathe * 0.016;
+    belly.current.scale.set(0.385 + bellyWob, 0.36 + bellyWob * 0.6, 0.35);
+    belly.current.position.y = 0.26 - bellyWob * 0.25;
+
 
     // Toque : petit retard élastique sur la tête.
     toque.current.rotation.z = damp(toque.current.rotation.z, -head.current.rotation.y * 0.22 + c.rootZ * -0.25, 7, dt);
