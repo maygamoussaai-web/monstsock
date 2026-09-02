@@ -84,14 +84,21 @@ export function BakerScene({ flying, onFlown }: Props) {
 
         {/* Ombre de contact douce sous les pieds */}
         <ContactShadows
-          position={[0, 0.001, 0]}
-          scale={7}
-          blur={2.6}
-          opacity={0.42}
-          far={2.4}
+          position={[0, 0.002, 0]}
+          scale={6}
+          blur={2.4}
+          opacity={0.45}
+          far={2.2}
           resolution={512}
           color="#5a4632"
         />
+
+        {/* Sol receveur d'ombres (ombre portée de la lumière clé) */}
+        <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+          <planeGeometry args={[24, 24]} />
+          <shadowMaterial opacity={0.16} color="#4a3728" />
+        </mesh>
+
       </Canvas>
 
 
