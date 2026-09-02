@@ -335,9 +335,10 @@ export function Baker({
     head.current.rotation.z = ap("headZ", p.headZ);
 
     // Ventre : léger ballottement retardé sur le mouvement du torse.
-    const bellyWob = Math.sin(s.walkPhase * 2) * 0.02 + breathe * 0.02;
-    belly.current.scale.set(0.46 + bellyWob, 0.42 + bellyWob * 0.6, 0.42);
-    belly.current.position.y = 0.3 - bellyWob * 0.3;
+    const bellyWob = Math.sin(s.walkPhase * 2) * 0.016 + breathe * 0.016;
+    belly.current.scale.set(0.385 + bellyWob, 0.36 + bellyWob * 0.6, 0.35);
+    belly.current.position.y = 0.22 - bellyWob * 0.25;
+
 
     // Toque : petit retard élastique sur la tête.
     toque.current.rotation.z = damp(toque.current.rotation.z, -head.current.rotation.y * 0.22 + c.rootZ * -0.25, 7, dt);
@@ -377,8 +378,9 @@ export function Baker({
     }
     const bl = s.blinkT < 0.13 ? 1 - Math.abs(s.blinkT / 0.065 - 1) : 0;
     const lid = 1 - bl * 0.92;
-    eyeL.current.scale.y = lid;
-    eyeR.current.scale.y = lid;
+    eyeL.current.scale.set(0.024, 0.03 * lid, 0.014);
+    eyeR.current.scale.set(0.024, 0.03 * lid, 0.014);
+
   });
 
   return (
@@ -411,36 +413,46 @@ export function Baker({
         </group>
       </group>
 
+      {/* Bassin — relie les jambes au torse */}
+      <mesh material={mats.pants} position={[0, 0.86, 0]} scale={[0.245, 0.17, 0.2]} castShadow>
+        <sphereGeometry args={[1, 22, 16]} />
+      </mesh>
+
       {/* Torse */}
       <group ref={torso} position={[0, 0.84, 0]}>
         {/* Ventre rebondi */}
-        <mesh ref={belly} material={mats.coat} position={[0, 0.3, 0.02]} castShadow>
+        <mesh ref={belly} material={mats.coat} position={[0, 0.22, 0.02]} castShadow>
           <sphereGeometry args={[1, 26, 20]} />
         </mesh>
         {/* Poitrine / épaules */}
-        <mesh material={mats.coat} position={[0, 0.66, 0]} scale={[0.36, 0.3, 0.28]} castShadow>
+        <mesh material={mats.coat} position={[0, 0.63, 0]} scale={[0.335, 0.28, 0.27]} castShadow>
           <sphereGeometry args={[1, 24, 18]} />
         </mesh>
+        {/* Cou */}
+        <mesh material={mats.skin} position={[0, 0.82, 0.005]} castShadow>
+          <cylinderGeometry args={[0.072, 0.082, 0.13, 14]} />
+        </mesh>
         {/* Col croisé de la blouse */}
-        <mesh material={mats.coatShade} position={[0, 0.62, 0.2]} rotation={[0.22, 0, 0.78]}>
+        <mesh material={mats.coatShade} position={[0, 0.6, 0.2]} rotation={[0.22, 0, 0.78]}>
           <boxGeometry args={[0.075, 0.3, 0.03]} />
         </mesh>
-        <mesh material={mats.coatShade} position={[0, 0.62, 0.2]} rotation={[0.22, 0, -0.78]}>
+        <mesh material={mats.coatShade} position={[0, 0.6, 0.2]} rotation={[0.22, 0, -0.78]}>
           <boxGeometry args={[0.075, 0.3, 0.03]} />
         </mesh>
         {/* Boutons */}
-        {[0.5, 0.36, 0.22].map((y) => (
-          <mesh key={y} material={mats.coatShade} position={[0.11, y, 0.31]}>
+        {[0.46, 0.32, 0.18].map((y) => (
+          <mesh key={y} material={mats.coatShade} position={[0.1, y, 0.29]}>
             <sphereGeometry args={[0.018, 8, 8]} />
           </mesh>
         ))}
         {/* Tablier / ceinture */}
-        <mesh material={mats.band} position={[0, 0.04, 0.02]} scale={[0.43, 0.055, 0.4]}>
+        <mesh material={mats.band} position={[0, 0.02, 0.02]} scale={[0.37, 0.05, 0.35]}>
           <sphereGeometry args={[1, 22, 14]} />
         </mesh>
 
         {/* Tête */}
-        <group ref={head} position={[0, 0.94, 0]}>
+        <group ref={head} position={[0, 1.03, 0]}>
+
           <mesh material={mats.skin} scale={[0.2, 0.215, 0.195]} castShadow>
             <sphereGeometry args={[1, 26, 22]} />
           </mesh>
@@ -496,7 +508,7 @@ export function Baker({
         </group>
 
         {/* Bras droit (tient la baguette) */}
-        <group ref={shR} position={[0.33, 0.62, 0.02]}>
+        <group ref={shR} position={[0.42, 0.62, 0.04]}>
           <mesh material={mats.coat} position={[0, -0.16, 0]} castShadow>
             <capsuleGeometry args={[0.078, 0.22, 4, 12]} />
           </mesh>
@@ -524,7 +536,7 @@ export function Baker({
         </group>
 
         {/* Bras gauche */}
-        <group ref={shL} position={[-0.33, 0.62, 0.02]}>
+        <group ref={shL} position={[-0.42, 0.62, 0.04]}>
           <mesh material={mats.coat} position={[0, -0.16, 0]} castShadow>
             <capsuleGeometry args={[0.078, 0.22, 4, 12]} />
           </mesh>

@@ -9,8 +9,9 @@
  *  onFlown  – appelé ~1.5 s après l'envol (navigation vers /dashboard)
  */
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
+import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
 import { Baker } from "./Baker";
 
 interface Props {
@@ -34,38 +35,72 @@ export function BakerScene({ flying, onFlown }: Props) {
       {/* ── Canvas Three.js — boulanger ── */}
       <Canvas
         className="baker-canvas"
-        camera={{ position: [0, 1.4, 5.5], fov: 36 }}
-        shadows
+        camera={{ position: [0.5, 1.75, 7.4], fov: 32 }}
+        shadows="soft"
+        dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
+        onCreated={({ camera }) => camera.lookAt(0.1, 1.05, 0)}
       >
-        <ambientLight intensity={0.55} />
+
+        <ambientLight intensity={0.42} />
+        {/* Clé : douce, chaude, projette les ombres */}
         <directionalLight
-          position={[3, 6, 4]}
-          intensity={1.1}
+          position={[3.2, 6, 4.2]}
+          intensity={1.25}
+          color="#fff3e0"
           castShadow
-          shadow-mapSize={[512, 512]}
+          shadow-mapSize={[1024, 1024]}
+          shadow-bias={-0.0004}
         />
-        <directionalLight position={[-2, 2, -1]} intensity={0.22} />
+        {/* Contre-jour froid pour détacher la silhouette */}
+        <directionalLight position={[-3, 3.4, -2.4]} intensity={0.5} color="#dfe7f2" />
+        {/* Rebond chaud venant du sol */}
+        <pointLight position={[0.4, 0.25, 1.8]} intensity={0.35} color="#e8c49a" distance={6} />
 
         <Suspense fallback={null}>
-          <Baker
-            standX={-1.1}
-            scale={1}
-            flying={flying}
-          />
+          {/* Éclairage d'environnement local (aucun CDN) — reflets doux */}
+          <Environment resolution={128} frames={1}>
+            <Lightformer intensity={1.6} color="#fff6ea" position={[0, 4.5, 1]} scale={[8, 8, 1]} />
+            <Lightformer
+              intensity={0.7}
+              color="#e9d7c0"
+              position={[-4, 1.2, 1]}
+              rotation-y={Math.PI / 2}
+              scale={[10, 3, 1]}
+            />
+            <Lightformer
+              intensity={0.5}
+              color="#cdd8e6"
+              position={[4, 1.6, -1]}
+              rotation-y={-Math.PI / 2}
+              scale={[10, 3, 1]}
+            />
+          </Environment>
+
+          <Baker standX={0.15} scale={1.06} flying={flying} />
         </Suspense>
 
-        {/* Sol receveur d'ombres */}
-        <mesh
-          receiveShadow
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, -0.01, 0]}
-        >
-          <planeGeometry args={[18, 18]} />
-          <shadowMaterial opacity={0.12} />
+
+        {/* Ombre de contact douce sous les pieds */}
+        <ContactShadows
+          position={[0, 0.002, 0]}
+          scale={6}
+          blur={2.4}
+          opacity={0.45}
+          far={2.2}
+          resolution={512}
+          color="#5a4632"
+        />
+
+        {/* Sol receveur d'ombres (ombre portée de la lumière clé) */}
+        <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+          <planeGeometry args={[24, 24]} />
+          <shadowMaterial opacity={0.16} color="#4a3728" />
         </mesh>
+
       </Canvas>
+
 
       {/* ── Avion en papier SVG — s'envole au clic ── */}
       <PaperPlane active={flying} />
