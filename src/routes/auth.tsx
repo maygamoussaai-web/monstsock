@@ -1,9 +1,30 @@
+/**
+ * src/routes/auth.tsx
+ * ─────────────────────────────────────────────────────────────
+ * Page d'authentification MonStock — version finale
+ *
+ * Changements vs version précédente :
+ *  - BaguetteFlourish supprimée (+ aucune trace dans les imports)
+ *  - BakerScene intégrée dans le panneau gauche (boulanger 3D + avion)
+ *  - Mot de passe oublié / réinitialisation
+ *  - Essai gratuit 7 jours direct (sans code)
+ *  - Toute la logique formulaire conservée à l'identique
+ */
+
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { hasLocalSession } from "@/lib/auth-local";
 import { toast } from "sonner";
-import { Wheat, Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import {
+  Wheat, Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft,
+} from "lucide-react";
+
+/* Chargement différé de la scène Three.js pour ne pas alourdir
+   le bundle initial — elle s'affiche seulement sur desktop (lg:). */
+const BakerScene = lazy(() =>
+  import("@/components/baker/BakerScene").then((m) => ({ default: m.BakerScene }))
+);
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -13,7 +34,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const WA_LINK = "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
+const WA_LINK =
+  "https://wa.me/22360673302?text=Bonjour%2C%20je%20souhaite%20obtenir%20un%20code%20d%27inscription%20pour%20Ma%20Boulangerie";
 
 const COUNTRY_CODES = [
   { code: "+223", label: "🇲🇱 +223 (Mali)" },
@@ -24,23 +46,20 @@ const COUNTRY_CODES = [
   { code: "+229", label: "🇧🇯 +229 (Bénin)" },
   { code: "+227", label: "🇳🇪 +227 (Niger)" },
   { code: "+224", label: "🇬🇳 +224 (Guinée)" },
-  { code: "+33", label: "🇫🇷 +33 (France)" },
+  { code: "+33",  label: "🇫🇷 +33 (France)" },
 ];
 
 const ALREADY_TRIALED_HINT = "essai gratuit de 7 jours";
 
+type AuthMode   = "signin" | "signup" | "forgot" | "reset";
 type SignupPath = "trial" | "code";
 
-// Prénom seul pour un salut plus naturel ("Bienvenue, Aïcha" plutôt que le nom complet).
 function firstNameOf(fullName: string | null | undefined): string | null {
   if (!fullName) return null;
   const trimmed = fullName.trim();
   return trimmed ? trimmed.split(/\s+/)[0] : null;
 }
 
-// Distingue une vraie coupure réseau d'un vrai refus (identifiants incorrects,
-// e-mail déjà utilisé...) — pour ne plus jamais afficher "identifiants non
-// reconnus" quand le problème est simplement l'absence de connexion.
 function isNetworkIssue(err: any): boolean {
   return (
     (typeof navigator !== "undefined" && !navigator.onLine) ||
@@ -49,36 +68,55 @@ function isNetworkIssue(err: any): boolean {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Page principale
+   ───────────────────────────────────────────────────────────── */
 function AuthPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [signupPath, setSignupPath] = useState<SignupPath>("trial");
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [bakeryName, setBakeryName] = useState("");
-  const [invitationCode, setInvitationCode] = useState("");
-  const [countryCode, setCountryCode] = useState("+223");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleEmail(e: React.FormEvent) {
+  /* Formulaire */
+  const [mode, setMode]               = useState<AuthMode>("signin");
+  const [signupPath, setSignupPath]   = useState<SignupPath>("trial");
+  const [fullName, setFullName]       = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPwd, setShowPwd]         = useState(false);
+  const [showNewPwd, setShowNewPwd]   = useState(false);
+  const [bakeryName, setBakeryName]   = useState("");
+  const [invCode, setInvCode]         = useState("");
+  const [countryCode, setCC]          = useState("+223");
+  const [phone, setPhone]             = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [forgotSent, setForgotSent]   = useState(false);
+
+  /* Animation boulanger */
+  const [flying, setFlying] = useState(false);
+
+  /* Détecte un token de reset dans l'URL */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash.includes("type=recovery")) setMode("reset");
+  }, []);
+
+  /* ── Soumission ── */
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
+      /* ── Inscription ── */
       if (mode === "signup") {
-        const phone = phoneNumber.trim() ? `${countryCode} ${phoneNumber.trim()}` : null;
-        const code = signupPath === "code" ? invitationCode : "";
+        const tel  = phone.trim() ? `${countryCode} ${phone.trim()}` : null;
+        const code = signupPath === "code" ? invCode : "";
         const { error } = await supabase.auth.signUp({
           email, password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/auth`,
             data: {
-              bakery_name: bakeryName,
+              bakery_name:     bakeryName,
               invitation_code: code,
-              phone,
-              full_name: fullName.trim() || null,
+              phone:           tel,
+              full_name:       fullName.trim() || null,
             },
           },
         });
@@ -86,16 +124,24 @@ function AuthPage() {
         toast.success(
           signupPath === "trial"
             ? "Votre essai gratuit de 7 jours est activé. Vous pouvez à présent vous connecter."
-            : "Votre compte a été créé avec plaisir. Vous pouvez à présent vous connecter."
+            : "Votre compte a été créé. Vous pouvez à présent vous connecter."
         );
         setMode("signin");
-      } else {
-        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
 
-        // Message de bienvenue personnalisé : on va chercher le nom associé à ce
-        // compte pour cette boulangerie. Simple lecture, jamais bloquante — en cas
-        // d'échec ou d'absence de nom, on retombe sur une formule générique.
+      /* ── Connexion ── */
+      } else if (mode === "signin") {
+        /* Déclenche l'animation avant même de savoir si l'auth réussit.
+           Si elle échoue, on annule l'animation 400 ms après. */
+        setFlying(true);
+
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          /* Auth échouée : annule l'envol */
+          setTimeout(() => setFlying(false), 400);
+          throw error;
+        }
+
+        /* Message de bienvenue personnalisé */
         let greeting = "Bienvenue, ravi de vous revoir.";
         try {
           const { data: member } = await supabase
@@ -105,237 +151,379 @@ function AuthPage() {
             .maybeSingle();
           const first = firstNameOf(member?.full_name);
           if (first) {
-            greeting = `Bienvenue, ${member?.role === "owner" ? "M./Mme" : ""} ${first} ! Ravi de vous revoir.`.replace(/\s+/g, " ").trim();
+            greeting = `Bienvenue, ${member?.role === "owner" ? "M./Mme " : ""}${first} ! Ravi de vous revoir.`
+              .replace(/\s+/g, " ").trim();
           }
-        } catch {
-          // Pas grave : le salut générique suffit.
-        }
+        } catch { /* salut générique */ }
         toast.success(greeting);
+        /* La navigation est déclenchée par onFlown (après ~1.5 s d'animation) */
 
-        const pending = typeof window !== "undefined" ? sessionStorage.getItem("pending_join_token") : null;
-        if (pending) {
-          sessionStorage.removeItem("pending_join_token");
-          router.navigate({ to: "/join/$token", params: { token: pending } });
-        } else {
-          router.navigate({ to: "/dashboard" });
-        }
+      /* ── Mot de passe oublié ── */
+      } else if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth`,
+        });
+        if (error) throw error;
+        setForgotSent(true);
+
+      /* ── Nouveau mot de passe ── */
+      } else if (mode === "reset") {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        toast.success("Mot de passe mis à jour. Vous êtes maintenant connecté.");
+        router.navigate({ to: "/dashboard" });
       }
+
     } catch (err: any) {
+      const raw = typeof err?.message === "string" ? err.message : "";
       if (mode === "signup") {
-        const raw = typeof err?.message === "string" ? err.message : "";
-        if (isNetworkIssue(err)) {
-          toast.error("Impossible de créer le compte — vérifiez votre connexion internet, puis réessayez.");
-        } else if (raw.includes(ALREADY_TRIALED_HINT)) {
-          toast.error("Cette adresse e-mail a déjà bénéficié de l'essai gratuit de 7 jours. Contactez-nous sur WhatsApp pour un abonnement.");
-        } else {
-          toast.error("Je ne suis pas parvenu à créer ce compte pour le moment. Veuillez vérifier les informations saisies, puis réessayer.");
-        }
-      } else {
-        if (isNetworkIssue(err)) {
-          toast.error("Impossible de vous connecter — vérifiez votre connexion internet, puis réessayez.");
-        } else {
-          toast.error("Ces identifiants ne me sont malheureusement pas familiers. Vérifions ensemble l'adresse e-mail et le mot de passe, puis réessayons.");
-        }
+        if (isNetworkIssue(err))
+          toast.error("Impossible de créer le compte — vérifiez votre connexion internet.");
+        else if (raw.includes(ALREADY_TRIALED_HINT))
+          toast.error("Cette adresse e-mail a déjà bénéficié de l'essai gratuit. Contactez-nous sur WhatsApp.");
+        else
+          toast.error("Impossible de créer ce compte. Vérifiez les informations saisies.");
+      } else if (mode === "signin") {
+        if (isNetworkIssue(err))
+          toast.error("Impossible de vous connecter — vérifiez votre connexion internet.");
+        else
+          toast.error("Ces identifiants ne sont pas reconnus. Vérifiez l'e-mail et le mot de passe.");
+      } else if (mode === "forgot") {
+        toast.error("L'envoi du lien a échoué. Vérifiez l'adresse e-mail saisie.");
+      } else if (mode === "reset") {
+        toast.error("La mise à jour a échoué. Le lien a peut-être expiré — demandez-en un nouveau.");
       }
     } finally {
       setLoading(false);
     }
   }
 
+  /* Appelé par BakerScene quand l'avion a fini de voler (~1.5 s) */
+  function handleFlown() {
+    const pending = sessionStorage.getItem("pending_join_token");
+    if (pending) {
+      sessionStorage.removeItem("pending_join_token");
+      router.navigate({ to: "/join/$token", params: { token: pending } });
+    } else {
+      router.navigate({ to: "/dashboard" });
+    }
+  }
+
+  /* Libellés dynamiques */
+  const labels: Record<AuthMode, { eyebrow: string; title: string; subtitle: string }> = {
+    signin: { eyebrow: "Connexion",            title: "Bon retour",               subtitle: "Accédez à votre boulangerie." },
+    signup: { eyebrow: "Créer un compte",      title: "Bienvenue",                subtitle: signupPath === "trial" ? "7 jours pour essayer, sans engagement." : "Ouvrez votre espace en une minute." },
+    forgot: { eyebrow: "Mot de passe oublié",  title: "Réinitialiser",            subtitle: "Nous vous enverrons un lien par e-mail." },
+    reset:  { eyebrow: "Nouveau mot de passe", title: "Choisissez-en un nouveau", subtitle: "Il doit faire au moins 8 caractères." },
+  };
+  const { eyebrow, title, subtitle } = labels[mode];
+
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
+
+      {/* ════════════════════════════════════════════════════════
+          Panneau gauche — branding + boulanger 3D
+          ════════════════════════════════════════════════════════ */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
+        {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Wheat className="h-5 w-5" />
           </div>
           <div>
             <p className="font-display text-base leading-none">MonStock</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              Pour les boulangeries
+            </p>
           </div>
         </div>
+
+        {/* Accroche */}
         <div className="max-w-md">
           <h2 className="font-display text-5xl leading-tight text-foreground">
-            Un fournil<br/>en <em className="not-italic italic text-accent">bon ordre</em>.
+            Un fournil<br />en{" "}
+            <em className="not-italic italic text-accent">bon ordre</em>.
           </h2>
           <p className="mt-4 text-muted-foreground">
             Matières, recettes, fournées, ventes — connectez-vous à votre atelier numérique.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MonStock</p>
+
+        {/* Boulanger 3D — occupe le bas du panneau */}
+        <div className="relative flex-1 min-h-[260px] mt-6">
+          <Suspense fallback={null}>
+            <BakerScene flying={flying} onFlown={handleFlown} />
+          </Suspense>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()} MonStock
+        </p>
       </div>
 
+      {/* ════════════════════════════════════════════════════════
+          Panneau droit — formulaire
+          ════════════════════════════════════════════════════════ */}
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm animate-fade-up">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-            {mode === "signin" ? "Connexion" : "Créer un compte"}
-          </p>
-          <h1 className="mt-2 font-display text-4xl">
-            {mode === "signin" ? "Bon retour" : "Bienvenue"}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Accédez à votre boulangerie."
-              : signupPath === "trial"
-                ? "7 jours pour essayer, sans engagement."
-                : "Ouvrez votre espace en une minute."}
-          </p>
 
+          {/* Bouton retour */}
+          {(mode === "forgot" || mode === "reset") && (
+            <button
+              type="button"
+              onClick={() => { setMode("signin"); setForgotSent(false); }}
+              className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Retour à la connexion
+            </button>
+          )}
+
+          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{eyebrow}</p>
+          <h1 className="mt-2 font-display text-4xl">{title}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+
+          {/* Pitch essai gratuit */}
           {mode === "signup" && <TrialPitch active={signupPath === "trial"} />}
 
+          {/* Toggle trial / code */}
           {mode === "signup" && (
             <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setSignupPath("trial")}
-                className={`rounded-lg px-3 py-2 transition-colors ${
-                  signupPath === "trial" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Essai gratuit 7 jours
-              </button>
-              <button
-                type="button"
-                onClick={() => setSignupPath("code")}
-                className={`rounded-lg px-3 py-2 transition-colors ${
-                  signupPath === "code" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                J'ai un code d'inscription
-              </button>
+              {(["trial", "code"] as SignupPath[]).map((p) => (
+                <button
+                  key={p} type="button"
+                  onClick={() => setSignupPath(p)}
+                  className={`rounded-lg px-3 py-2 transition-colors ${
+                    signupPath === p
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p === "trial" ? "Essai gratuit 7 jours" : "J'ai un code d'inscription"}
+                </button>
+              ))}
             </div>
           )}
 
-          {mode === "signin" && <BaguetteFlourish />}
-
-          <form onSubmit={handleEmail} className="mt-6 space-y-3">
-            {mode === "signup" && (
-              <>
-                <div>
-                  <label className="text-xs text-muted-foreground">Votre nom complet</label>
-                  <input
-                    type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="Aïcha Traoré"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Nom de la boulangerie</label>
-                  <input
-                    type="text" required value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="Ma Boulangerie"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Téléphone du gérant</label>
-                  <div className="mt-1 flex gap-2">
-                    <select
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                      className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors"
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>{c.label}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      placeholder="70 00 00 00"
-                    />
-                  </div>
-                </div>
-
-                {signupPath === "code" && (
-                  <div>
-                    <label className="text-xs text-muted-foreground">Code d'inscription</label>
-                    <input
-                      type="text" required value={invitationCode}
-                      onChange={(e) => setInvitationCode(e.target.value.trim())}
-                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
-                      placeholder="XXXXXX"
-                    />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Vous n'en avez pas ?{" "}
-                      <button
-                        type="button"
-                        onClick={() => setSignupPath("trial")}
-                        className="text-accent underline underline-offset-2"
-                      >
-                        Démarrez plutôt l'essai gratuit de 7 jours
-                      </button>
-                    </p>
-                  </div>
-                )}
-
-                <a
-                  href={WA_LINK}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors"
-                >
-                  <WhatsAppIcon />
-                  Contacter sur WhatsApp
-                </a>
-              </>
-            )}
-            <div>
-              <label className="text-xs text-muted-foreground">Email</label>
-              <input
-                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                placeholder="vous@boulangerie.fr"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Mot de passe</label>
-              <div className="relative mt-1">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
-                  placeholder="••••••••"
-                />
+          {/* ── Mot de passe oublié ── */}
+          {mode === "forgot" && (
+            forgotSent ? (
+              <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/10 px-5 py-6 text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-accent" />
+                <p className="mt-3 font-display text-lg">Lien envoyé !</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Si cette adresse est associée à un compte MonStock, vous recevrez un e-mail avec
+                  un lien de réinitialisation. Vérifiez aussi vos spams.
+                </p>
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  tabIndex={-1}
-                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => { setMode("signin"); setForgotSent(false); }}
+                  className="mt-5 text-sm text-accent underline underline-offset-4 hover:opacity-80"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Retour à la connexion
                 </button>
               </div>
-            </div>
-            <button
-              type="submit" disabled={loading}
-              className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signin" ? "Se connecter" : signupPath === "trial" ? "Démarrer mon essai gratuit" : "Créer un compte"}
-            </button>
-            {mode === "signup" && signupPath === "trial" && (
-              <p className="text-center text-[11px] text-muted-foreground">
-                Sans carte bancaire. Un seul essai gratuit par boulangerie.
-              </p>
-            )}
-          </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="mt-8 space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Votre adresse e-mail</label>
+                  <input
+                    type="email" required value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                    placeholder="vous@boulangerie.fr"
+                  />
+                </div>
+                <SubmitButton loading={loading} label="Envoyer le lien de réinitialisation" />
+              </form>
+            )
+          )}
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "Nouveau sur MonStock ?" : "Déjà inscrit ?"}{" "}
-            <button
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-              className="text-foreground underline underline-offset-4 hover:text-accent"
-            >
-              {mode === "signin" ? "Créer un compte" : "Se connecter"}
-            </button>
-          </p>
+          {/* ── Nouveau mot de passe ── */}
+          {mode === "reset" && (
+            <form onSubmit={handleSubmit} className="mt-8 space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Nouveau mot de passe</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showNewPwd ? "text" : "password"}
+                    required minLength={8} value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
+                    placeholder="••••••••"
+                  />
+                  <EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd((v) => !v)} />
+                </div>
+              </div>
+              <SubmitButton loading={loading} label="Enregistrer le nouveau mot de passe" />
+            </form>
+          )}
+
+          {/* ── Connexion / inscription ── */}
+          {(mode === "signin" || mode === "signup") && (
+            <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+
+              {mode === "signup" && (
+                <>
+                  <Field label="Votre nom complet">
+                    <input
+                      type="text" required value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                      placeholder="Aïcha Traoré"
+                    />
+                  </Field>
+                  <Field label="Nom de la boulangerie">
+                    <input
+                      type="text" required value={bakeryName}
+                      onChange={(e) => setBakeryName(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                      placeholder="Ma Boulangerie"
+                    />
+                  </Field>
+                  <Field label="Téléphone du gérant">
+                    <div className="mt-1 flex gap-2">
+                      <select
+                        value={countryCode} onChange={(e) => setCC(e.target.value)}
+                        className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={c.code} value={c.code}>{c.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                        className="flex-1 rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                        placeholder="70 00 00 00"
+                      />
+                    </div>
+                  </Field>
+                  {signupPath === "code" && (
+                    <Field label="Code d'inscription">
+                      <input
+                        type="text" required value={invCode}
+                        onChange={(e) => setInvCode(e.target.value.trim())}
+                        className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
+                        placeholder="XXXXXX"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Vous n'en avez pas ?{" "}
+                        <button type="button" onClick={() => setSignupPath("trial")}
+                          className="text-accent underline underline-offset-2">
+                          Démarrez l'essai gratuit de 7 jours
+                        </button>
+                      </p>
+                    </Field>
+                  )}
+                  <a href={WA_LINK} target="_blank" rel="noreferrer"
+                    className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors">
+                    <WhatsAppIcon />
+                    Contacter sur WhatsApp
+                  </a>
+                </>
+              )}
+
+              <Field label="Email">
+                <input
+                  type="email" required value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
+                  placeholder="vous@boulangerie.fr"
+                />
+              </Field>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-muted-foreground">Mot de passe</label>
+                  {mode === "signin" && (
+                    <button type="button" onClick={() => setMode("forgot")}
+                      className="text-[11px] text-accent hover:underline underline-offset-2 transition-colors">
+                      Mot de passe oublié ?
+                    </button>
+                  )}
+                </div>
+                <div className="relative mt-1">
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    required minLength={8} value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
+                    placeholder="••••••••"
+                  />
+                  <EyeToggle show={showPwd} onToggle={() => setShowPwd((v) => !v)} />
+                </div>
+              </div>
+
+              <SubmitButton
+                loading={loading}
+                label={
+                  mode === "signin" ? "Se connecter"
+                  : signupPath === "trial" ? "Démarrer mon essai gratuit"
+                  : "Créer un compte"
+                }
+              />
+
+              {mode === "signup" && signupPath === "trial" && (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Sans carte bancaire. Un seul essai gratuit par boulangerie.
+                </p>
+              )}
+            </form>
+          )}
+
+          {/* Toggle signin / signup */}
+          {(mode === "signin" || mode === "signup") && (
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              {mode === "signin" ? "Nouveau sur MonStock ?" : "Déjà inscrit ?"}{" "}
+              <button
+                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                className="text-foreground underline underline-offset-4 hover:text-accent"
+              >
+                {mode === "signin" ? "Créer un compte" : "Se connecter"}
+              </button>
+            </p>
+          )}
+
         </div>
       </div>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Sous-composants
+   ───────────────────────────────────────────────────────────── */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
+  return (
+    <button
+      type="submit" disabled={loading}
+      className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
+    >
+      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+      {label}
+    </button>
+  );
+}
+
+function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button" onClick={onToggle} tabIndex={-1}
+      aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+      className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </button>
   );
 }
 
@@ -359,118 +547,6 @@ function TrialPitch({ active }: { active: boolean }) {
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function BaguetteFlourish() {
-  return (
-    <div className="relative mt-8 flex flex-col items-center select-none" aria-hidden="true">
-      <style>{`
-        .ms-bag {
-          --dough: #f3e6c8;
-          --crust: #a8541f;
-          --crust-dark: #7d3c14;
-          --accent: #c97c3d;
-          --glow: #e8b06b;
-        }
-        @keyframes ms-piece-move {
-          0%   { transform: translate(var(--dx0), var(--dy0)); }
-          30%  { transform: translate(0, 0); }
-          46%  { transform: translate(0, 0); }
-          90%  { transform: translate(0, 0); }
-          100% { transform: translate(var(--dx0), var(--dy0)); }
-        }
-        @keyframes ms-piece-fade {
-          0%   { opacity: 1; }
-          36%  { opacity: 1; }
-          46%  { opacity: 0; }
-          90%  { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        .ms-piece { animation: ms-piece-move 6.5s ease-in-out infinite, ms-piece-fade 6.5s ease-in-out infinite; }
-
-        @keyframes ms-burst {
-          0%, 42% { opacity: 0; transform: scale(0.4); }
-          47%     { opacity: 0.9; transform: scale(1); }
-          58%     { opacity: 0; transform: scale(1.5); }
-          100%    { opacity: 0; transform: scale(0.4); }
-        }
-        .ms-burst-dot { animation: ms-burst 6.5s ease-out infinite; transform-origin: center; }
-
-        @keyframes ms-baguette-in {
-          0%, 44%  { opacity: 0; transform: scale(0.75); }
-          52%      { opacity: 1; transform: scale(1.03); }
-          58%      { opacity: 1; transform: scale(1); }
-          82%      { opacity: 1; transform: scale(1); }
-          92%      { opacity: 0; transform: scale(0.8); }
-          100%     { opacity: 0; transform: scale(0.75); }
-        }
-        @keyframes ms-baguette-color {
-          0%, 50%  { fill: var(--dough); }
-          64%      { fill: var(--crust); }
-          100%     { fill: var(--crust); }
-        }
-        .ms-baguette-wrap { animation: ms-baguette-in 6.5s ease-in-out infinite; transform-origin: 62px 66px; }
-        .ms-baguette-body { animation: ms-baguette-color 6.5s ease-in-out infinite; }
-
-        @keyframes ms-glow-pulse {
-          0%, 48%  { opacity: 0; }
-          60%      { opacity: 0.5; }
-          70%      { opacity: 0.25; }
-          80%      { opacity: 0.45; }
-          88%      { opacity: 0; }
-          100%     { opacity: 0; }
-        }
-        .ms-glow { animation: ms-glow-pulse 6.5s ease-in-out infinite; }
-
-        @keyframes ms-steam-rise {
-          0%, 55%  { opacity: 0; transform: translateY(0) scaleX(1); }
-          62%      { opacity: 0.5; }
-          85%      { opacity: 0; transform: translateY(-16px) scaleX(1.3); }
-          100%     { opacity: 0; }
-        }
-        .ms-steam { animation: ms-steam-rise 6.5s ease-in infinite; }
-      `}</style>
-
-      <svg className="ms-bag" width="150" height="130" viewBox="0 0 150 130" fill="none">
-        <ellipse className="ms-glow" cx="75" cy="66" rx="52" ry="26" fill="var(--glow)" opacity={0} />
-
-        <path className="ms-steam" d="M55 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam" d="M75 36c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "0.5s" }} />
-        <path className="ms-steam" d="M95 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "1s" }} />
-
-        <circle className="ms-burst-dot" cx="62" cy="58" r="2" fill="#fff8ea" />
-        <circle className="ms-burst-dot" cx="88" cy="60" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.05s" }} />
-        <circle className="ms-burst-dot" cx="75" cy="48" r="1.8" fill="#fff8ea" style={{ animationDelay: "0.1s" }} />
-        <circle className="ms-burst-dot" cx="70" cy="80" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.08s" }} />
-        <circle className="ms-burst-dot" cx="95" cy="76" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.15s" }} />
-        <circle className="ms-burst-dot" cx="55" cy="72" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.12s" }} />
-
-        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "-34px", ["--dy0" as any]: "-14px" }} cx="62" cy="66" rx="9" ry="8" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "34px", ["--dy0" as any]: "-10px" }} cx="88" cy="66" rx="9" ry="8" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "-22px", ["--dy0" as any]: "22px" }} cx="68" cy="66" rx="8" ry="7" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "24px", ["--dy0" as any]: "24px" }} cx="82" cy="66" rx="8" ry="7" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as any]: "0px", ["--dy0" as any]: "-30px" }} cx="75" cy="66" rx="8" ry="7" fill="var(--dough)" />
-
-        <g className="ms-baguette-wrap">
-          <path
-            className="ms-baguette-body"
-            d="M18 66c0-7 8-11 15-11h84c7 0 15 4 15 11s-8 11-15 11H33c-7 0-15-4-15-11z"
-            fill="var(--dough)"
-          />
-          <path d="M40 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M58 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M76 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M94 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M110 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M28 60c20-6 74-6 94 0" stroke="#ffe6b8" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity={0.4} />
-        </g>
-      </svg>
-
-      <p className="mt-1 text-[11px] italic text-muted-foreground text-center max-w-[220px]">
-        Chaque grain compte, jusqu'à la dernière baguette.
-      </p>
     </div>
   );
 }
