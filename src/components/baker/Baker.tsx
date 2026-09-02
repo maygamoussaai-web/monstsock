@@ -416,33 +416,38 @@ export function Baker({
       {/* Torse */}
       <group ref={torso} position={[0, 0.84, 0]}>
         {/* Ventre rebondi */}
-        <mesh ref={belly} material={mats.coat} position={[0, 0.3, 0.02]} castShadow>
+        <mesh ref={belly} material={mats.coat} position={[0, 0.26, 0.02]} castShadow>
           <sphereGeometry args={[1, 26, 20]} />
         </mesh>
         {/* Poitrine / épaules */}
-        <mesh material={mats.coat} position={[0, 0.66, 0]} scale={[0.36, 0.3, 0.28]} castShadow>
+        <mesh material={mats.coat} position={[0, 0.63, 0]} scale={[0.335, 0.28, 0.27]} castShadow>
           <sphereGeometry args={[1, 24, 18]} />
         </mesh>
+        {/* Cou */}
+        <mesh material={mats.skin} position={[0, 0.82, 0.005]} castShadow>
+          <cylinderGeometry args={[0.072, 0.082, 0.13, 14]} />
+        </mesh>
         {/* Col croisé de la blouse */}
-        <mesh material={mats.coatShade} position={[0, 0.62, 0.2]} rotation={[0.22, 0, 0.78]}>
+        <mesh material={mats.coatShade} position={[0, 0.6, 0.2]} rotation={[0.22, 0, 0.78]}>
           <boxGeometry args={[0.075, 0.3, 0.03]} />
         </mesh>
-        <mesh material={mats.coatShade} position={[0, 0.62, 0.2]} rotation={[0.22, 0, -0.78]}>
+        <mesh material={mats.coatShade} position={[0, 0.6, 0.2]} rotation={[0.22, 0, -0.78]}>
           <boxGeometry args={[0.075, 0.3, 0.03]} />
         </mesh>
         {/* Boutons */}
-        {[0.5, 0.36, 0.22].map((y) => (
-          <mesh key={y} material={mats.coatShade} position={[0.11, y, 0.31]}>
+        {[0.46, 0.32, 0.18].map((y) => (
+          <mesh key={y} material={mats.coatShade} position={[0.1, y, 0.29]}>
             <sphereGeometry args={[0.018, 8, 8]} />
           </mesh>
         ))}
         {/* Tablier / ceinture */}
-        <mesh material={mats.band} position={[0, 0.04, 0.02]} scale={[0.43, 0.055, 0.4]}>
+        <mesh material={mats.band} position={[0, 0.02, 0.02]} scale={[0.37, 0.05, 0.35]}>
           <sphereGeometry args={[1, 22, 14]} />
         </mesh>
 
         {/* Tête */}
         <group ref={head} position={[0, 0.94, 0]}>
+
           <mesh material={mats.skin} scale={[0.2, 0.215, 0.195]} castShadow>
             <sphereGeometry args={[1, 26, 22]} />
           </mesh>
