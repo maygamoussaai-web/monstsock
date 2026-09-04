@@ -268,7 +268,7 @@ function AuthPage() {
         {/* Boulanger 3D — version mobile/tablette (le panneau gauche est masqué) */}
         <div className="relative mb-2 h-[210px] w-full max-w-sm lg:hidden">
           <Suspense fallback={null}>
-            <BakerScene flying={flying} onFlown={handleFlown} />
+            <BakerScene flying={flying} onFlown={handleFlown} compact />
           </Suspense>
         </div>
 

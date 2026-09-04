@@ -17,9 +17,11 @@ import { Baker } from "./Baker";
 interface Props {
   flying: boolean;
   onFlown?: () => void;
+  /** Cadrage rapproché pour les petits écrans (mobile) */
+  compact?: boolean;
 }
 
-export function BakerScene({ flying, onFlown }: Props) {
+export function BakerScene({ flying, onFlown, compact = false }: Props) {
   const onFlownRef = useRef(onFlown);
   onFlownRef.current = onFlown;
 
@@ -35,12 +37,16 @@ export function BakerScene({ flying, onFlown }: Props) {
       {/* ── Canvas Three.js — boulanger ── */}
       <Canvas
         className="baker-canvas"
-        camera={{ position: [-0.15, 1.6, 13.8], fov: 26 }}
+        camera={
+          compact
+            ? { position: [-0.15, 1.35, 8.4], fov: 30 }
+            : { position: [-0.15, 1.6, 13.8], fov: 26 }
+        }
         shadows="soft"
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
-        onCreated={({ camera }) => camera.lookAt(-0.2, 1.0, 0)}
+        onCreated={({ camera }) => camera.lookAt(-0.2, compact ? 1.15 : 1.0, 0)}
       >
 
         <ambientLight intensity={0.42} />
