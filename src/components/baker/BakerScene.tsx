@@ -35,12 +35,12 @@ export function BakerScene({ flying, onFlown }: Props) {
       {/* ── Canvas Three.js — boulanger ── */}
       <Canvas
         className="baker-canvas"
-        camera={{ position: [-0.55, 1.6, 12.5], fov: 26 }}
+        camera={{ position: [-0.15, 1.6, 13.8], fov: 26 }}
         shadows="soft"
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
-        onCreated={({ camera }) => camera.lookAt(-0.6, 1.0, 0)}
+        onCreated={({ camera }) => camera.lookAt(-0.2, 1.0, 0)}
       >
 
         <ambientLight intensity={0.42} />
