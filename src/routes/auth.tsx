@@ -264,7 +264,14 @@ function AuthPage() {
       {/* ════════════════════════════════════════════════════════
           Panneau droit — formulaire
           ════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
+      <div className="flex flex-col items-center justify-center p-6 sm:p-12">
+        {/* Boulanger 3D — version mobile/tablette (le panneau gauche est masqué) */}
+        <div className="relative mb-2 h-[210px] w-full max-w-sm lg:hidden">
+          <Suspense fallback={null}>
+            <BakerScene flying={flying} onFlown={handleFlown} />
+          </Suspense>
+        </div>
+
         <div className="w-full max-w-sm animate-fade-up">
 
           {/* Bouton retour */}
