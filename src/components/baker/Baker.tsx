@@ -491,7 +491,7 @@ export function Baker({
           </mesh>
 
           {/* Toque */}
-          <group ref={toque} position={[0, 0.19, 0]}>
+          <group ref={toque} position={[0, 0.13, 0]}>
             <mesh material={mats.hat} position={[0, 0.01, 0]} scale={[0.195, 0.05, 0.19]} castShadow>
               <cylinderGeometry args={[1, 1, 1, 20]} />
             </mesh>
