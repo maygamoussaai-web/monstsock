@@ -1,14 +1,11 @@
 /**
- * src/routes/auth.tsx
- * ─────────────────────────────────────────────────────────────
- * Page d'authentification MonStock — version finale
+ * src/routes/auth.tsx — MonStock auth page
  *
- * Changements vs version précédente :
- *  - BaguetteFlourish supprimée (+ aucune trace dans les imports)
- *  - BakerScene intégrée dans le panneau gauche (boulanger 3D + avion)
- *  - Mot de passe oublié / réinitialisation
- *  - Essai gratuit 7 jours direct (sans code)
- *  - Toute la logique formulaire conservée à l'identique
+ *  ✓ Boulanger 3D (desktop: panneau gauche | mobile: dessus du formulaire)
+ *  ✓ Avion en papier au clic "Se connecter"
+ *  ✓ Mot de passe oublié + réinitialisation
+ *  ✓ Essai gratuit 7 jours direct (sans code)
+ *  ✓ Responsive : mobile / tablette / desktop
  */
 
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
@@ -16,12 +13,8 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { hasLocalSession } from "@/lib/auth-local";
 import { toast } from "sonner";
-import {
-  Wheat, Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft,
-} from "lucide-react";
+import { Wheat, Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft } from "lucide-react";
 
-/* Chargement différé de la scène Three.js pour ne pas alourdir
-   le bundle initial — elle s'affiche seulement sur desktop (lg:). */
 const BakerScene = lazy(() =>
   import("@/components/baker/BakerScene").then((m) => ({ default: m.BakerScene }))
 );
@@ -49,18 +42,16 @@ const COUNTRY_CODES = [
   { code: "+33",  label: "🇫🇷 +33 (France)" },
 ];
 
-const ALREADY_TRIALED_HINT = "essai gratuit de 7 jours";
-
 type AuthMode   = "signin" | "signup" | "forgot" | "reset";
 type SignupPath = "trial" | "code";
 
-function firstNameOf(fullName: string | null | undefined): string | null {
-  if (!fullName) return null;
-  const trimmed = fullName.trim();
-  return trimmed ? trimmed.split(/\s+/)[0] : null;
+function firstNameOf(s?: string | null) {
+  if (!s) return null;
+  const t = s.trim();
+  return t ? t.split(/\s+/)[0] : null;
 }
 
-function isNetworkIssue(err: any): boolean {
+function isNetworkIssue(err: any) {
   return (
     (typeof navigator !== "undefined" && !navigator.onLine) ||
     err instanceof TypeError ||
@@ -68,13 +59,9 @@ function isNetworkIssue(err: any): boolean {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Page principale
-   ───────────────────────────────────────────────────────────── */
 function AuthPage() {
   const router = useRouter();
 
-  /* Formulaire */
   const [mode, setMode]               = useState<AuthMode>("signin");
   const [signupPath, setSignupPath]   = useState<SignupPath>("trial");
   const [fullName, setFullName]       = useState("");
@@ -89,22 +76,17 @@ function AuthPage() {
   const [phone, setPhone]             = useState("");
   const [loading, setLoading]         = useState(false);
   const [forgotSent, setForgotSent]   = useState(false);
+  const [flying, setFlying]           = useState(false);
 
-  /* Animation boulanger */
-  const [flying, setFlying] = useState(false);
-
-  /* Détecte un token de reset dans l'URL */
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash.includes("type=recovery")) setMode("reset");
   }, []);
 
-  /* ── Soumission ── */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      /* ── Inscription ── */
       if (mode === "signup") {
         const tel  = phone.trim() ? `${countryCode} ${phone.trim()}` : null;
         const code = signupPath === "code" ? invCode : "";
@@ -112,12 +94,7 @@ function AuthPage() {
           email, password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth`,
-            data: {
-              bakery_name:     bakeryName,
-              invitation_code: code,
-              phone:           tel,
-              full_name:       fullName.trim() || null,
-            },
+            data: { bakery_name: bakeryName, invitation_code: code, phone: tel, full_name: fullName.trim() || null },
           },
         });
         if (error) throw error;
@@ -128,37 +105,25 @@ function AuthPage() {
         );
         setMode("signin");
 
-      /* ── Connexion ── */
       } else if (mode === "signin") {
-        /* Déclenche l'animation avant même de savoir si l'auth réussit.
-           Si elle échoue, on annule l'animation 400 ms après. */
         setFlying(true);
-
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          /* Auth échouée : annule l'envol */
-          setTimeout(() => setFlying(false), 400);
+          setTimeout(() => setFlying(false), 380);
           throw error;
         }
-
-        /* Message de bienvenue personnalisé */
         let greeting = "Bienvenue, ravi de vous revoir.";
         try {
           const { data: member } = await supabase
-            .from("bakery_members")
-            .select("full_name, role")
-            .eq("user_id", data.user!.id)
-            .maybeSingle();
+            .from("bakery_members").select("full_name, role")
+            .eq("user_id", data.user!.id).maybeSingle();
           const first = firstNameOf(member?.full_name);
-          if (first) {
+          if (first)
             greeting = `Bienvenue, ${member?.role === "owner" ? "M./Mme " : ""}${first} ! Ravi de vous revoir.`
               .replace(/\s+/g, " ").trim();
-          }
         } catch { /* salut générique */ }
         toast.success(greeting);
-        /* La navigation est déclenchée par onFlown (après ~1.5 s d'animation) */
 
-      /* ── Mot de passe oublié ── */
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
@@ -166,7 +131,6 @@ function AuthPage() {
         if (error) throw error;
         setForgotSent(true);
 
-      /* ── Nouveau mot de passe ── */
       } else if (mode === "reset") {
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         if (error) throw error;
@@ -179,7 +143,7 @@ function AuthPage() {
       if (mode === "signup") {
         if (isNetworkIssue(err))
           toast.error("Impossible de créer le compte — vérifiez votre connexion internet.");
-        else if (raw.includes(ALREADY_TRIALED_HINT))
+        else if (raw.includes("essai gratuit"))
           toast.error("Cette adresse e-mail a déjà bénéficié de l'essai gratuit. Contactez-nous sur WhatsApp.");
         else
           toast.error("Impossible de créer ce compte. Vérifiez les informations saisies.");
@@ -198,7 +162,6 @@ function AuthPage() {
     }
   }
 
-  /* Appelé par BakerScene quand l'avion a fini de voler (~1.5 s) */
   function handleFlown() {
     const pending = sessionStorage.getItem("pending_join_token");
     if (pending) {
@@ -209,7 +172,6 @@ function AuthPage() {
     }
   }
 
-  /* Libellés dynamiques */
   const labels: Record<AuthMode, { eyebrow: string; title: string; subtitle: string }> = {
     signin: { eyebrow: "Connexion",            title: "Bon retour",               subtitle: "Accédez à votre boulangerie." },
     signup: { eyebrow: "Créer un compte",      title: "Bienvenue",                subtitle: signupPath === "trial" ? "7 jours pour essayer, sans engagement." : "Ouvrez votre espace en une minute." },
@@ -221,60 +183,57 @@ function AuthPage() {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
 
-      {/* ════════════════════════════════════════════════════════
-          Panneau gauche — branding + boulanger 3D
-          ════════════════════════════════════════════════════════ */}
+      {/* ── Panneau gauche desktop ── */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
-        {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
             <Wheat className="h-5 w-5" />
           </div>
           <div>
             <p className="font-display text-base leading-none">MonStock</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Pour les boulangeries
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
           </div>
         </div>
 
-        {/* Accroche */}
         <div className="max-w-md">
           <h2 className="font-display text-5xl leading-tight text-foreground">
-            Un fournil<br />en{" "}
-            <em className="not-italic italic text-accent">bon ordre</em>.
+            Un fournil<br />en <em className="not-italic italic text-accent">bon ordre</em>.
           </h2>
           <p className="mt-4 text-muted-foreground">
             Matières, recettes, fournées, ventes — connectez-vous à votre atelier numérique.
           </p>
         </div>
 
-        {/* Boulanger 3D — occupe le bas du panneau */}
-        <div className="relative flex-1 min-h-[260px] mt-6">
+        {/* Boulanger desktop — flex-1 pour occuper l'espace restant */}
+        <div style={{ flex: 1, minHeight: 280, marginTop: 24, position: "relative" }}>
           <Suspense fallback={null}>
-            <BakerScene flying={flying} onFlown={handleFlown} />
+            <BakerScene flying={flying} onFlown={handleFlown} compact={false} />
           </Suspense>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          © {new Date().getFullYear()} MonStock
-        </p>
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MonStock</p>
       </div>
 
-      {/* ════════════════════════════════════════════════════════
-          Panneau droit — formulaire
-          ════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col items-center justify-center p-6 sm:p-12">
-        {/* Boulanger 3D — version mobile/tablette (le panneau gauche est masqué) */}
-        <div className="relative mb-2 h-[210px] w-full max-w-sm lg:hidden">
+      {/* ── Panneau droit — formulaire ── */}
+      <div className="flex flex-col items-center justify-start min-h-screen lg:justify-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
+
+        {/* Boulanger mobile — hauteur fixe, ne repousse pas le formulaire */}
+        <div className="lg:hidden w-full mb-2" style={{ height: 200, maxWidth: 480, position: "relative" }}>
           <Suspense fallback={null}>
             <BakerScene flying={flying} onFlown={handleFlown} compact />
           </Suspense>
         </div>
 
+        {/* Logo mobile */}
+        <div className="lg:hidden flex items-center gap-2 mb-5 self-start w-full max-w-sm">
+          <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <Wheat className="h-4 w-4" />
+          </div>
+          <p className="font-display text-sm leading-none">MonStock</p>
+        </div>
+
         <div className="w-full max-w-sm animate-fade-up">
 
-          {/* Bouton retour */}
           {(mode === "forgot" || mode === "reset") && (
             <button
               type="button"
@@ -290,75 +249,58 @@ function AuthPage() {
           <h1 className="mt-2 font-display text-4xl">{title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
 
-          {/* Pitch essai gratuit */}
           {mode === "signup" && <TrialPitch active={signupPath === "trial"} />}
 
-          {/* Toggle trial / code */}
           {mode === "signup" && (
             <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1 text-xs font-medium">
               {(["trial", "code"] as SignupPath[]).map((p) => (
-                <button
-                  key={p} type="button"
-                  onClick={() => setSignupPath(p)}
+                <button key={p} type="button" onClick={() => setSignupPath(p)}
                   className={`rounded-lg px-3 py-2 transition-colors ${
-                    signupPath === p
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
+                    signupPath === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}>
                   {p === "trial" ? "Essai gratuit 7 jours" : "J'ai un code d'inscription"}
                 </button>
               ))}
             </div>
           )}
 
-          {/* ── Mot de passe oublié ── */}
+          {/* Mot de passe oublié */}
           {mode === "forgot" && (
             forgotSent ? (
               <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/10 px-5 py-6 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-accent" />
                 <p className="mt-3 font-display text-lg">Lien envoyé !</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Si cette adresse est associée à un compte MonStock, vous recevrez un e-mail avec
-                  un lien de réinitialisation. Vérifiez aussi vos spams.
+                  Si cette adresse est associée à un compte MonStock, vous recevrez un e-mail
+                  avec un lien de réinitialisation. Vérifiez aussi vos spams.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => { setMode("signin"); setForgotSent(false); }}
-                  className="mt-5 text-sm text-accent underline underline-offset-4 hover:opacity-80"
-                >
+                <button type="button" onClick={() => { setMode("signin"); setForgotSent(false); }}
+                  className="mt-5 text-sm text-accent underline underline-offset-4 hover:opacity-80">
                   Retour à la connexion
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="mt-8 space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Votre adresse e-mail</label>
-                  <input
-                    type="email" required value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                <Field label="Votre adresse e-mail">
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="vous@boulangerie.fr"
-                  />
-                </div>
+                    placeholder="vous@boulangerie.fr" />
+                </Field>
                 <SubmitButton loading={loading} label="Envoyer le lien de réinitialisation" />
               </form>
             )
           )}
 
-          {/* ── Nouveau mot de passe ── */}
+          {/* Nouveau mot de passe */}
           {mode === "reset" && (
             <form onSubmit={handleSubmit} className="mt-8 space-y-3">
               <div>
                 <label className="text-xs text-muted-foreground">Nouveau mot de passe</label>
                 <div className="relative mt-1">
-                  <input
-                    type={showNewPwd ? "text" : "password"}
-                    required minLength={8} value={newPassword}
+                  <input type={showNewPwd ? "text" : "password"} required minLength={8} value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="••••••••"
-                  />
+                    placeholder="••••••••" />
                   <EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd((v) => !v)} />
                 </div>
               </div>
@@ -366,53 +308,37 @@ function AuthPage() {
             </form>
           )}
 
-          {/* ── Connexion / inscription ── */}
+          {/* Connexion / inscription */}
           {(mode === "signin" || mode === "signup") && (
             <form onSubmit={handleSubmit} className="mt-6 space-y-3">
-
               {mode === "signup" && (
                 <>
                   <Field label="Votre nom complet">
-                    <input
-                      type="text" required value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                    <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
                       className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      placeholder="Aïcha Traoré"
-                    />
+                      placeholder="Aïcha Traoré" />
                   </Field>
                   <Field label="Nom de la boulangerie">
-                    <input
-                      type="text" required value={bakeryName}
-                      onChange={(e) => setBakeryName(e.target.value)}
+                    <input type="text" required value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
                       className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      placeholder="Ma Boulangerie"
-                    />
+                      placeholder="Ma Boulangerie" />
                   </Field>
                   <Field label="Téléphone du gérant">
                     <div className="mt-1 flex gap-2">
-                      <select
-                        value={countryCode} onChange={(e) => setCC(e.target.value)}
-                        className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code} value={c.code}>{c.label}</option>
-                        ))}
+                      <select value={countryCode} onChange={(e) => setCC(e.target.value)}
+                        className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors">
+                        {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
                       </select>
-                      <input
-                        type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                         className="flex-1 rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                        placeholder="70 00 00 00"
-                      />
+                        placeholder="70 00 00 00" />
                     </div>
                   </Field>
                   {signupPath === "code" && (
                     <Field label="Code d'inscription">
-                      <input
-                        type="text" required value={invCode}
-                        onChange={(e) => setInvCode(e.target.value.trim())}
+                      <input type="text" required value={invCode} onChange={(e) => setInvCode(e.target.value.trim())}
                         className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
-                        placeholder="XXXXXX"
-                      />
+                        placeholder="XXXXXX" />
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         Vous n'en avez pas ?{" "}
                         <button type="button" onClick={() => setSignupPath("trial")}
@@ -424,19 +350,15 @@ function AuthPage() {
                   )}
                   <a href={WA_LINK} target="_blank" rel="noreferrer"
                     className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors">
-                    <WhatsAppIcon />
-                    Contacter sur WhatsApp
+                    <WhatsAppIcon /> Contacter sur WhatsApp
                   </a>
                 </>
               )}
 
               <Field label="Email">
-                <input
-                  type="email" required value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                  placeholder="vous@boulangerie.fr"
-                />
+                  placeholder="vous@boulangerie.fr" />
               </Field>
 
               <div>
@@ -450,24 +372,17 @@ function AuthPage() {
                   )}
                 </div>
                 <div className="relative mt-1">
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    required minLength={8} value={password}
+                  <input type={showPwd ? "text" : "password"} required minLength={8} value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="••••••••"
-                  />
+                    placeholder="••••••••" />
                   <EyeToggle show={showPwd} onToggle={() => setShowPwd((v) => !v)} />
                 </div>
               </div>
 
               <SubmitButton
                 loading={loading}
-                label={
-                  mode === "signin" ? "Se connecter"
-                  : signupPath === "trial" ? "Démarrer mon essai gratuit"
-                  : "Créer un compte"
-                }
+                label={mode === "signin" ? "Se connecter" : signupPath === "trial" ? "Démarrer mon essai gratuit" : "Créer un compte"}
               />
 
               {mode === "signup" && signupPath === "trial" && (
@@ -478,44 +393,29 @@ function AuthPage() {
             </form>
           )}
 
-          {/* Toggle signin / signup */}
           {(mode === "signin" || mode === "signup") && (
             <p className="mt-6 text-center text-sm text-muted-foreground">
               {mode === "signin" ? "Nouveau sur MonStock ?" : "Déjà inscrit ?"}{" "}
-              <button
-                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-                className="text-foreground underline underline-offset-4 hover:text-accent"
-              >
+              <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                className="text-foreground underline underline-offset-4 hover:text-accent">
                 {mode === "signin" ? "Créer un compte" : "Se connecter"}
               </button>
             </p>
           )}
-
         </div>
       </div>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Sous-composants
-   ───────────────────────────────────────────────────────────── */
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="text-xs text-muted-foreground">{label}</label>
-      {children}
-    </div>
-  );
+  return <div><label className="text-xs text-muted-foreground">{label}</label>{children}</div>;
 }
 
 function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
   return (
-    <button
-      type="submit" disabled={loading}
-      className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity"
-    >
+    <button type="submit" disabled={loading}
+      className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity">
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {label}
     </button>
@@ -524,11 +424,9 @@ function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
 
 function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
   return (
-    <button
-      type="button" onClick={onToggle} tabIndex={-1}
+    <button type="button" onClick={onToggle} tabIndex={-1}
       aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-      className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
-    >
+      className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors">
       {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
     </button>
   );
@@ -536,18 +434,17 @@ function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) 
 
 function TrialPitch({ active }: { active: boolean }) {
   if (!active) return null;
-  const points = [
-    "Suivez vos matières premières et vos recettes dès aujourd'hui",
-    "Enregistrez vos fournées et vos ventes en quelques secondes",
-    "Aucune carte bancaire, aucun engagement",
-  ];
   return (
     <div className="mt-4 rounded-2xl border border-accent/25 bg-accent/5 p-4">
       <p className="text-sm font-medium text-foreground">
         7 jours pour tester MonStock en conditions réelles, gratuitement.
       </p>
       <ul className="mt-2 space-y-1.5">
-        {points.map((p) => (
+        {[
+          "Suivez vos matières premières et vos recettes dès aujourd'hui",
+          "Enregistrez vos fournées et vos ventes en quelques secondes",
+          "Aucune carte bancaire, aucun engagement",
+        ].map((p) => (
           <li key={p} className="flex items-start gap-2 text-xs text-muted-foreground">
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
             <span>{p}</span>
