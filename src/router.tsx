@@ -6,22 +6,17 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // staleTime : sert le cache instantanément et ne refait un fetch en
-        // arrière-plan que si la donnée a plus de 30s ou a été invalidée.
-        staleTime: 30_000,
-        // gcTime : doit largement dépasser la durée entre deux ouvertures de
-        // l'app. Gouverne quand une donnée non consultée est évincée de la
-        // MÉMOIRE — pas seulement du cache persistant. À 5 minutes (valeur par
-        // défaut de react-query), toute page non visitée depuis plus de 5 min
-        // était silencieusement effacée en mémoire, et cette purge se
-        // retrouvait ensuite écrite dans le cache hors ligne à la sauvegarde
-        // suivante : c'était la cause de "il faut se reconnecter à chaque
-        // fois". Remonté à 24h pour que le hors ligne reste fiable sur une
-        // pleine journée sans avoir besoin de repasser en ligne.
-        gcTime: 48 * 60 * 60_000, // 24h
+        // 60 s : sert le cache instantanément, refetch en arrière-plan seulement si besoin.
+        staleTime: 60_000,
+        // 48 h : données en mémoire longtemps pour garantir le hors ligne sur 2 jours.
+        gcTime: 48 * 60 * 60_000,
         refetchOnWindowFocus: false,
+        // false globalement : chaque useQuery qui a besoin de rafraîchir peut surcharger.
+        refetchOnMount: false,
         networkMode: "offlineFirst",
         retry: 1,
+        // Évite les re-renders inutiles : React Query compare profondément les données.
+        structuralSharing: true,
       },
       mutations: { networkMode: "offlineFirst" },
     },
@@ -31,7 +26,8 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 30_000,
+    // 120 s : navigation instantanée vers une page préchargée même après une hésitation.
+    defaultPreloadStaleTime: 120_000,
     defaultPreload: "intent",
     defaultPreloadDelay: 50,
   });
