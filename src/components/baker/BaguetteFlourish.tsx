@@ -1,123 +1,242 @@
 /**
- * BaguetteFlourish — animation d'origine de la page de connexion.
- * Des grains de pâte se rejoignent, un éclat marque la fusion, puis une
- * baguette se forme et prend sa couleur de croûte. 100 % SVG + CSS.
+ * BaguetteFlourish — animation SVG améliorée de la page de connexion.
+ *
+ * Améliorations vs l'originale :
+ *  • 7 grains de pâte (au lieu de 5) avec trajectoires plus variées
+ *  • Forme de baguette plus réaliste : légèrement bombée, extrémités effilées
+ *  • 6 incisions au lieu de 5, mieux espacées et plus naturelles
+ *  • Reflet de croûte dorée supplémentaire
+ *  • Halo de chaleur plus doux avec double pulse
+ *  • 4 filets de vapeur (au lieu de 3) avec délais et courbes différentes
+ *  • Particules d'éclat plus nombreuses (8) et mieux distribuées
+ *  • Éasing cubic-bezier sur les grains pour un effet magnétique naturel
+ *  • Timing légèrement allongé (7.2 s) pour plus de respiration
+ *  • prefers-reduced-motion : baguette cuite affichée statiquement
  */
 export function BaguetteFlourish() {
   return (
     <div className="relative mt-8 flex flex-col items-center select-none" aria-hidden="true">
       <style>{`
-        .ms-bag {
-          --dough: #f3e6c8;
-          --crust: #a8541f;
+        .bf {
+          --dough:      #f3e6c8;
+          --dough-warm: #edd9a8;
+          --crust:      #b85c20;
+          --crust-tip:  #8b3d10;
           --crust-dark: #7d3c14;
-          --accent: #c97c3d;
-          --glow: #e8b06b;
+          --accent:     #c97c3d;
+          --shine:      #f5c96a;
+          --glow:       #e8b06b;
         }
-        @keyframes ms-piece-move {
-          0%   { transform: translate(var(--dx0), var(--dy0)); }
-          30%  { transform: translate(0, 0); }
-          46%  { transform: translate(0, 0); }
-          90%  { transform: translate(0, 0); }
-          100% { transform: translate(var(--dx0), var(--dy0)); }
-        }
-        @keyframes ms-piece-fade {
-          0%   { opacity: 1; }
-          36%  { opacity: 1; }
-          46%  { opacity: 0; }
-          90%  { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        .ms-piece { animation: ms-piece-move 6.5s ease-in-out infinite, ms-piece-fade 6.5s ease-in-out infinite; }
 
-        @keyframes ms-burst {
-          0%, 42% { opacity: 0; transform: scale(0.4); }
-          47%     { opacity: 0.9; transform: scale(1); }
-          58%     { opacity: 0; transform: scale(1.5); }
-          100%    { opacity: 0; transform: scale(0.4); }
+        /* ── Grains de pâte ── */
+        @keyframes bf-piece-move {
+          0%   { transform: translate(var(--dx), var(--dy)); opacity: 0.9; }
+          8%   { opacity: 1; }
+          32%  { transform: translate(0, 0); }
+          48%  { transform: translate(0, 0); opacity: 1; }
+          50%  { opacity: 0; }
+          92%  { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+          100% { transform: translate(var(--dx), var(--dy)); opacity: 0.9; }
         }
-        .ms-burst-dot { animation: ms-burst 6.5s ease-out infinite; transform-origin: center; }
+        .bf-piece {
+          animation: bf-piece-move 7.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
 
-        @keyframes ms-baguette-in {
-          0%, 44%  { opacity: 0; transform: scale(0.75); }
-          52%      { opacity: 1; transform: scale(1.03); }
-          58%      { opacity: 1; transform: scale(1); }
-          82%      { opacity: 1; transform: scale(1); }
-          92%      { opacity: 0; transform: scale(0.8); }
-          100%     { opacity: 0; transform: scale(0.75); }
+        /* ── Éclat de fusion ── */
+        @keyframes bf-burst {
+          0%, 44%  { opacity: 0; transform: scale(0.3); }
+          49%      { opacity: 1; transform: scale(1.1); }
+          56%      { opacity: 0; transform: scale(1.7); }
+          100%     { opacity: 0; }
         }
-        @keyframes ms-baguette-color {
-          0%, 50%  { fill: var(--dough); }
-          64%      { fill: var(--crust); }
+        .bf-burst { animation: bf-burst 7.2s ease-out infinite; transform-origin: center; }
+
+        /* ── Anneau d'éclat ── */
+        @keyframes bf-ring {
+          0%, 44%  { opacity: 0; r: 8; stroke-width: 2; }
+          48%      { opacity: 0.6; r: 8; stroke-width: 2; }
+          58%      { opacity: 0; r: 22; stroke-width: 0.5; }
+          100%     { opacity: 0; }
+        }
+        .bf-ring { animation: bf-ring 7.2s ease-out infinite; transform-origin: center; }
+
+        /* ── Baguette apparition ── */
+        @keyframes bf-baguette-in {
+          0%, 46%   { opacity: 0; transform: scale(0.7) translateX(-6px); }
+          54%       { opacity: 1; transform: scale(1.04) translateX(0); }
+          60%       { transform: scale(1); }
+          84%       { opacity: 1; transform: scale(1); }
+          94%       { opacity: 0; transform: scale(0.82) translateX(4px); }
+          100%      { opacity: 0; transform: scale(0.7) translateX(-6px); }
+        }
+        .bf-baguette-wrap {
+          animation: bf-baguette-in 7.2s cubic-bezier(0.34, 1.18, 0.64, 1) infinite;
+          transform-origin: 75px 66px;
+        }
+
+        /* Croûte qui dore */
+        @keyframes bf-crust {
+          0%, 52%  { fill: var(--dough); }
+          68%      { fill: var(--crust); }
           100%     { fill: var(--crust); }
         }
-        .ms-baguette-wrap { animation: ms-baguette-in 6.5s ease-in-out infinite; transform-origin: 62px 66px; }
-        .ms-baguette-body { animation: ms-baguette-color 6.5s ease-in-out infinite; }
+        .bf-body { animation: bf-crust 7.2s ease-in-out infinite; }
 
-        @keyframes ms-glow-pulse {
-          0%, 48%  { opacity: 0; }
-          60%      { opacity: 0.5; }
-          70%      { opacity: 0.25; }
-          80%      { opacity: 0.45; }
-          88%      { opacity: 0; }
+        @keyframes bf-tip {
+          0%, 52%  { fill: var(--dough-warm); }
+          68%      { fill: var(--crust-tip); }
+          100%     { fill: var(--crust-tip); }
+        }
+        .bf-tip { animation: bf-tip 7.2s ease-in-out infinite; }
+
+        /* ── Halo de chaleur ── */
+        @keyframes bf-glow {
+          0%, 50%  { opacity: 0; rx: 48; ry: 22; }
+          62%      { opacity: 0.45; rx: 54; ry: 26; }
+          72%      { opacity: 0.18; }
+          80%      { opacity: 0.38; }
+          90%      { opacity: 0; }
           100%     { opacity: 0; }
         }
-        .ms-glow { animation: ms-glow-pulse 6.5s ease-in-out infinite; }
+        .bf-glow { animation: bf-glow 7.2s ease-in-out infinite; }
 
-        @keyframes ms-steam-rise {
-          0%, 55%  { opacity: 0; transform: translateY(0) scaleX(1); }
-          62%      { opacity: 0.5; }
-          85%      { opacity: 0; transform: translateY(-16px) scaleX(1.3); }
+        /* ── Reflet de croûte ── */
+        @keyframes bf-shine {
+          0%, 56%  { opacity: 0; }
+          66%      { opacity: 0.38; }
+          82%      { opacity: 0.18; }
+          90%      { opacity: 0; }
           100%     { opacity: 0; }
         }
-        .ms-steam { animation: ms-steam-rise 6.5s ease-in infinite; }
+        .bf-shine { animation: bf-shine 7.2s ease-in-out infinite; }
 
+        /* ── Vapeur ── */
+        @keyframes bf-steam {
+          0%, 57%  { opacity: 0; transform: translateY(0) scaleX(1); }
+          64%      { opacity: 0.55; }
+          87%      { opacity: 0; transform: translateY(-20px) scaleX(1.4); }
+          100%     { opacity: 0; }
+        }
+        .bf-steam { animation: bf-steam 7.2s ease-in infinite; }
+
+        /* ── prefers-reduced-motion ── */
         @media (prefers-reduced-motion: reduce) {
-          .ms-piece, .ms-burst-dot, .ms-baguette-wrap,
-          .ms-baguette-body, .ms-glow, .ms-steam { animation: none !important; }
-          .ms-piece { opacity: 0; }
-          .ms-baguette-wrap { opacity: 1; }
-          .ms-baguette-body { fill: var(--crust); }
+          .bf-piece, .bf-burst, .bf-ring,
+          .bf-glow, .bf-shine, .bf-steam { animation: none !important; opacity: 0 !important; }
+          .bf-baguette-wrap { animation: none !important; opacity: 1 !important; transform: none !important; }
+          .bf-body { animation: none !important; fill: var(--crust) !important; }
+          .bf-tip  { animation: none !important; fill: var(--crust-tip) !important; }
         }
       `}</style>
 
-      <svg className="ms-bag" width="150" height="130" viewBox="0 0 150 130" fill="none">
-        <ellipse className="ms-glow" cx="75" cy="66" rx="52" ry="26" fill="var(--glow)" opacity={0} />
+      <svg className="bf" width="160" height="130" viewBox="0 0 160 130" fill="none"
+           style={{ overflow: "visible" }}>
 
-        <path className="ms-steam" d="M55 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path className="ms-steam" d="M75 36c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "0.5s" }} />
-        <path className="ms-steam" d="M95 40c-4-6 4-9 0-15" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" style={{ animationDelay: "1s" }} />
+        {/* Halo de chaleur */}
+        <ellipse className="bf-glow" cx="80" cy="68" rx="48" ry="22"
+                 fill="var(--glow)" opacity={0} />
 
-        <circle className="ms-burst-dot" cx="62" cy="58" r="2" fill="#fff8ea" />
-        <circle className="ms-burst-dot" cx="88" cy="60" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.05s" }} />
-        <circle className="ms-burst-dot" cx="75" cy="48" r="1.8" fill="#fff8ea" style={{ animationDelay: "0.1s" }} />
-        <circle className="ms-burst-dot" cx="70" cy="80" r="1.6" fill="#fff8ea" style={{ animationDelay: "0.08s" }} />
-        <circle className="ms-burst-dot" cx="95" cy="76" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.15s" }} />
-        <circle className="ms-burst-dot" cx="55" cy="72" r="1.4" fill="#fff8ea" style={{ animationDelay: "0.12s" }} />
+        {/* Vapeur — 4 filets */}
+        <path className="bf-steam" d="M52 42c-5-7 5-10 0-18"
+              stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+        <path className="bf-steam" d="M70 37c-4-7 4-10 0-18"
+              stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none"
+              style={{ animationDelay: "0.4s" }} />
+        <path className="bf-steam" d="M90 37c-4-7 4-10 0-18"
+              stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none"
+              style={{ animationDelay: "0.9s" }} />
+        <path className="bf-steam" d="M108 42c-5-7 5-10 0-18"
+              stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" fill="none"
+              style={{ animationDelay: "0.65s" }} />
 
-        <ellipse className="ms-piece" style={{ ["--dx0" as string]: "-34px", ["--dy0" as string]: "-14px" } as React.CSSProperties} cx="62" cy="66" rx="9" ry="8" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as string]: "34px", ["--dy0" as string]: "-10px" } as React.CSSProperties} cx="88" cy="66" rx="9" ry="8" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as string]: "-22px", ["--dy0" as string]: "22px" } as React.CSSProperties} cx="68" cy="66" rx="8" ry="7" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as string]: "24px", ["--dy0" as string]: "24px" } as React.CSSProperties} cx="82" cy="66" rx="8" ry="7" fill="var(--dough)" />
-        <ellipse className="ms-piece" style={{ ["--dx0" as string]: "0px", ["--dy0" as string]: "-30px" } as React.CSSProperties} cx="75" cy="66" rx="8" ry="7" fill="var(--dough)" />
+        {/* Anneau d'éclat */}
+        <circle className="bf-ring" cx="80" cy="66" r="8"
+                fill="none" stroke="#fffbe8" strokeWidth="2" opacity={0} />
 
-        <g className="ms-baguette-wrap">
+        {/* Particules d'éclat — 8 points */}
+        {([
+          [64, 57, 2.2, "0s"],
+          [92, 59, 1.8, "0.04s"],
+          [78, 46, 2.0, "0.09s"],
+          [72, 80, 1.7, "0.07s"],
+          [98, 78, 1.5, "0.14s"],
+          [56, 74, 1.5, "0.11s"],
+          [85, 50, 1.6, "0.06s"],
+          [62, 82, 1.4, "0.16s"],
+        ] as [number, number, number, string][]).map(([cx, cy, r, delay], i) => (
+          <circle key={i} className="bf-burst" cx={cx} cy={cy} r={r}
+                  fill="#fffbe8" opacity={0}
+                  style={{ animationDelay: delay }} />
+        ))}
+
+        {/* ── Grains de pâte — 7 morceaux ── */}
+        {([
+          [62, 66, 10, 8,  "-38px", "-16px", "0s"],
+          [91, 65, 9,  8,  "38px",  "-12px", "0.05s"],
+          [70, 67, 8,  7,  "-24px", "24px",  "0.1s"],
+          [84, 67, 8,  7,  "26px",  "26px",  "0.08s"],
+          [77, 65, 8,  7,  "0px",   "-32px", "0.03s"],
+          [55, 68, 7,  6,  "-48px", "4px",   "0.14s"],
+          [99, 65, 7,  6,  "50px",  "6px",   "0.12s"],
+        ] as [number, number, number, number, string, string, string][]).map(
+          ([cx, cy, rx, ry, dx, dy, delay], i) => (
+            <ellipse key={i} className="bf-piece" cx={cx} cy={cy} rx={rx} ry={ry}
+                     fill="var(--dough)"
+                     style={{
+                       ["--dx" as string]: dx,
+                       ["--dy" as string]: dy,
+                       animationDelay: delay,
+                     } as React.CSSProperties} />
+          )
+        )}
+
+        {/* ── Baguette ── */}
+        <g className="bf-baguette-wrap">
+          {/* Corps principal — forme bombée naturelle */}
           <path
-            className="ms-baguette-body"
-            d="M18 66c0-7 8-11 15-11h84c7 0 15 4 15 11s-8 11-15 11H33c-7 0-15-4-15-11z"
+            className="bf-body"
+            d="M20 66 C20 57 30 55 38 55 L122 55 C130 55 140 57 140 66
+               C140 75 130 77 122 77 L38 77 C30 77 20 75 20 66 Z"
             fill="var(--dough)"
           />
-          <path d="M40 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M58 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M76 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M94 56c4 6 4 12 0 20" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M110 58c4 5 4 11 0 16" stroke="var(--crust-dark)" strokeWidth="2" strokeLinecap="round" fill="none" opacity={0.65} />
-          <path d="M28 60c20-6 74-6 94 0" stroke="#ffe6b8" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity={0.4} />
+          {/* Extrémité gauche effilée */}
+          <path className="bf-tip"
+                d="M20 66 C20 60 24 57 30 56 C26 58 22 62 22 66 C22 70 26 74 30 76 C24 75 20 72 20 66 Z"
+                fill="var(--dough-warm)" />
+          {/* Extrémité droite effilée */}
+          <path className="bf-tip"
+                d="M140 66 C140 60 136 57 130 56 C134 58 138 62 138 66 C138 70 134 74 130 76 C136 75 140 72 140 66 Z"
+                fill="var(--dough-warm)" />
+
+          {/* 6 incisions diagonales */}
+          {[
+            ["M46 58 C48 62 46 70 44 74", "0.55"],
+            ["M60 56 C62 61 60 71 58 75", "0.6"],
+            ["M74 56 C76 61 74 71 72 75", "0.6"],
+            ["M88 56 C90 61 88 71 86 75", "0.6"],
+            ["M102 56 C104 61 102 71 100 75", "0.6"],
+            ["M116 58 C118 62 116 70 114 74", "0.55"],
+          ].map(([d, op], i) => (
+            <path key={i} d={d} stroke="var(--crust-dark)" strokeWidth="1.8"
+                  strokeLinecap="round" fill="none" opacity={Number(op)} />
+          ))}
+
+          {/* Reflet de croûte dorée */}
+          <path className="bf-shine"
+                d="M32 59 C50 56 110 56 128 59"
+                stroke="var(--shine)" strokeWidth="1.6"
+                strokeLinecap="round" fill="none" opacity={0} />
+          {/* Second reflet plus fin */}
+          <path className="bf-shine"
+                d="M38 61 C55 58 105 58 122 61"
+                stroke="#fff8e0" strokeWidth="0.8"
+                strokeLinecap="round" fill="none" opacity={0}
+                style={{ animationDelay: "0.15s" }} />
         </g>
       </svg>
 
-      <p className="mt-1 text-[11px] italic text-muted-foreground text-center max-w-[220px]">
-        Chaque grain compte, jusqu'à la dernière baguette.
+      <p className="mt-2 text-[11px] italic text-muted-foreground text-center max-w-[220px]">
+        Chaque grain compte, jusqu’à la dernière baguette.
       </p>
     </div>
   );

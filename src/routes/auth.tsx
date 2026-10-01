@@ -1,23 +1,19 @@
 /**
  * src/routes/auth.tsx — MonStock auth page
  *
- *  ✓ Boulanger 3D (desktop: panneau gauche | mobile: dessus du formulaire)
- *  ✓ Avion en papier au clic "Se connecter"
+ *  ✓ BaguetteFlourish SVG améliorée (animation originale enrichie)
  *  ✓ Mot de passe oublié + réinitialisation
  *  ✓ Essai gratuit 7 jours direct (sans code)
  *  ✓ Responsive : mobile / tablette / desktop
  */
 
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { hasLocalSession } from "@/lib/auth-local";
 import { toast } from "sonner";
 import { Wheat, Loader2, Eye, EyeOff, CheckCircle2, ArrowLeft } from "lucide-react";
-
-const BakerScene = lazy(() =>
-  import("@/components/baker/BakerScene").then((m) => ({ default: m.BakerScene }))
-);
+import { BaguetteFlourish } from "@/components/baker/BaguetteFlourish";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -76,7 +72,6 @@ function AuthPage() {
   const [phone, setPhone]             = useState("");
   const [loading, setLoading]         = useState(false);
   const [forgotSent, setForgotSent]   = useState(false);
-  const [flying, setFlying]           = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -106,12 +101,8 @@ function AuthPage() {
         setMode("signin");
 
       } else if (mode === "signin") {
-        setFlying(true);
         const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          setTimeout(() => setFlying(false), 380);
-          throw error;
-        }
+        if (error) throw error;
         let greeting = "Bienvenue, ravi de vous revoir.";
         try {
           const { data: member } = await supabase
@@ -123,6 +114,13 @@ function AuthPage() {
               .replace(/\s+/g, " ").trim();
         } catch { /* salut générique */ }
         toast.success(greeting);
+        const pending = sessionStorage.getItem("pending_join_token");
+        if (pending) {
+          sessionStorage.removeItem("pending_join_token");
+          router.navigate({ to: "/join/$token", params: { token: pending } });
+        } else {
+          router.navigate({ to: "/dashboard" });
+        }
 
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -162,16 +160,6 @@ function AuthPage() {
     }
   }
 
-  function handleFlown() {
-    const pending = sessionStorage.getItem("pending_join_token");
-    if (pending) {
-      sessionStorage.removeItem("pending_join_token");
-      router.navigate({ to: "/join/$token", params: { token: pending } });
-    } else {
-      router.navigate({ to: "/dashboard" });
-    }
-  }
-
   const labels: Record<AuthMode, { eyebrow: string; title: string; subtitle: string }> = {
     signin: { eyebrow: "Connexion",            title: "Bon retour",               subtitle: "Accédez à votre boulangerie." },
     signup: { eyebrow: "Créer un compte",      title: "Bienvenue",                subtitle: signupPath === "trial" ? "7 jours pour essayer, sans engagement." : "Ouvrez votre espace en une minute." },
@@ -183,7 +171,7 @@ function AuthPage() {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-2">
 
-      {/* ── Panneau gauche desktop ── */}
+      {/* ══ Panneau gauche — desktop ══ */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
@@ -195,44 +183,34 @@ function AuthPage() {
           </div>
         </div>
 
-        <div className="max-w-md">
+        <div className="max-w-md space-y-4">
           <h2 className="font-display text-5xl leading-tight text-foreground">
             Un fournil<br />en <em className="not-italic italic text-accent">bon ordre</em>.
           </h2>
-          <p className="mt-4 text-muted-foreground">
+          <p className="text-muted-foreground">
             Matières, recettes, fournées, ventes — connectez-vous à votre atelier numérique.
           </p>
-        </div>
-
-        {/* Boulanger desktop — flex-1 pour occuper l'espace restant */}
-        <div style={{ flex: 1, minHeight: 280, marginTop: 24, position: "relative" }}>
-          <Suspense fallback={null}>
-            <BakerScene flying={flying} onFlown={handleFlown} compact={false} />
-          </Suspense>
+          {/* Animation baguette — desktop */}
+          <BaguetteFlourish />
         </div>
 
         <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MonStock</p>
       </div>
 
-      {/* ── Panneau droit — formulaire ── */}
-      <div className="flex flex-col items-center justify-start min-h-screen lg:justify-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
-
-        {/* Boulanger mobile — hauteur fixe, ne repousse pas le formulaire */}
-        <div className="lg:hidden w-full mb-2" style={{ height: 200, maxWidth: 480, position: "relative" }}>
-          <Suspense fallback={null}>
-            <BakerScene flying={flying} onFlown={handleFlown} compact />
-          </Suspense>
-        </div>
-
-        {/* Logo mobile */}
-        <div className="lg:hidden flex items-center gap-2 mb-5 self-start w-full max-w-sm">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Wheat className="h-4 w-4" />
-          </div>
-          <p className="font-display text-sm leading-none">MonStock</p>
-        </div>
-
+      {/* ══ Panneau droit — formulaire ══ */}
+      <div className="flex items-center justify-center min-h-screen p-6 sm:p-10 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-sm animate-fade-up">
+
+          {/* Logo + animation mobile */}
+          <div className="lg:hidden flex items-center gap-2 mb-6">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+              <Wheat className="h-4 w-4" />
+            </div>
+            <p className="font-display text-sm leading-none">MonStock</p>
+          </div>
+          <div className="lg:hidden">
+            <BaguetteFlourish />
+          </div>
 
           {(mode === "forgot" || mode === "reset") && (
             <button
