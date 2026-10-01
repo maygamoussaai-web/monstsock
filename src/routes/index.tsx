@@ -1,37 +1,38 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { hasLocalSession } from "@/lib/auth-local";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
-  Wheat,
-  Package2,
-  Flame,
-  ShoppingBag,
-  LineChart,
+  BarChart3,
+  BookOpenCheck,
+  Boxes,
+  Calculator,
+  Check,
+  ChevronRight,
+  CircleDollarSign,
+  Clock3,
+  PackageCheck,
+  ReceiptText,
   ShieldCheck,
-  Scale,
+  TrendingDown,
   TrendingUp,
-  Smartphone,
-  Sunrise,
-  Sun,
-  Moon,
+  Users,
+  Wheat,
 } from "lucide-react";
-import { Reveal, TiltGlowCard, AnimatedNumber, useReducedMotion } from "@/components/motion";
+import { Reveal, AnimatedNumber } from "@/components/motion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MonStock — L'employé de votre boulangerie qui ne dort jamais" },
+      { title: "MonStock — Pilotez la rentabilité de votre boulangerie" },
       {
         name: "description",
         content:
-          "MonStock est l'employé dévoué de votre boulangerie : il compte chaque gramme, surveille les pertes, calcule vos marges et vous rend des comptes chaque soir.",
+          "Suivez chiffre d’affaires, coût matière, marge brute estimée, pertes, stocks et production dans un outil conçu pour les boulangeries.",
       },
-      { property: "og:title", content: "MonStock — L'employé de votre boulangerie qui ne dort jamais" },
+      { property: "og:title", content: "MonStock — Pilotez la rentabilité de votre boulangerie" },
       {
         property: "og:description",
-        content: "Il compte, il surveille, il calcule. Jamais fatigué, jamais distrait, jamais malhonnête.",
+        content: "Des chiffres clairs pour mieux acheter, mieux produire et protéger la marge de votre boulangerie.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -44,423 +45,283 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// useScrollY — position de scroll lissée via requestAnimationFrame, pour le
-// parallaxe. Retourne 0 en cas de prefers-reduced-motion (fond figé).
-// ─────────────────────────────────────────────────────────────────────────────
-function useScrollY(enabled: boolean) {
-  const [y, setY] = useState(0);
-  const raf = useRef(0);
-  useEffect(() => {
-    if (!enabled) return;
-    const onScroll = () => {
-      cancelAnimationFrame(raf.current);
-      raf.current = requestAnimationFrame(() => setY(window.scrollY));
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf.current);
-    };
-  }, [enabled]);
-  return y;
-}
+const financeSignals = [
+  { label: "Chiffre d’affaires", value: "1 847 500 F", tone: "positive" },
+  { label: "Coût des matières", value: "684 200 F", tone: "neutral" },
+  { label: "Marge brute estimée", value: "1 163 300 F", tone: "positive" },
+  { label: "Pertes identifiées", value: "42 750 F", tone: "warning" },
+];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FlourScene — scène de fond en couches : nappes chaudes qui dérivent lentement
-// + particules de farine à trois profondeurs (loin/floues, médianes, proches/nettes).
-// Le tout se déplace plus lentement que le contenu au scroll (parallaxe).
-// Volontairement très discret : jamais au détriment de la lisibilité du texte.
-// ─────────────────────────────────────────────────────────────────────────────
-type Particle = { x: number; y: number; r: number; dur: number; delay: number; drift: number; op: number };
+const financeBenefits = [
+  {
+    icon: CircleDollarSign,
+    index: "01",
+    title: "Connaître ce que chaque produit vous rapporte",
+    text: "MonStock rapproche recettes, coût réel des matières et ventes enregistrées. Vous distinguez les produits qui soutiennent votre marge de ceux qui la réduisent.",
+  },
+  {
+    icon: TrendingDown,
+    index: "02",
+    title: "Transformer les pertes en décisions",
+    text: "Invendus, casse et écarts de stock ne restent plus invisibles. Ils sont chiffrés, datés et classés pour vous aider à agir là où l’argent se perd.",
+  },
+  {
+    icon: ReceiptText,
+    index: "03",
+    title: "Présenter des comptes mieux préparés",
+    text: "Achats, ventes, mouvements et coûts restent réunis dans un historique clair. Vous gagnez du temps dans votre suivi quotidien et préparez une base propre pour votre comptabilité.",
+  },
+  {
+    icon: BarChart3,
+    index: "04",
+    title: "Décider avec les chiffres du jour",
+    text: "Suivez les tendances sur 7, 30 ou 90 jours. Ajustez vos prix, vos quantités et vos achats sans attendre la fin du mois pour découvrir un problème.",
+  },
+];
 
-function makeParticles(count: number, seed: number, rMin: number, rMax: number): Particle[] {
-  // Génération déterministe (pas de Math.random) pour éviter tout écart SSR/hydratation.
-  const rand = (i: number, k: number) => {
-    const v = Math.sin((i + 1) * (12.9898 + seed) + k * 78.233) * 43758.5453;
-    return v - Math.floor(v);
-  };
-  return Array.from({ length: count }).map((_, i) => ({
-    x: rand(i, 1) * 100,
-    y: rand(i, 2) * 100,
-    r: rMin + rand(i, 3) * (rMax - rMin),
-    dur: 14 + rand(i, 4) * 16,
-    delay: -rand(i, 5) * 20,
-    drift: -18 - rand(i, 6) * 26,
-    op: 0.25 + rand(i, 7) * 0.45,
-  }));
-}
+const operations = [
+  {
+    icon: Boxes,
+    title: "Matières sous contrôle",
+    text: "Farine, levure, beurre ou emballages : quantités, prix d’achat, coût moyen et seuils d’alerte restent à jour.",
+  },
+  {
+    icon: PackageCheck,
+    title: "Production reliée aux coûts",
+    text: "Les recettes et fournées déduisent les matières consommées pour montrer le coût réel de ce qui sort du fournil.",
+  },
+  {
+    icon: Wheat,
+    title: "Ventes et invendus rapprochés",
+    text: "Les quantités produites, vendues et restantes se répondent, pour une lecture cohérente du stock jusqu’à la marge.",
+  },
+];
 
-function ParticleLayer({
-  particles,
-  blur,
-  offset,
-  color,
-}: {
-  particles: Particle[];
-  blur: number;
-  offset: number;
-  color: string;
-}) {
+const trustPoints = [
+  { icon: Users, title: "Votre équipe, avec les bons accès", text: "Invitez le personnel et gardez la gestion sensible sous votre contrôle." },
+  { icon: BookOpenCheck, title: "Une trace qui ne s’efface pas", text: "Chaque action importante est datée et attribuée pour faciliter les vérifications." },
+  { icon: Clock3, title: "Disponible même sans réseau", text: "Le travail continue hors connexion, puis se synchronise lorsque le réseau revient." },
+];
+
+function Brand() {
   return (
-    <div
-      className="absolute inset-0"
-      style={{ filter: blur ? `blur(${blur}px)` : undefined, transform: `translate3d(0, ${offset}px, 0)` }}
-    >
-      {particles.map((p, i) => (
-        <span
-          key={i}
-          className="ms-flour absolute rounded-full"
-          style={{
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.r,
-            height: p.r,
-            background: color,
-            opacity: p.op,
-            animationDuration: `${p.dur}s`,
-            animationDelay: `${p.delay}s`,
-            ["--drift" as any]: `${p.drift}px`,
-          }}
-        />
-      ))}
+    <div className="flex items-center gap-3">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-soft)]">
+        <Wheat className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span>
+        <span className="block font-display text-lg leading-none">MonStock</span>
+        <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Gestion pour boulangeries</span>
+      </span>
     </div>
   );
 }
 
-function FlourScene({ scrollY }: { scrollY: number }) {
-  const far = useMemo(() => makeParticles(26, 1.7, 2, 4), []);
-  const mid = useMemo(() => makeParticles(18, 5.3, 3, 5.5), []);
-  const near = useMemo(() => makeParticles(10, 9.1, 4, 7), []);
-
+function Header() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <style>{`
-        @keyframes ms-hero-blob-a {
-          0%, 100% { transform: translate(-6%, -6%) scale(1); }
-          50%      { transform: translate(4%, 5%) scale(1.12); }
-        }
-        @keyframes ms-hero-blob-b {
-          0%, 100% { transform: translate(5%, 4%) scale(1); }
-          50%      { transform: translate(-5%, -4%) scale(1.08); }
-        }
-        @keyframes ms-hero-blob-c {
-          0%, 100% { transform: translate(2%, 6%) scale(1); }
-          50%      { transform: translate(-3%, -5%) scale(1.15); }
-        }
-        @keyframes ms-flour-float {
-          0%   { transform: translate3d(0, 0, 0); opacity: 0; }
-          12%  { opacity: 1; }
-          88%  { opacity: 1; }
-          100% { transform: translate3d(var(--drift), -110px, 0); opacity: 0; }
-        }
-        .ms-hero-blob-a { animation: ms-hero-blob-a 16s ease-in-out infinite; }
-        .ms-hero-blob-b { animation: ms-hero-blob-b 20s ease-in-out infinite; }
-        .ms-hero-blob-c { animation: ms-hero-blob-c 18s ease-in-out infinite; }
-        .ms-flour { animation-name: ms-flour-float; animation-timing-function: linear; animation-iteration-count: infinite; }
-      `}</style>
-
-      {/* Couche 1 — nappes de couleur chaude, les plus lointaines */}
-      <div style={{ transform: `translate3d(0, ${scrollY * 0.12}px, 0)` }}>
-        <div
-          className="ms-hero-blob-a absolute -top-1/3 -left-1/4 h-[50vmax] w-[50vmax] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, #e8b06b4d 0%, transparent 70%)" }}
-        />
-        <div
-          className="ms-hero-blob-b absolute -bottom-1/3 right-0 h-[45vmax] w-[45vmax] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, #a8541f33 0%, transparent 70%)" }}
-        />
-        <div
-          className="ms-hero-blob-c absolute top-0 right-1/4 h-[32vmax] w-[32vmax] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, #c97c3d2e 0%, transparent 70%)" }}
-        />
-      </div>
-
-      {/* Couches 2 à 4 — farine, du plus flou/lointain au plus net/proche */}
-      <ParticleLayer particles={far} blur={3} offset={scrollY * 0.06} color="#c97c3d55" />
-      <ParticleLayer particles={mid} blur={1.2} offset={scrollY * 0.14} color="#a8541f4d" />
-      <ParticleLayer particles={near} blur={0} offset={scrollY * 0.24} color="#7d3c1433" />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Header flottant : devient flouté et posé sur une carte translucide au scroll.
-// ─────────────────────────────────────────────────────────────────────────────
-function Header({ scrolled }: { scrolled: boolean }) {
-  return (
-    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6">
-      <div
-        className={`mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-4 py-3 transition-all duration-300 ${
-          scrolled
-            ? "border border-border bg-card/70 backdrop-blur-xl shadow-[var(--shadow-soft)]"
-            : "border border-transparent bg-transparent"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Wheat className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-display text-base leading-none">MonStock</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
-          </div>
-        </div>
-        <Link
-          to="/auth"
-          className="btn-press rounded-full border border-border bg-card px-4 py-2 text-sm hover:bg-secondary"
-        >
-          Se connecter
-        </Link>
+    <header className="absolute inset-x-0 top-0 z-40 px-4 pt-4 sm:px-6 sm:pt-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between border-b border-border/70 pb-4">
+        <Brand />
+        <nav className="flex items-center gap-2" aria-label="Navigation principale">
+          <a href="#solutions" className="hidden px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:block">Solutions</a>
+          <Link to="/auth" className="btn-press inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground sm:px-5">
+            Se connecter <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </nav>
       </div>
     </header>
   );
 }
 
-const DAY = [
-  {
-    icon: Sunrise,
-    time: "05 h 00 — Le fournil s'allume",
-    title: "Il prépare la fournée avant vous",
-    text: "Vous choisissez un modèle de fournée, il rappelle la recette, vérifie que la farine, le beurre et la levure sont bien là, et refuse de vous laisser lancer une production qui viderait un bac à sec.",
-  },
-  {
-    icon: Sun,
-    time: "12 h 30 — La boutique tourne",
-    title: "Il compte à votre place, sans se tromper",
-    text: "Chaque sortie de baguette, chaque croissant vendu passe par lui. Vous n'entrez que le stock de départ et les invendus : il en déduit les quantités vendues et le chiffre d'affaires, au centime.",
-  },
-  {
-    icon: Moon,
-    time: "19 h 45 — Rideau baissé",
-    title: "Il vous rend des comptes",
-    text: "Invendus, casse, écarts inexpliqués, coût matière de la journée, bénéfice brut réel : tout est posé noir sur blanc. Rien n'est effaçable, tout est daté et signé.",
-  },
-];
+function FinancePreview() {
+  return (
+    <div className="relative mx-auto w-full max-w-xl animate-fade-up lg:ml-auto" style={{ animationDelay: "120ms" }}>
+      <div className="ledger-panel relative overflow-hidden border border-border bg-card p-5 shadow-[var(--shadow-lift)] sm:p-7">
+        <div className="flex items-start justify-between border-b border-border pb-5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Vue financière</p>
+            <p className="mt-1 font-display text-2xl">Ce mois-ci</p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" /> À jour
+          </span>
+        </div>
 
-const NUMBERS = [
-  { value: 100, suffix: " %", label: "des mouvements de stock tracés et non modifiables" },
-  { value: 3, suffix: " min", label: "pour clôturer une journée de vente" },
-  { value: 0, suffix: "", label: "gramme de farine qui disparaît sans laisser de trace" },
-  { value: 24, suffix: " h/24", label: "un employé qui ne prend jamais de pause" },
-];
+        <div className="grid grid-cols-2 gap-px overflow-hidden border-b border-border bg-border">
+          {financeSignals.map((item) => (
+            <div key={item.label} className="bg-card px-3 py-5 sm:px-5">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
+              <p className={`mt-2 font-display text-xl sm:text-2xl ${item.tone === "warning" ? "text-destructive" : item.tone === "positive" ? "text-accent" : "text-foreground"}`}>
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sa fiche de poste — trois cartes normales (aucune n'est mise en avant) :
-// 1) la rigueur sur les matières, 2) sa vraie vocation de financier (pertes ET
-// marges réunies dans une seule idée), 3) sa disponibilité partout et la gestion
-// d'équipe.
-// ─────────────────────────────────────────────────────────────────────────────
-const POSTE = [
-  {
-    i: Scale,
-    t: "Il dénombre chaque gramme, sans jamais approximer",
-    d: "Farine, sucre, beurre, levure : il connaît la quantité exacte qui demeure en réserve, ce qu'elle vous a coûté, et vous avertit avant la rupture.",
-  },
-  {
-    i: TrendingUp,
-    t: "Il est, avant tout, votre financier",
-    d: "Invendus, casse, écarts entre stock théorique et réel, coût matière, chiffre d'affaires, bénéfice brut : rien ne lui échappe. Ce qui se voit se corrige, et la rentabilité de votre fournil devient enfin lisible — pas celle du carnet de notes.",
-  },
-  {
-    i: Smartphone,
-    t: "Toujours à son poste, même depuis votre lit",
-    d: "Téléphone, ordinateur, en boutique ou chez vous : consultez les finances de votre boulangerie où que vous soyez. Formez votre équipe, accordez des accès à vos employés, et gardez un œil sur chacune de leurs actions.",
-  },
-];
+        <div className="pt-5">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Marge brute estimée</p>
+              <p className="mt-1 text-sm font-medium">Évolution sur 7 jours</p>
+            </div>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent"><TrendingUp className="h-4 w-4" /> +8,4 %</span>
+          </div>
+          <div className="flex h-24 items-end gap-2" aria-label="Graphique décoratif de progression">
+            {[42, 54, 47, 68, 61, 76, 88].map((height, index) => (
+              <span key={height + index} className="finance-bar flex-1 rounded-t-sm bg-accent/25" style={{ "--bar-height": `${height}%`, animationDelay: `${220 + index * 70}ms` } as React.CSSProperties} />
+            ))}
+          </div>
+          <div className="mt-3 flex justify-between text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
+            <span>Lun.</span><span>Mar.</span><span>Mer.</span><span>Jeu.</span><span>Ven.</span><span>Sam.</span><span>Dim.</span>
+          </div>
+        </div>
+      </div>
+      <div className="absolute -bottom-5 -left-3 hidden w-56 border border-border bg-background p-4 shadow-[var(--shadow-lift)] sm:block">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-accent"><Check className="h-4 w-4" /></span>
+          <div><p className="text-xs text-muted-foreground">Écart repéré</p><p className="text-sm font-semibold">Huile · 12 500 F</p></div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Landing() {
-  const reduced = useReducedMotion();
-  const scrollY = useScrollY(!reduced);
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header scrolled={scrollY > 12} />
+    <div className="min-h-screen overflow-hidden bg-background">
+      <Header />
 
-      {/* ── Accroche ────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <FlourScene scrollY={scrollY} />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-12 pb-16 sm:pt-20">
-          <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-sm animate-fade-up">
-              Le collaborateur invisible de votre fournil
-            </span>
-            <h1 className="mt-6 text-balance font-display text-[2.6rem] leading-[1.04] text-foreground sm:text-6xl animate-fade-up">
-              L'employé qui ne dort jamais,
-              <br />
-              ne se trompe <span className="italic text-accent">jamais</span>,
-              <br />
-              ne vole jamais.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg text-muted-foreground animate-fade-up" style={{ animationDelay: "90ms" }}>
-              MonStock n'est pas un logiciel de plus : c'est la personne de confiance que vous auriez aimé embaucher.
-              Il pèse la farine, surveille les invendus, calcule vos marges et vous dit, chaque soir, où est passé
-              chaque franc de votre boulangerie.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3 animate-fade-up" style={{ animationDelay: "160ms" }}>
-              <Link
-                to="/auth"
-                className="btn-press btn-shimmer group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-lift)]"
-              >
-                Embaucher MonStock
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <a
-                href="#journee"
-                className="btn-press inline-flex items-center rounded-full border border-border bg-card px-6 py-3 text-sm hover:bg-secondary"
-              >
-                Une journée avec lui
-              </a>
-            </div>
+      <main>
+        <section className="landing-hero relative flex min-h-[92svh] items-center border-b border-border pt-28">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <div className="finance-grid absolute inset-0 opacity-45" />
+            <div className="landing-ray absolute -right-24 top-0 h-full w-2/3" />
           </div>
-        </div>
-      </section>
+          <div className="relative mx-auto grid w-full max-w-7xl gap-14 px-6 py-14 lg:grid-cols-[1.08fr_.92fr] lg:items-center lg:py-20">
+            <div className="max-w-3xl">
+              <div className="animate-fade-up inline-flex items-center gap-2 border-l-2 border-accent pl-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Le pilotage financier de votre fournil
+              </div>
+              <h1 className="mt-6 text-balance font-display text-[clamp(2.8rem,6.4vw,6.5rem)] leading-[.96]">
+                Voyez ce que votre boulangerie <span className="text-accent">vous rapporte vraiment.</span>
+              </h1>
+              <p className="mt-7 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                MonStock relie vos achats, vos recettes, vos fournées et vos ventes pour rendre votre chiffre d’affaires, vos coûts, vos pertes et votre marge brute estimée enfin lisibles.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link to="/auth" className="btn-press btn-shimmer group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-lift)]">
+                  Essayer MonStock pendant 7 jours
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+                <a href="#finance" className="btn-press inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-6 py-3.5 text-sm font-medium backdrop-blur-sm hover:bg-card">
+                  Découvrir le suivi financier <ChevronRight className="h-4 w-4" />
+                </a>
+              </div>
+              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-accent" /> Sans carte bancaire</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-accent" /> Pensé pour le Mali</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-accent" /> Fonctionne hors connexion</span>
+              </div>
+            </div>
+            <FinancePreview />
+          </div>
+        </section>
 
-      {/* ── Sa fiche de poste ───────────────────────────────────────────────── */}
-      <section id="poste" className="mx-auto max-w-6xl px-6 pb-20">
-        <Reveal className="mb-10">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Sa fiche de poste</p>
-          <h2 className="mt-2 font-display text-3xl sm:text-4xl">Trois choses qu'il fait mieux que n'importe qui</h2>
-        </Reveal>
-        <div className="grid gap-6 md:grid-cols-3">
-          {POSTE.map((f, i) => (
-            <Reveal key={f.t} delay={i * 90}>
-              <TiltGlowCard className="card-elegant grain h-full p-8">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-                  <f.i className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 font-display text-xl leading-snug">{f.t}</h3>
-                <p className="mt-3 text-sm text-muted-foreground">{f.d}</p>
-              </TiltGlowCard>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+        <section className="bg-primary py-8 text-primary-foreground">
+          <div className="mx-auto grid max-w-7xl gap-6 px-6 sm:grid-cols-3 sm:divide-x sm:divide-primary-foreground/15">
+            <div><p className="font-display text-3xl"><AnimatedNumber value={4} /> vues</p><p className="mt-1 text-xs text-primary-foreground/65">chiffre d’affaires, coûts, marge et pertes</p></div>
+            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={1} /> historique</p><p className="mt-1 text-xs text-primary-foreground/65">pour retrouver chaque mouvement important</p></div>
+            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={24} suffix=" h" /></p><p className="mt-1 text-xs text-primary-foreground/65">vos données restent consultables chaque jour</p></div>
+          </div>
+        </section>
 
-      {/* ── Une journée avec MonStock ───────────────────────────────────────── */}
-      <section id="journee" className="relative overflow-hidden border-y border-border bg-secondary/30 py-20">
-        <div className="mx-auto max-w-4xl px-6">
-          <Reveal className="mb-12">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Une journée avec MonStock</p>
-            <h2 className="mt-2 font-display text-3xl sm:text-4xl">
-              Du premier pétrissage au rideau baissé, il est déjà au travail.
-            </h2>
+        <section id="finance" className="mx-auto max-w-7xl px-6 py-24 sm:py-32">
+          <Reveal className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Votre argent devient visible</p>
+              <h2 className="mt-4 max-w-xl font-display text-4xl leading-tight sm:text-5xl">La rentabilité ne doit plus être une impression.</h2>
+            </div>
+            <p className="max-w-2xl text-base leading-relaxed text-muted-foreground lg:ml-auto">
+              Vous travaillez tôt, vous produisez beaucoup, vous vendez toute la journée. MonStock transforme ces opérations en indicateurs simples pour savoir où vous gagnez, où vous perdez et quoi corriger en priorité.
+            </p>
           </Reveal>
 
-          <ol className="relative space-y-10 border-l border-border pl-8 sm:pl-10">
-            {DAY.map((step, i) => (
-              <Reveal as="li" key={step.time} delay={i * 120} className="relative">
-                <span
-                  className="absolute -left-[2.55rem] grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-accent shadow-[var(--shadow-soft)] sm:-left-[3.05rem]"
-                  aria-hidden="true"
-                >
-                  <step.icon className="h-4.5 w-4.5" />
-                </span>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{step.time}</p>
-                <h3 className="mt-1.5 font-display text-2xl">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.text}</p>
+          <div className="mt-16 border-y border-border">
+            {financeBenefits.map((benefit, index) => (
+              <Reveal key={benefit.title} delay={index * 60} className="group grid gap-5 border-b border-border py-9 last:border-b-0 md:grid-cols-[80px_1fr_1fr] md:items-start">
+                <span className="font-display text-2xl text-accent/70">{benefit.index}</span>
+                <div className="flex gap-4">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-secondary text-accent transition-transform duration-300 group-hover:-translate-y-1"><benefit.icon className="h-5 w-5" /></span>
+                  <h3 className="font-display text-2xl leading-snug">{benefit.title}</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground md:pl-8">{benefit.text}</p>
               </Reveal>
             ))}
-          </ol>
-        </div>
-      </section>
+          </div>
 
-      {/* ── Chiffres clés (comptage au scroll) ──────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {NUMBERS.map((n, i) => (
-            <Reveal key={n.label} delay={i * 80}>
-              <div className="card-elegant card-elegant-hover grain h-full p-6">
-                <p className="font-display text-4xl text-accent">
-                  <AnimatedNumber value={n.value} format={(v) => `${Math.round(v)}${n.suffix}`} />
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground">{n.label}</p>
-              </div>
+          <Reveal className="mt-12 border-l-2 border-accent bg-secondary/45 px-6 py-5 sm:flex sm:items-center sm:justify-between sm:gap-8">
+            <p className="text-sm leading-relaxed"><strong>Un suivi sérieux, sans fausse promesse.</strong> Les calculs reflètent les opérations enregistrées. MonStock vous aide à tenir des chiffres clairs et peut préparer le travail comptable, sans se substituer aux obligations d’un professionnel agréé.</p>
+            <Calculator className="mt-4 h-8 w-8 shrink-0 text-accent sm:mt-0" aria-hidden="true" />
+          </Reveal>
+        </section>
+
+        <section id="solutions" className="border-y border-border bg-secondary/30 py-24 sm:py-32">
+          <div className="mx-auto max-w-7xl px-6">
+            <Reveal className="max-w-3xl">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">De la matière à la marge</p>
+              <h2 className="mt-4 font-display text-4xl leading-tight sm:text-5xl">Chaque sac acheté doit servir une production rentable.</h2>
+              <p className="mt-5 text-muted-foreground">Le contrôle opérationnel représente la base de chiffres financiers fiables. MonStock suit ce qui entre, ce qui est transformé et ce qui est réellement vendu.</p>
             </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Ses outils de travail ───────────────────────────────────────────── */}
-      <section id="features" className="mx-auto max-w-6xl px-6 pb-20">
-        <Reveal className="mb-10">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Ses outils de travail</p>
-          <h2 className="mt-2 font-display text-3xl sm:text-4xl">Tout votre atelier tient dans son carnet</h2>
-        </Reveal>
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              i: Package2,
-              t: "Il tient l'inventaire",
-              d: "Quantités, prix d'achat, coût moyen pondéré, seuils d'alerte : il vous tape sur l'épaule avant la rupture.",
-            },
-            {
-              i: Flame,
-              t: "Il prépare les fournées",
-              d: "Vos modèles rappellent les recettes, il vérifie les stocks disponibles et enregistre ce qui a réellement été consommé.",
-            },
-            {
-              i: ShoppingBag,
-              t: "Il tient la caisse du jour",
-              d: "Stock de départ, invendus, décision de les conserver ou non : il en déduit seul les quantités vendues.",
-            },
-            {
-              i: LineChart,
-              t: "Il fait vos comptes",
-              d: "Chiffre d'affaires, valeur du stock, coût matière, pertes et bénéfice brut estimé, sur 7, 30 ou 90 jours.",
-            },
-            {
-              i: ShieldCheck,
-              t: "Il a une mémoire incorruptible",
-              d: "Chaque mouvement est daté, attribué et impossible à réécrire. Personne ne peut effacer une sortie de stock.",
-            },
-            {
-              i: Wheat,
-              t: "Il travaille dans votre poche",
-              d: "Installable comme une application sur le téléphone du fournil, pensée pour des mains enfarinées.",
-            },
-          ].map((f, i) => (
-            <Reveal key={f.t} delay={(i % 3) * 90}>
-              <TiltGlowCard className="card-elegant grain h-full p-8">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-accent">
-                  <f.i className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 font-display text-2xl">{f.t}</h3>
-                <p className="mt-3 text-sm text-muted-foreground">{f.d}</p>
-              </TiltGlowCard>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Appel à l'action ────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <Reveal>
-          <div className="card-elegant grain p-10 text-center sm:p-14">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Prêt à l'embaucher ?</p>
-            <h2 className="mx-auto mt-3 max-w-2xl font-display text-3xl sm:text-4xl">
-              Il commence ce matin, il ne demandera jamais de congés.
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              Quelques minutes pour lui présenter vos matières, vos recettes et vos produits. Ensuite, il ne vous
-              quitte plus : il compte, il surveille, il calcule.
-            </p>
-            <div className="mt-8 flex justify-center">
-              <Link
-                to="/auth"
-                className="btn-press btn-shimmer group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-[var(--shadow-lift)]"
-              >
-                Embaucher MonStock
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
+            <div className="mt-14 grid gap-px overflow-hidden border border-border bg-border lg:grid-cols-3">
+              {operations.map((item, index) => (
+                <Reveal key={item.title} delay={index * 90} className="group bg-background p-7 sm:p-9">
+                  <item.icon className="h-7 w-7 text-accent transition-transform duration-300 group-hover:scale-110" />
+                  <h3 className="mt-8 font-display text-2xl">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.text}</p>
+                </Reveal>
+              ))}
             </div>
           </div>
-        </Reveal>
-      </section>
+        </section>
 
-      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} MonStock · Gestion pour boulangeries artisanales
+        <section className="mx-auto max-w-7xl px-6 py-24 sm:py-32">
+          <div className="grid gap-14 lg:grid-cols-[.8fr_1.2fr] lg:items-start">
+            <Reveal>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Diriger avec confiance</p>
+              <h2 className="mt-4 font-display text-4xl leading-tight sm:text-5xl">Une boulangerie moderne, sans perdre votre manière de travailler.</h2>
+              <p className="mt-5 text-muted-foreground">Adoptez les mêmes réflexes de contrôle que les grandes maisons internationales, avec un outil simple, adapté à votre quotidien et accessible depuis le Mali.</p>
+            </Reveal>
+            <div className="space-y-4">
+              {trustPoints.map((item, index) => (
+                <Reveal key={item.title} delay={index * 80} className="flex gap-5 border-b border-border pb-6">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"><item.icon className="h-5 w-5" /></span>
+                  <div><h3 className="font-display text-xl">{item.title}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.text}</p></div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 pb-6 sm:px-6 sm:pb-8">
+          <Reveal className="cta-ledger relative mx-auto max-w-7xl overflow-hidden bg-primary px-6 py-16 text-primary-foreground sm:px-12 sm:py-20">
+            <div className="finance-grid pointer-events-none absolute inset-0 opacity-10" aria-hidden="true" />
+            <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div className="max-w-3xl">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-foreground/60">Passez du doute au contrôle</p>
+                <h2 className="mt-4 font-display text-4xl leading-tight sm:text-6xl">Dès ce soir, regardez votre boulangerie avec des chiffres plus clairs.</h2>
+                <p className="mt-5 max-w-2xl text-sm leading-relaxed text-primary-foreground/70">Commencez avec vos matières et vos produits. MonStock construit progressivement la vue financière qui vous aide à protéger chaque franc investi.</p>
+              </div>
+              <Link to="/auth" className="btn-press group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-background px-6 py-3 text-sm font-semibold text-foreground">
+                Commencer gratuitement <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </Reveal>
+        </section>
+      </main>
+
+      <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <Brand />
+        <p>© {new Date().getFullYear()} MonStock · Conçu pour les boulangeries artisanales et industrielles.</p>
       </footer>
     </div>
   );
