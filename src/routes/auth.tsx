@@ -17,6 +17,16 @@ import { BaguetteFlourish } from "@/components/baker/BaguetteFlourish";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Connexion et inscription — MonStock" },
+      { name: "description", content: "Accédez à MonStock ou créez votre espace pour piloter les finances, les stocks et la production de votre boulangerie." },
+      { property: "og:title", content: "Connexion et inscription — MonStock" },
+      { property: "og:description", content: "Votre espace de gestion financière et opérationnelle pour la boulangerie." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   beforeLoad: async () => {
     if (hasLocalSession()) throw redirect({ to: "/dashboard" });
   },
@@ -107,7 +117,7 @@ function AuthPage() {
         try {
           const { data: member } = await supabase
             .from("bakery_members").select("full_name, role")
-            .eq("user_id", data.user!.id).maybeSingle();
+            .eq("user_id", data.user.id).maybeSingle();
           const first = firstNameOf(member?.full_name);
           if (first)
             greeting = `Bienvenue, ${member?.role === "owner" ? "M./Mme " : ""}${first} ! Ravi de vous revoir.`
@@ -169,219 +179,97 @@ function AuthPage() {
   const { eyebrow, title, subtitle } = labels[mode];
 
   return (
-    <div className="grid min-h-screen bg-background lg:grid-cols-2">
-
-      {/* ══ Panneau gauche — desktop ══ */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[var(--gradient-warm)] grain">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Wheat className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-display text-base leading-none">MonStock</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pour les boulangeries</p>
-          </div>
+    <div className="auth-shell min-h-screen bg-background lg:grid lg:grid-cols-[1.05fr_.95fr]">
+      <aside className="auth-story relative hidden min-h-screen overflow-hidden border-r border-border lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <div className="finance-grid pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
+        <div className="relative flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"><Wheat className="h-5 w-5" /></div>
+          <div><p className="font-display text-lg leading-none">MonStock</p><p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Gestion pour boulangeries</p></div>
         </div>
 
-        <div className="max-w-md space-y-4">
-          <h2 className="font-display text-5xl leading-tight text-foreground">
-            Un fournil<br />en <em className="not-italic italic text-accent">bon ordre</em>.
-          </h2>
-          <p className="text-muted-foreground">
-            Matières, recettes, fournées, ventes — connectez-vous à votre atelier numérique.
-          </p>
-          {/* Animation baguette — desktop */}
-          <BaguetteFlourish />
+        <div className="relative max-w-xl py-10">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">Votre fournil. Vos chiffres. Vos décisions.</p>
+          <h2 className="mt-5 font-display text-5xl leading-[1.02] xl:text-6xl">La maîtrise financière commence par des opérations bien suivies.</h2>
+          <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground">Retrouvez ventes, coûts matières, pertes et marge brute estimée dans un espace conçu pour la réalité quotidienne de votre boulangerie.</p>
+          <div className="mt-8 grid grid-cols-3 gap-px overflow-hidden border border-border bg-border">
+            {["Marge lisible", "Pertes ciblées", "Stock maîtrisé"].map((item) => <div key={item} className="bg-background/80 px-4 py-4 text-center text-xs font-medium backdrop-blur-sm">{item}</div>)}
+          </div>
+          <div className="mt-9 max-w-md"><BaguetteFlourish /></div>
         </div>
+        <div className="relative flex items-center justify-between text-xs text-muted-foreground"><span>© {new Date().getFullYear()} MonStock</span><span>Conçu au Mali</span></div>
+      </aside>
 
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} MonStock</p>
-      </div>
-
-      {/* ══ Panneau droit — formulaire ══ */}
-      <div className="flex items-center justify-center min-h-screen p-6 sm:p-10 lg:p-12 overflow-y-auto">
-        <div className="w-full max-w-sm animate-fade-up">
-
-          {/* Logo + animation mobile */}
-          <div className="lg:hidden flex items-center gap-2 mb-6">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <Wheat className="h-4 w-4" />
-            </div>
-            <p className="font-display text-sm leading-none">MonStock</p>
-          </div>
-          <div className="lg:hidden">
-            <BaguetteFlourish />
+      <main className="flex min-h-screen items-start justify-center px-5 py-6 sm:px-8 sm:py-10 lg:items-center lg:overflow-y-auto lg:px-12">
+        <div className="w-full max-w-md animate-fade-up">
+          <div className="mb-7 flex items-center justify-between lg:hidden">
+            <div className="flex items-center gap-2.5"><div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground"><Wheat className="h-4 w-4" /></div><div><p className="font-display leading-none">MonStock</p><p className="mt-1 text-[8px] uppercase tracking-[0.2em] text-muted-foreground">Gestion pour boulangeries</p></div></div>
+            <span className="rounded-full border border-border bg-card px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Essai 7 jours</span>
           </div>
 
-          {(mode === "forgot" || mode === "reset") && (
-            <button
-              type="button"
-              onClick={() => { setMode("signin"); setForgotSent(false); }}
-              className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Retour à la connexion
-            </button>
-          )}
+          <div className="auth-form-panel border border-border bg-card/75 p-5 shadow-[var(--shadow-lift)] backdrop-blur-xl sm:p-8">
+            {(mode === "forgot" || mode === "reset") && (
+              <button type="button" onClick={() => { setMode("signin"); setForgotSent(false); }} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" /> Retour à la connexion
+              </button>
+            )}
 
-          <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{eyebrow}</p>
-          <h1 className="mt-2 font-display text-4xl">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accent">{eyebrow}</p>
+            <h1 className="mt-2 font-display text-4xl">{title}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
 
-          {mode === "signup" && <TrialPitch active={signupPath === "trial"} />}
+            {mode === "signup" && <TrialPitch active={signupPath === "trial"} />}
 
-          {mode === "signup" && (
-            <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-secondary p-1 text-xs font-medium">
-              {(["trial", "code"] as SignupPath[]).map((p) => (
-                <button key={p} type="button" onClick={() => setSignupPath(p)}
-                  className={`rounded-lg px-3 py-2 transition-colors ${
-                    signupPath === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {p === "trial" ? "Essai gratuit 7 jours" : "J'ai un code d'inscription"}
-                </button>
-              ))}
-            </div>
-          )}
+            {mode === "signup" && (
+              <div className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-border bg-secondary/60 p-1 text-xs font-medium">
+                {(["trial", "code"] as SignupPath[]).map((p) => (
+                  <button key={p} type="button" onClick={() => setSignupPath(p)} className={`min-h-10 rounded-md px-3 py-2 transition-all ${signupPath === p ? "bg-card text-foreground shadow-[var(--shadow-soft)]" : "text-muted-foreground hover:text-foreground"}`}>
+                    {p === "trial" ? "Essai gratuit" : "Code d'inscription"}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {/* Mot de passe oublié */}
-          {mode === "forgot" && (
-            forgotSent ? (
-              <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/10 px-5 py-6 text-center">
-                <CheckCircle2 className="mx-auto h-8 w-8 text-accent" />
-                <p className="mt-3 font-display text-lg">Lien envoyé !</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Si cette adresse est associée à un compte MonStock, vous recevrez un e-mail
-                  avec un lien de réinitialisation. Vérifiez aussi vos spams.
-                </p>
-                <button type="button" onClick={() => { setMode("signin"); setForgotSent(false); }}
-                  className="mt-5 text-sm text-accent underline underline-offset-4 hover:opacity-80">
-                  Retour à la connexion
-                </button>
+            {mode === "forgot" && (forgotSent ? (
+              <div className="mt-8 border border-accent/30 bg-accent/10 px-5 py-6 text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-accent" /><p className="mt-3 font-display text-xl">Lien envoyé</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Si cette adresse correspond à un compte MonStock, vous recevrez un lien. Vérifiez aussi vos spams.</p>
+                <button type="button" onClick={() => { setMode("signin"); setForgotSent(false); }} className="mt-5 text-sm font-medium text-accent underline underline-offset-4">Retour à la connexion</button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="mt-8 space-y-3">
-                <Field label="Votre adresse e-mail">
-                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="vous@boulangerie.fr" />
-                </Field>
-                <SubmitButton loading={loading} label="Envoyer le lien de réinitialisation" />
+              <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+                <Field label="Votre adresse e-mail"><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="auth-input mt-1" placeholder="vous@boulangerie.fr" /></Field>
+                <SubmitButton loading={loading} label="Envoyer le lien" />
               </form>
-            )
-          )}
+            ))}
 
-          {/* Nouveau mot de passe */}
-          {mode === "reset" && (
-            <form onSubmit={handleSubmit} className="mt-8 space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Nouveau mot de passe</label>
-                <div className="relative mt-1">
-                  <input type={showNewPwd ? "text" : "password"} required minLength={8} value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="••••••••" />
-                  <EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd((v) => !v)} />
-                </div>
-              </div>
-              <SubmitButton loading={loading} label="Enregistrer le nouveau mot de passe" />
-            </form>
-          )}
+            {mode === "reset" && (
+              <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+                <div><label className="text-xs font-medium text-muted-foreground">Nouveau mot de passe</label><div className="relative mt-1"><input type={showNewPwd ? "text" : "password"} required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="auth-input pr-11" placeholder="••••••••" /><EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd((v) => !v)} /></div></div>
+                <SubmitButton loading={loading} label="Enregistrer le nouveau mot de passe" />
+              </form>
+            )}
 
-          {/* Connexion / inscription */}
-          {(mode === "signin" || mode === "signup") && (
-            <form onSubmit={handleSubmit} className="mt-6 space-y-3">
-              {mode === "signup" && (
-                <>
-                  <Field label="Votre nom complet">
-                    <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      placeholder="Aïcha Traoré" />
-                  </Field>
-                  <Field label="Nom de la boulangerie">
-                    <input type="text" required value={bakeryName} onChange={(e) => setBakeryName(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                      placeholder="Ma Boulangerie" />
-                  </Field>
-                  <Field label="Téléphone du gérant">
-                    <div className="mt-1 flex gap-2">
-                      <select value={countryCode} onChange={(e) => setCC(e.target.value)}
-                        className="rounded-xl border border-input bg-card px-2 py-3 text-sm outline-none focus:border-accent transition-colors">
-                        {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                      </select>
-                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                        className="flex-1 rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                        placeholder="70 00 00 00" />
-                    </div>
-                  </Field>
-                  {signupPath === "code" && (
-                    <Field label="Code d'inscription">
-                      <input type="text" required value={invCode} onChange={(e) => setInvCode(e.target.value.trim())}
-                        className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors uppercase tracking-widest"
-                        placeholder="XXXXXX" />
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Vous n'en avez pas ?{" "}
-                        <button type="button" onClick={() => setSignupPath("trial")}
-                          className="text-accent underline underline-offset-2">
-                          Démarrez l'essai gratuit de 7 jours
-                        </button>
-                      </p>
-                    </Field>
-                  )}
-                  <a href={WA_LINK} target="_blank" rel="noreferrer"
-                    className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium hover:bg-secondary transition-colors">
-                    <WhatsAppIcon /> Contacter sur WhatsApp
-                  </a>
-                </>
-              )}
+            {(mode === "signin" || mode === "signup") && (
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                {mode === "signup" && <>
+                  <Field label="Votre nom complet"><input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="auth-input mt-1" placeholder="Aïcha Traoré" /></Field>
+                  <Field label="Nom de la boulangerie"><input type="text" required value={bakeryName} onChange={(e) => setBakeryName(e.target.value)} className="auth-input mt-1" placeholder="Ma Boulangerie" /></Field>
+                  <Field label="Téléphone du gérant"><div className="mt-1 grid grid-cols-[8.5rem_1fr] gap-2"><select value={countryCode} onChange={(e) => setCC(e.target.value)} className="auth-input px-2">{COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</select><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="auth-input min-w-0" placeholder="70 00 00 00" /></div></Field>
+                  {signupPath === "code" && <Field label="Code d'inscription"><input type="text" required value={invCode} onChange={(e) => setInvCode(e.target.value.trim())} className="auth-input mt-1 uppercase tracking-widest" placeholder="XXXXXX" /><p className="mt-1.5 text-[11px] text-muted-foreground">Pas de code ? <button type="button" onClick={() => setSignupPath("trial")} className="font-medium text-accent underline underline-offset-2">Essayez gratuitement pendant 7 jours</button></p></Field>}
+                  <a href={WA_LINK} target="_blank" rel="noreferrer" className="btn-press flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-xs font-semibold transition-colors hover:bg-secondary"><WhatsAppIcon /> Échanger avec nous sur WhatsApp</a>
+                </>}
+                <Field label="Adresse e-mail"><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="auth-input mt-1" placeholder="vous@boulangerie.fr" /></Field>
+                <div><div className="flex items-center justify-between"><label className="text-xs font-medium text-muted-foreground">Mot de passe</label>{mode === "signin" && <button type="button" onClick={() => setMode("forgot")} className="text-[11px] font-medium text-accent hover:underline">Mot de passe oublié ?</button>}</div><div className="relative mt-1"><input type={showPwd ? "text" : "password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="auth-input pr-11" placeholder="••••••••" /><EyeToggle show={showPwd} onToggle={() => setShowPwd((v) => !v)} /></div></div>
+                <SubmitButton loading={loading} label={mode === "signin" ? "Accéder à ma boulangerie" : signupPath === "trial" ? "Démarrer mon essai gratuit" : "Créer mon espace"} />
+                {mode === "signup" && signupPath === "trial" && <p className="text-center text-[11px] text-muted-foreground">Sans carte bancaire. Un seul essai gratuit par boulangerie.</p>}
+              </form>
+            )}
 
-              <Field label="Email">
-                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-input bg-card px-4 py-3 text-sm outline-none focus:border-accent transition-colors"
-                  placeholder="vous@boulangerie.fr" />
-              </Field>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-muted-foreground">Mot de passe</label>
-                  {mode === "signin" && (
-                    <button type="button" onClick={() => setMode("forgot")}
-                      className="text-[11px] text-accent hover:underline underline-offset-2 transition-colors">
-                      Mot de passe oublié ?
-                    </button>
-                  )}
-                </div>
-                <div className="relative mt-1">
-                  <input type={showPwd ? "text" : "password"} required minLength={8} value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-card px-4 py-3 pr-11 text-sm outline-none focus:border-accent transition-colors"
-                    placeholder="••••••••" />
-                  <EyeToggle show={showPwd} onToggle={() => setShowPwd((v) => !v)} />
-                </div>
-              </div>
-
-              <SubmitButton
-                loading={loading}
-                label={mode === "signin" ? "Se connecter" : signupPath === "trial" ? "Démarrer mon essai gratuit" : "Créer un compte"}
-              />
-
-              {mode === "signup" && signupPath === "trial" && (
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Sans carte bancaire. Un seul essai gratuit par boulangerie.
-                </p>
-              )}
-            </form>
-          )}
-
-          {(mode === "signin" || mode === "signup") && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              {mode === "signin" ? "Nouveau sur MonStock ?" : "Déjà inscrit ?"}{" "}
-              <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-                className="text-foreground underline underline-offset-4 hover:text-accent">
-                {mode === "signin" ? "Créer un compte" : "Se connecter"}
-              </button>
-            </p>
-          )}
+            {(mode === "signin" || mode === "signup") && <p className="mt-6 border-t border-border pt-5 text-center text-sm text-muted-foreground">{mode === "signin" ? "Nouveau sur MonStock ?" : "Vous avez déjà un compte ?"} <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")} className="font-semibold text-foreground underline decoration-accent underline-offset-4">{mode === "signin" ? "Créer un espace" : "Se connecter"}</button></p>}
+          </div>
+          <p className="mt-5 text-center text-[11px] leading-relaxed text-muted-foreground lg:hidden">Suivez vos ventes, vos coûts, vos pertes et votre marge depuis un seul espace.</p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -393,7 +281,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
   return (
     <button type="submit" disabled={loading}
-      className="btn-press btn-shimmer w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-95 disabled:opacity-60 transition-opacity">
+      className="btn-press btn-shimmer inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-lift)] transition-opacity hover:opacity-95 disabled:opacity-60">
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {label}
     </button>
