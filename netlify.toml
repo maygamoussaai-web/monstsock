@@ -1,0 +1,10 @@
+# Configuration de déploiement Netlify pour MonStock.
+# L'app a besoin d'un petit serveur (rendu des pages) : le preset "netlify"
+# génère à la fois les fichiers statiques et la fonction serveur Netlify.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NITRO_PRESET = "netlify"
+  NODE_VERSION = "22"
