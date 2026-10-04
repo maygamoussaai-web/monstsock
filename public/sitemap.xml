@@ -4,16 +4,16 @@
 
   <!-- Page d'accueil / Landing -->
   <url>
-    <loc>https://monstsock.lovable.app/</loc>
+    <loc>https://monstock-mali.netlify.app/</loc>
     <lastmod>2026-09-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://monstsock.lovable.app/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://monstock-mali.netlify.app/" />
   </url>
 
   <!-- Page d'authentification -->
   <url>
-    <loc>https://monstsock.lovable.app/auth</loc>
+    <loc>https://monstock-mali.netlify.app/auth</loc>
     <lastmod>2026-09-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

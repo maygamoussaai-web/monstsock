@@ -1,5 +1,5 @@
 # robots.txt — MonStock
-# https://monstsock.lovable.app/robots.txt
+# https://monstock-mali.netlify.app/robots.txt
 
 User-agent: *
 Allow: /
@@ -19,4 +19,4 @@ Disallow: /join/
 Disallow: /api/
 
 # Sitemap
-Sitemap: https://monstsock.lovable.app/sitemap.xml
+Sitemap: https://monstock-mali.netlify.app/sitemap.xml
