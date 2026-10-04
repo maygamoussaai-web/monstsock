@@ -27,15 +27,30 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Suivez chiffre d’affaires, coût matière, marge brute estimée, pertes, stocks et production dans un outil conçu pour les boulangeries.",
+          "MonStock est l’outil de gestion conçu pour les boulangeries artisanales. Suivez vos stocks, fournées, ventes et marge brute — même sans connexion internet.",
       },
+      { name: "robots", content: "index, follow" },
+      { name: "keywords", content: "gestion boulangerie, logiciel boulangerie, stock boulangerie, marge boulangerie, gestion inventaire Mali, application boulangerie Afrique" },
+      { tagName: "link", rel: "canonical", href: "https://monstock-mali.netlify.app/" },
+      // Open Graph
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "MonStock" },
       { property: "og:title", content: "MonStock — Pilotez la rentabilité de votre boulangerie" },
       {
         property: "og:description",
         content: "Des chiffres clairs pour mieux acheter, mieux produire et protéger la marge de votre boulangerie.",
       },
-      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://monstock-mali.netlify.app/" },
+      { property: "og:image", content: "https://monstock-mali.netlify.app/og-image.png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "MonStock — tableau de bord financier pour boulangeries" },
+      { property: "og:locale", content: "fr_FR" },
+      // Twitter
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "MonStock — Pilotez la rentabilité de votre boulangerie" },
+      { name: "twitter:description", content: "Stocks, fournées, ventes, marge brute : MonStock rend les chiffres de votre boulangerie lisibles et actionnables." },
+      { name: "twitter:image", content: "https://monstock-mali.netlify.app/og-image.png" },
     ],
   }),
   beforeLoad: async () => {
@@ -46,10 +61,10 @@ export const Route = createFileRoute("/")({
 });
 
 const financeSignals = [
-  { label: "Chiffre d’affaires", value: "1 847 500 F", tone: "positive" },
-  { label: "Coût des matières", value: "684 200 F", tone: "neutral" },
-  { label: "Marge brute estimée", value: "1 163 300 F", tone: "positive" },
-  { label: "Pertes identifiées", value: "42 750 F", tone: "warning" },
+  { label: "Chiffre d'affaires", value: "1 847 500 F", tone: "positive" },
+  { label: "Coût des matières", value: "684 200 F", tone: "neutral" },
+  { label: "Marge brute estimée", value: "1 163 300 F", tone: "positive" },
+  { label: "Pertes identifiées", value: "42 750 F", tone: "warning" },
 ];
 
 const financeBenefits = [
@@ -83,7 +98,7 @@ const operations = [
   {
     icon: Boxes,
     title: "Matières sous contrôle",
-    text: "Farine, levure, beurre ou emballages : quantités, prix d’achat, coût moyen et seuils d’alerte restent à jour.",
+    text: "Farine, levure, beurre ou emballages : quantités, prix d’achat, coût moyen et seuils d’alerte restent à jour.",
   },
   {
     icon: PackageCheck,
@@ -164,7 +179,7 @@ function FinancePreview() {
               <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Marge brute estimée</p>
               <p className="mt-1 text-sm font-medium">Évolution sur 7 jours</p>
             </div>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent"><TrendingUp className="h-4 w-4" /> +8,4 %</span>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent"><TrendingUp className="h-4 w-4" /> +8,4 %</span>
           </div>
           <div className="flex h-24 items-end gap-2" aria-label="Graphique décoratif de progression">
             {[42, 54, 47, 68, 61, 76, 88].map((height, index) => (
@@ -179,7 +194,7 @@ function FinancePreview() {
       <div className="absolute -bottom-5 -left-3 hidden w-56 border border-border bg-background p-4 shadow-[var(--shadow-lift)] sm:block">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-accent"><Check className="h-4 w-4" /></span>
-          <div><p className="text-xs text-muted-foreground">Écart repéré</p><p className="text-sm font-semibold">Huile · 12 500 F</p></div>
+          <div><p className="text-xs text-muted-foreground">Écart repéré</p><p className="text-sm font-semibold">Huile · 12 500 F</p></div>
         </div>
       </div>
     </div>
@@ -231,7 +246,7 @@ function Landing() {
           <div className="mx-auto grid max-w-7xl gap-6 px-6 sm:grid-cols-3 sm:divide-x sm:divide-primary-foreground/15">
             <div><p className="font-display text-3xl"><AnimatedNumber value={4} /> vues</p><p className="mt-1 text-xs text-primary-foreground/65">chiffre d’affaires, coûts, marge et pertes</p></div>
             <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={1} /> historique</p><p className="mt-1 text-xs text-primary-foreground/65">pour retrouver chaque mouvement important</p></div>
-            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={24} format={(n) => `${Math.round(n)} h`} /></p><p className="mt-1 text-xs text-primary-foreground/65">vos données restent consultables chaque jour</p></div>
+            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={24} suffix=" h" /></p><p className="mt-1 text-xs text-primary-foreground/65">vos données restent consultables chaque jour</p></div>
           </div>
         </section>
 
