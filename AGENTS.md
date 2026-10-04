@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- External hosting: `netlify.toml` sets `NITRO_PRESET=netlify` (publish `dist`); other hosts set `NITRO_PRESET` to their Nitro preset — Lovable builds ignore it, so both stay compatible.
+- Netlify hosting: when `NETLIFY=true`, `vite.config.ts` disables Nitro and uses `@netlify/vite-plugin-tanstack-start` (publish `dist/client`); Lovable builds keep Nitro — never enable both at once.
