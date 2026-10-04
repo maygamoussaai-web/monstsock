@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- External hosting: `netlify.toml` sets `NITRO_PRESET=netlify` (publish `dist`); other hosts set `NITRO_PRESET` to their Nitro preset — Lovable builds ignore it, so both stay compatible.
