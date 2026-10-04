@@ -231,7 +231,7 @@ function Landing() {
           <div className="mx-auto grid max-w-7xl gap-6 px-6 sm:grid-cols-3 sm:divide-x sm:divide-primary-foreground/15">
             <div><p className="font-display text-3xl"><AnimatedNumber value={4} /> vues</p><p className="mt-1 text-xs text-primary-foreground/65">chiffre d’affaires, coûts, marge et pertes</p></div>
             <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={1} /> historique</p><p className="mt-1 text-xs text-primary-foreground/65">pour retrouver chaque mouvement important</p></div>
-            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={24} suffix=" h" /></p><p className="mt-1 text-xs text-primary-foreground/65">vos données restent consultables chaque jour</p></div>
+            <div className="sm:pl-8"><p className="font-display text-3xl"><AnimatedNumber value={24} format={(n) => `${Math.round(n)} h`} /></p><p className="mt-1 text-xs text-primary-foreground/65">vos données restent consultables chaque jour</p></div>
           </div>
         </section>
 
