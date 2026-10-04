@@ -1,10 +1,10 @@
-# Configuration de déploiement Netlify pour MonStock.
-# L'app a besoin d'un petit serveur (rendu des pages) : le preset "netlify"
-# génère à la fois les fichiers statiques et la fonction serveur Netlify.
+# Déploiement Netlify de MonStock.
+# Le build utilise l'adaptateur officiel @netlify/vite-plugin-tanstack-start
+# (activé automatiquement dans vite.config.ts quand NETLIFY=true) : il produit
+# les fichiers statiques dans dist/client et la fonction SSR Netlify.
 [build]
   command = "npm run build"
-  publish = "dist"
+  publish = "dist/client"
 
 [build.environment]
-  NITRO_PRESET = "netlify"
   NODE_VERSION = "22"
