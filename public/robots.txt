@@ -1,0 +1,22 @@
+# robots.txt — MonStock
+# https://monstsock.lovable.app/robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/*
+Disallow: /profile
+Disallow: /staff
+Disallow: /sync
+Disallow: /finance
+Disallow: /history
+Disallow: /batches
+Disallow: /sales
+Disallow: /products
+Disallow: /raw-materials
+Disallow: /batch-templates
+Disallow: /join/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://monstsock.lovable.app/sitemap.xml
